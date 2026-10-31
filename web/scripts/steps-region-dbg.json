@@ -1,0 +1,8 @@
+[
+  { "wait": 5000 },
+  { "eval": "window.__dbg = []; (async () => { const L = (s) => window.__dbg.push(Math.round(performance.now()) + ' ' + s); try { const m = await import('/src/ai/vision.ts'); const db = await import('/src/lib/db.ts'); const metas = await db.listProjects(); const p = await db.loadProject(metas[0].id); L('project ' + !!p); const blob = await db.loadBlob(p.clips[3].assetId); L('blob ' + blob.size + ' ' + blob.type); const iv = setInterval(() => L(JSON.stringify(m.useVision.getState())), 10000); await m.prepareSegment('dbg', blob); L('embedded'); const s = await m.segmentAt('dbg', [[0.5, 0.5]], [1]); L('mask ' + s.blob.size + ' score ' + s.score); clearInterval(iv); } catch (e) { L('ERR ' + (e.stack || e.message || e)); } })(); 'started'" },
+  { "wait": 60000 },
+  { "eval": "window.__dbg.join('\\n')" },
+  { "wait": 90000 },
+  { "eval": "window.__dbg.join('\\n')" }
+]

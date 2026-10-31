@@ -1,0 +1,4 @@
+[
+  { "wait": 3000 },
+  { "eval": "(async () => { const t0 = performance.now(); try { const m = await import('/src/ai/vision.ts'); const c = document.createElement('canvas'); c.width = 640; c.height = 360; const g = c.getContext('2d'); const gr = g.createLinearGradient(0,0,640,0); gr.addColorStop(0,'#123'); gr.addColorStop(1,'#9ab'); g.fillStyle = gr; g.fillRect(0,0,640,360); g.fillStyle='#e33'; g.beginPath(); g.arc(320,200,90,0,7); g.fill(); const blob = await new Promise(r => c.toBlob(r, 'image/png')); const d = await m.estimateDepth(blob); const t1 = performance.now(); await m.prepareSegment('k', blob); const s = await m.segmentAt('k', [[0.5, 0.55]], [1]); return JSON.stringify({ depthBytes: d.size, device: m.useVision.getState().device, depthMs: Math.round(t1 - t0), maskBytes: s.blob.size, score: s.score, totalMs: Math.round(performance.now() - t0) }); } catch (e) { return 'ERR ' + (e && (e.stack || e.message || e)); } })()" }
+]

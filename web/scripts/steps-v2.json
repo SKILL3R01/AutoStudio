@@ -1,0 +1,18 @@
+[
+  { "wait": 2500 },
+  { "shot": "home" },
+  { "eval": "location.hash = 'demo'; 'demo'" },
+  { "wait": 6000 },
+  { "eval": "(() => { const s = document.querySelector('.scrub').getBoundingClientRect(); document.querySelector('.scrub').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: s.left + s.width * 0.3 })); return location.hash; })()" },
+  { "wait": 1500 },
+  { "shot": "editor" },
+  { "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.includes('Keywords')).click(); 'kw'" },
+  { "wait": 1200 },
+  { "shot": "keywords" },
+  { "eval": "document.querySelector('.clip').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); window.dispatchEvent(new PointerEvent('pointerup')); [...document.querySelectorAll('.rail button')].find(b => b.textContent.includes('Effects')).click(); 'clip+fx'" },
+  { "wait": 1200 },
+  { "shot": "clip" },
+  { "eval": "location.hash = 'projects'; 'projects'" },
+  { "wait": 5500 },
+  { "shot": "projects" }
+]

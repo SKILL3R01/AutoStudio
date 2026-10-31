@@ -1,0 +1,35 @@
+# AGENTS.md
+
+## Layout
+- `web/` Vite + React 19 + TS editor. Store: `src/store.ts` (zustand, undo/redo, multi-select, autosave to IndexedDB via `src/lib/db.ts`).
+- Saved projects are migrated on load with `normalizeProject()` (`src/lib/project.ts`). Add defaults there whenever you add a `Project` field.
+- Rendering is shared by preview and export: `src/render/renderer.ts` (`renderFrame`, `imagesNeededAt`, `clipSourceTime`), plus:
+  - `motion.ts` (including the depth parallax camera)
+  - `parallax.ts` (WebGL2)
+  - `regions.ts` (animated details)
+  - `captions.ts`
+  - `keywordsRender.ts`
+  - `effects.ts`
+- Audio mix is shared by preview and export: `src/audio/mix.ts` (`buildMix`). SFX are synthesized in `src/audio/sfx.ts`; onset detection lives in `src/audio/beats.ts`.
+- Export: `src/export/exporter.ts` (mediabunny CanvasSource + AudioBufferSource → MP4/WebM, plus WAV).
+- In-browser AI: `src/ai/worker.ts` (transformers.js: Depth Anything V2 small and SlimSAM) behind `src/ai/vision.ts`. If WebGPU fails, the worker is restarted in WASM (CPU) mode, and inputs are downscaled to 1024 px.
+- LLM client: `src/lib/llm.ts`, an OpenAI-compatible client with LM Studio / Ollama / Colab / custom presets. Gemma models get the system prompt folded into the first user message.
+- Engine client: `src/lib/engine.ts`. API: `POST /jobs/{tool}` (multipart) → `GET /jobs/{id}` → `GET /files/{id}/{name}`. Tools: `tts`, `transcribe`, `imagegen`, `prompts`, `script`, `chat`, `upscale`, `video_upscale`.
+- Import review: `src/lib/timecode.ts` (`detectTime`) + `src/editor/review.ts` (bulk ops) + `ReviewTable.tsx`.
+- Flow bridge: `src/tools/FlowBridge.tsx`. The prompt file is blank-line separated, the extension names downloads `NNN_vK`, and `project.flowScenes` maps sequence → time.
+- `engine/server.py` + `engine/tts_worker.py` are the source of truth. `engine/AutoStudio_Engine.ipynb` is generated from them by `python engine/build_notebook.py`.
+
+## Verify
+- `cd web && npx tsc --noEmit && npm test && npm run build`
+- `python -m py_compile engine/server.py engine/tts_worker.py`
+- Headless visual checks need the dev server on :5173. The `#demo` route creates a demo project. Run each with `node scripts/cdp-shot.mjs <url> <out-prefix> <steps.json>`:
+  - `scripts/steps-v2.json`: home, editor, keywords, projects
+  - `scripts/steps-review.json`: import review table
+  - `scripts/steps-export.json`: full MP4 export
+  - `scripts/steps-depth2.json`: depth maps
+  - `scripts/steps-region.json`: object selection. The first run downloads models, and headless WebGPU is flaky, so the CPU fallback can take ~2 min.
+
+## Notes
+- Pin dependency versions exactly, and pick releases that are at least 7 days old.
+- The TryAIToday browser extension is a Google Flow automator with watermark removal. Do not replicate the Flow private-API automation or the watermark removal. Only the prompt/download bridge is in scope.
+- The user's local LLM is LM Studio with Gemma.

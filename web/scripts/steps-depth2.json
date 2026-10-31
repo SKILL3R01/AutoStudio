@@ -1,0 +1,13 @@
+[
+  { "wait": 6000 },
+  { "eval": "(() => { const c = document.querySelectorAll('.clip')[1]; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); window.dispatchEvent(new PointerEvent('pointerup')); return document.querySelector('.inspector .section h4')?.textContent; })()" },
+  { "wait": 1000 },
+  { "eval": "(() => { const b = [...document.querySelectorAll('.inspector button')].find(b => b.textContent.includes('depth map')); b.click(); return b.textContent + ' | ' + document.querySelector('.inspector .section h4')?.textContent; })()" },
+  { "wait": 3000 },
+  { "eval": "document.querySelector('.inspector .section h4')?.textContent + ' | ' + [...document.querySelectorAll('.inspector button')].map(b => b.textContent).filter(t => /depth|Estim|Depth/.test(t)).join(',')" },
+  { "wait": 15000 },
+  { "eval": "document.querySelector('.inspector .section h4')?.textContent + ' | ' + [...document.querySelectorAll('.inspector button')].map(b => b.textContent).filter(t => /depth|Estim|Depth/.test(t)).join(',') + ' | toasts: ' + [...document.querySelectorAll('.toast')].map(t => t.textContent)" },
+  { "wait": 15000 },
+  { "eval": "document.querySelector('.inspector .section h4')?.textContent + ' | ' + [...document.querySelectorAll('.inspector button')].map(b => b.textContent).filter(t => /depth|Estim|Depth/.test(t)).join(',') + ' | toasts: ' + [...document.querySelectorAll('.toast')].map(t => t.textContent) + ' | thumb ' + !!document.querySelector('.depth-thumb')" },
+  { "shot": "depth2" }
+]

@@ -1,0 +1,11 @@
+[
+  { "wait": 6000 },
+  { "eval": "location.hash" },
+  { "shot": "editor" },
+  { "eval": "document.querySelector('.scrub').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: document.querySelector('.scrub').getBoundingClientRect().left + document.querySelector('.scrub').getBoundingClientRect().width * 0.27 })); 'seeked'" },
+  { "wait": 1500 },
+  { "shot": "seek" },
+  { "eval": "[...document.querySelectorAll('.tabs button')].find(b => b.textContent === 'Captions').click(); 'captions'" },
+  { "wait": 1500 },
+  { "shot": "captions" }
+]

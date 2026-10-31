@@ -1,0 +1,11 @@
+[
+  { "wait": 6000 },
+  { "eval": "[...document.querySelectorAll('.ed-top button')].find(b => b.textContent.includes('Export')).click(); 'dialog'" },
+  { "wait": 800 },
+  { "shot": "dialog" },
+  { "eval": "window.__blobs = []; const o = URL.createObjectURL; URL.createObjectURL = (b) => (window.__blobs.push(b.size + ' ' + b.type), o(b)); [...document.querySelectorAll('.modal button')].find(b => b.textContent.includes('Export video')).click(); 'export started'" },
+  { "wait": 5000 },
+  { "eval": "document.querySelector('.modal .progress span')?.textContent ?? document.querySelector('.modal .error')?.textContent ?? 'no progress'" },
+  { "wait": 30000 },
+  { "eval": "JSON.stringify({ blobs: window.__blobs.filter(b => b.includes('video')), progress: document.querySelector('.modal .progress span')?.textContent, error: document.querySelector('.modal .error')?.textContent })" }
+]

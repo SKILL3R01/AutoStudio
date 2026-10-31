@@ -1,0 +1,17 @@
+[
+  { "wait": 6000 },
+  { "eval": "(() => { const c = document.querySelectorAll('.clip')[1]; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); window.dispatchEvent(new PointerEvent('pointerup')); return 'sel'; })()" },
+  { "wait": 1000 },
+  { "eval": "[...document.querySelectorAll('.inspector button')].find(b => b.textContent.includes('depth map')).click(); 'depth started'" },
+  { "wait": 45000 },
+  { "eval": "JSON.stringify({ toasts: [...document.querySelectorAll('.toast')].map(t => t.textContent), btn: [...document.querySelectorAll('.inspector button')].find(b => b.textContent.includes('depth'))?.textContent, img: !!document.querySelector('.depth-thumb') })" },
+  { "eval": "(() => { const s = document.querySelector('.scrub').getBoundingClientRect(); document.querySelector('.scrub').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: s.left + s.width * (4.8 / 18) })); return 'seek'; })()" },
+  { "wait": 2000 },
+  { "shot": "depth" },
+  { "eval": "[...document.querySelectorAll('.inspector button')].find(b => b.textContent.includes('Animate a detail')).click(); 'region'" },
+  { "wait": 50000 },
+  { "eval": "(() => { const img = document.querySelector('.region-img img'); if (!img) return 'no img'; const r = img.getBoundingClientRect(); img.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + r.width * 0.5, clientY: r.top + r.height * 0.45 })); return 'clicked ' + r.width; })()" },
+  { "wait": 12000 },
+  { "shot": "region" },
+  { "eval": "JSON.stringify({ mask: !!document.querySelector('.region-img img.mask'), toasts: [...document.querySelectorAll('.toast')].map(t => t.textContent), prog: document.querySelector('.modal .progress span')?.textContent })" }
+]

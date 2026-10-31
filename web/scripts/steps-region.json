@@ -1,0 +1,15 @@
+[
+  { "wait": 6000 },
+  { "eval": "(() => { const c = document.querySelectorAll('.clip')[3]; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); window.dispatchEvent(new PointerEvent('pointerup')); return 'sel'; })()" },
+  { "wait": 1200 },
+  { "eval": "[...document.querySelectorAll('.inspector button')].find(b => b.textContent.includes('Animate a detail')).click(); 'open'" },
+  { "wait": 160000 },
+  { "eval": "(() => { const img = document.querySelector('.region-img img'); if (!img) return 'no img'; const r = img.getBoundingClientRect(); img.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + r.width * 0.5, clientY: r.top + r.height * 0.5 })); return 'clicked ' + Math.round(r.width) + ' ' + (document.querySelector('.modal .progress span')?.textContent ?? 'ready'); })()" },
+  { "wait": 20000 },
+  { "shot": "region" },
+  { "eval": "(() => { const sel = document.querySelectorAll('.modal select')[0]; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; set.call(sel, 'glow'); sel.dispatchEvent(new Event('change', { bubbles: true })); const b = [...document.querySelectorAll('.modal button')].find(b => b.textContent.includes('Add animation')); b.click(); return 'saved ' + !b.disabled; })()" },
+  { "wait": 3000 },
+  { "eval": "(() => { const s = document.querySelector('.scrub').getBoundingClientRect(); document.querySelector('.scrub').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: s.left + s.width * (10.5 / 18) })); return document.querySelectorAll('.inspector .card').length + ' regions'; })()" },
+  { "wait": 2000 },
+  { "shot": "region-applied" }
+]
