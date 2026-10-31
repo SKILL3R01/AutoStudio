@@ -1,29 +1,55 @@
 {
   "name": "autostudio",
+  "productName": "AutoStudio",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "Free all-in-one faceless video studio",
+  "author": "Maher Ayadi",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "app": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win --publish never"
   },
-  "dependencies": {
-    "@huggingface/transformers": "^4.3.1",
+  "devDependencies": {
+    "@huggingface/transformers": "4.3.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "42.11.18",
+    "electron-builder": "26.17.0",
     "idb-keyval": "6.2.2",
     "mediabunny": "1.61.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "zustand": "5.0.15"
-  },
-  "devDependencies": {
-    "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "6.1.2",
     "typescript": "5.9.3",
     "vite": "8.3.4",
-    "vitest": "^5.0.5"
+    "vitest": "5.0.5",
+    "zustand": "5.0.15"
+  },
+  "build": {
+    "appId": "com.skill3r01.autostudio",
+    "productName": "AutoStudio",
+    "directories": { "output": "release", "buildResources": "electron" },
+    "files": ["dist/**/*", "electron/main.cjs", "electron/icon.png", "package.json"],
+    "asar": true,
+    "npmRebuild": false,
+    "win": {
+      "icon": "electron/icon.png",
+      "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "AutoStudio",
+      "artifactName": "AutoStudio-Setup-${version}.exe"
+    },
+    "portable": { "artifactName": "AutoStudio-Portable-${version}.exe" }
   }
 }

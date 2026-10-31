@@ -5,7 +5,17 @@ A rebuild (and upgrade) of the TryAIToday AutoEditor, made only from free tools.
 - `web/` — the editor (Vite + React + TypeScript). Rendering, export (WebCodecs via `mediabunny`), depth maps and object selection (transformers.js) all run **in your browser**. Media stays on your device, in IndexedDB.
 - `engine/` — the **Google Colab** GPU backend (FastAPI + Cloudflare quick tunnel): voiceover/cloning, transcripts, image generation, upscaling, LLM.
 
-## Run the editor
+## Install the desktop app (Windows)
+
+Download from the repository's **Releases** page:
+- `AutoStudio-Setup-x.y.z.exe` installs the app with Start-menu and desktop shortcuts.
+- `AutoStudio-Portable-x.y.z.exe` runs it without installing.
+
+The exes are not code-signed. If SmartScreen warns, click **More info → Run anyway**.
+
+To publish a new version, bump the tag: `git tag v1.0.1 && git push origin v1.0.1`. GitHub Actions builds both exes and attaches them to a new Release. You can also build locally with `cd web && npm run dist`; the output goes to `web/release/`.
+
+## Run the editor from source
 
 ```bash
 cd web
