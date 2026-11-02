@@ -2,7 +2,7 @@
   "name": "autostudio",
   "productName": "AutoStudio",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Free all-in-one faceless video studio",
   "author": "Maher Ayadi",
   "type": "module",
@@ -35,14 +35,42 @@
   "build": {
     "appId": "com.skill3r01.autostudio",
     "productName": "AutoStudio",
-    "directories": { "output": "release", "buildResources": "electron" },
-    "files": ["dist/**/*", "electron/main.cjs", "electron/icon.png", "package.json"],
+    "directories": {
+      "output": "release",
+      "buildResources": "electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/main.cjs",
+      "electron/icon.png",
+      "package.json"
+    ],
     "asar": true,
     "npmRebuild": false,
-    "protocols": [{ "name": "AutoStudio", "schemes": ["autostudio"] }],
+    "protocols": [
+      {
+        "name": "AutoStudio",
+        "schemes": [
+          "autostudio"
+        ]
+      }
+    ],
     "win": {
       "icon": "electron/icon.png",
-      "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }]
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -51,6 +79,8 @@
       "shortcutName": "AutoStudio",
       "artifactName": "AutoStudio-Setup-${version}.exe"
     },
-    "portable": { "artifactName": "AutoStudio-Portable-${version}.exe" }
+    "portable": {
+      "artifactName": "AutoStudio-Portable-${version}.exe"
+    }
   }
 }

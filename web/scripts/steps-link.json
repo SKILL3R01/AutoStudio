@@ -1,0 +1,5 @@
+[
+  { "wait": 6000 },
+  { "eval": "JSON.stringify({ engineUrl: localStorage.getItem('engineUrl'), hash: location.hash, href: location.href, toast: [...document.querySelectorAll('.toast')].map(t => t.textContent) })" },
+  { "shot": "link" }
+]
