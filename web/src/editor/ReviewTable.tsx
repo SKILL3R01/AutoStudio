@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { FlowScene } from '../types';
-import { fmtClock, parseClock } from '../lib/timecode';
-import { ops, statuses, STATUS_LABEL, type ReviewItem, type ReviewStatus } from './review';
+import { fmtClock, parseClock, stampFor } from '../lib/timecode';
+import { ops, renameItem, statuses, STATUS_LABEL, type ReviewItem, type ReviewStatus } from './review';
 import { Icon } from '../components/icons';
 
 function TimeInput({ value, onChange }: { value: number | null; onChange: (t: number | null) => void }) {
@@ -10,7 +10,7 @@ function TimeInput({ value, onChange }: { value: number | null; onChange: (t: nu
     <input
       className="time-input"
       value={text ?? (value === null ? '' : fmtClock(value))}
-      placeholder="m:ss.00"
+      placeholder="m:ss.00 or 00-01-23"
       onFocus={(e) => (setText(e.target.value), e.target.select())}
       onChange={(e) => setText(e.target.value)}
       onBlur={() => {
@@ -18,6 +18,23 @@ function TimeInput({ value, onChange }: { value: number | null; onChange: (t: nu
         setText(null);
       }}
       onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+    />
+  );
+}
+
+function NameInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  return text === null ? (
+    <span className="rt-name" title={`${value} — click to rename`} onClick={() => setText(value)}>{value} <Icon name="text" size={11} className="dim" /></span>
+  ) : (
+    <input
+      className="rt-name-input"
+      autoFocus
+      value={text}
+      onFocus={(e) => e.target.setSelectionRange(0, text.lastIndexOf('.') > 0 ? text.lastIndexOf('.') : text.length)}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => (text.trim() && text !== value && onChange(text.trim()), setText(null))}
+      onKeyDown={(e) => (e.key === 'Enter' && (e.target as HTMLInputElement).blur(), e.key === 'Escape' && setText(null))}
     />
   );
 }
@@ -70,7 +87,9 @@ export function ReviewTable({ items, setItems, length, flowScenes }: { items: Re
         {hasNumbers && <button className="btn sm" onClick={() => setItems(ops.confirmNumbersAsSeconds)}>Numbers are seconds</button>}
         {hasFlow && flowScenes.length > 0 && <button className="btn sm primary" onClick={() => setItems((i) => ops.mapFlow(i, flowScenes))}><Icon name="flow" /> Map Flow files to scenes</button>}
         {hasFlow && <button className="btn sm" onClick={() => setItems(ops.keepOneVariant)}>Keep one variant per prompt</button>}
+        <button className="btn sm" onClick={() => setItems((i) => ops.stampNames(i, stampFor))} title="Rename files to mm-ss-cc_name from their times">Rename to timestamps</button>
         <button className="btn sm ghost" onClick={() => setItems((i) => ops.clear(i))}>Clear times</button>
+        {selected > 0 && <button className="btn sm ghost danger" onClick={() => setItems(ops.removeSelected)}><Icon name="trash" /> Remove selected</button>}
       </div>
 
       <div className="review-table">
@@ -89,13 +108,14 @@ export function ReviewTable({ items, setItems, length, flowScenes }: { items: Re
             <div key={i.id} className={`rt-row ${i.selected ? 'sel' : ''} ${i.include ? '' : 'off'}`}>
               <input type="checkbox" checked={i.selected} onChange={(e) => set(i.id, { selected: e.target.checked })} />
               {i.kind === 'image' ? <img src={i.url} loading="lazy" alt="" /> : <video src={`${i.url}#t=0.5`} muted preload="metadata" />}
-              <span className="rt-name" title={i.name}>{i.name}</span>
+              <NameInput value={i.name} onChange={(name) => setItems((list) => list.map((x) => (x.id === i.id ? renameItem(x, name) : x)))} />
               <span className="hint">{i.guess.label}</span>
               <TimeInput value={i.time} onChange={(t) => set(i.id, { time: t, confirmed: t !== null })} />
               <span className={`st st-${s}`}>{s === 'ok' ? <Icon name="check" size={12} /> : <Icon name="warn" size={12} />} {STATUS_LABEL[s]}</span>
               <span className="rt-actions">
                 {s === 'check' && <button className="icon-btn" title="Confirm this time" onClick={() => set(i.id, { confirmed: true })}><Icon name="check" /></button>}
                 <button className="icon-btn" title={i.include ? 'Skip this file' : 'Include this file'} onClick={() => set(i.id, { include: !i.include })}><Icon name={i.include ? 'x' : 'plus'} /></button>
+                <button className="icon-btn danger" title="Remove from the list" onClick={() => (URL.revokeObjectURL(i.url), setItems((list) => list.filter((x) => x.id !== i.id)))}><Icon name="trash" /></button>
               </span>
             </div>
           );

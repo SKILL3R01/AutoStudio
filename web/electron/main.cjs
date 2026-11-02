@@ -16,6 +16,29 @@ app.commandLine.appendSwitch('enable-unsafe-webgpu');
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
+// `autostudio://engine?url=https://….trycloudflare.com` links (printed by the Colab notebook) open the app and connect it.
+if (process.defaultApp) app.setAsDefaultProtocolClient('autostudio', process.execPath, [path.resolve(process.argv[1] ?? '.')]);
+else app.setAsDefaultProtocolClient('autostudio');
+
+/** The engine URL inside an autostudio:// link, if it is a plain https URL. */
+function engineFromArgs(argv) {
+  const link = argv.find((a) => a.startsWith('autostudio://'));
+  if (!link) return null;
+  try {
+    const u = new URL(new URL(link).searchParams.get('url') ?? '');
+    return u.protocol === 'https:' ? u.origin : null;
+  } catch {
+    return null;
+  }
+}
+
+function connectEngine(win, engine) {
+  if (!engine || !win) return;
+  const go = () => void win.webContents.executeJavaScript(`location.hash = 'engine=' + encodeURIComponent(${JSON.stringify(engine)})`);
+  if (win.webContents.isLoading()) win.webContents.once('did-finish-load', go);
+  else go();
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1600,
@@ -54,9 +77,11 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(['persistent-storage', 'clipboard-sanitized-write', 'fullscreen', 'media'].includes(permission)));
   Menu.setApplicationMenu(null);
   const win = createWindow();
-  app.on('second-instance', () => {
+  connectEngine(win, engineFromArgs(process.argv));
+  app.on('second-instance', (_e, argv) => {
     if (win.isMinimized()) win.restore();
     win.focus();
+    connectEngine(win, engineFromArgs(argv));
   });
 });
 

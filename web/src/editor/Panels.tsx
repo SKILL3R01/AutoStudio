@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useEditor, findAsset, projectLength } from '../store';
+import { useEditor, findAsset, projectLength, voiceEnd } from '../store';
 import { useClipTarget, useProject } from './hooks';
 import { MOTIONS, TRANSITIONS, EFFECTS, type Motion, type Transition, type Overlay, type EffectKind } from '../types';
 import { FilePick, Section, Slider } from '../components/ui';
@@ -10,12 +10,12 @@ import { MediaPanel } from './MediaPanel';
 import { AiPanel } from './AiPanel';
 import { EFFECT_LABELS } from '../render/effects';
 import { SFX, sfxBuffer } from '../audio/sfx';
-import { importAudio, probe } from '../lib/project';
+import { blankClip, importAudio, probe, setVoiceStart } from '../lib/project';
 import { uid } from '../lib/util';
 
 export const TABS = [
   ['media', 'Media', 'media'], ['motion', 'Motion', 'motion'], ['transitions', 'Transitions', 'transition'], ['captions', 'Captions', 'captions'],
-  ['keywords', 'Keywords', 'keywords'], ['text', 'Text', 'text'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['ai', 'AI', 'wand'],
+  ['keywords', 'Typography', 'keywords'], ['text', 'Text', 'text'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['ai', 'AI', 'wand'],
 ] as const;
 export type Tab = (typeof TABS)[number][0];
 
@@ -180,8 +180,31 @@ function MusicPanel() {
     const dur = findAsset(d, m.assetId)?.duration ?? m.duration;
     for (let t = m.start + dur; t < len; t += dur) d.music.push({ ...m, id: uid(), start: t, duration: Math.min(dur, len - t), fadeIn: 0 });
   });
+  const ve = voiceEnd(p);
   return (
     <>
+      <Section title="Start & end" hint="Visuals before the narration (intro), after it (outro), blank sections and fades. You can also drag the voice lane and the ◀▶ end handle on the timeline.">
+        {p.voiceover ? (
+          <>
+            <Slider label="Intro" value={p.voiceStart} min={0} max={20} step={0.1} onChange={(v) => update((d) => setVoiceStart(d, v), 'intro')} suffix="s" />
+            <Slider label="Outro" value={p.tail} min={0} max={30} step={0.1} onChange={(v) => update((d) => void (d.tail = v), 'outro')} suffix="s" />
+          </>
+        ) : <Slider label="Length" value={p.length} min={1} max={Math.max(120, p.length)} step={0.5} onChange={(v) => update((d) => void (d.length = v), 'len')} suffix="s" />}
+        <div className="row wrap">
+          <button className="btn sm" onClick={() => update((d) => {
+            const end = projectLength(d);
+            if (ve) d.tail += 3;
+            else d.length += 3;
+            d.clips.push(blankClip(end));
+          })}><Icon name="plus" /> Add 3 s black outro</button>
+          <button className="btn sm" onClick={() => update((d) => void (ve ? (d.tail += 3) : (d.length += 3)))}><Icon name="plus" /> Hold last image +3 s</button>
+          {ve > 0 && <button className="btn sm ghost" onClick={() => update((d) => ((d.tail = 0), setVoiceStart(d, 0)))}>Reset to narration</button>}
+        </div>
+        <Slider label="Audio fade in" value={p.audioFade.in} min={0} max={5} step={0.1} onChange={(v) => update((d) => void (d.audioFade.in = v), 'afi')} suffix="s" />
+        <Slider label="Audio fade out" value={p.audioFade.out} min={0} max={10} step={0.1} onChange={(v) => update((d) => void (d.audioFade.out = v), 'afo')} suffix="s" />
+        <Slider label="Video fade in" value={p.sceneFades.fadeIn} min={0} max={3} onChange={(v) => update((d) => void (d.sceneFades.fadeIn = v), 'fi')} suffix="s" />
+        <Slider label="Video fade out" value={p.sceneFades.fadeOut} min={0} max={5} onChange={(v) => update((d) => void (d.sceneFades.fadeOut = v), 'fo')} suffix="s" />
+      </Section>
       <Section title="Voiceover">
         {p.voiceover ? (
           <>

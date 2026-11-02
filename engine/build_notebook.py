@@ -21,7 +21,7 @@ Free AI backend for the AutoStudio editor: **Chatterbox** voiceover + voice clon
 
 1. **Runtime → Change runtime type → T4 GPU**
 2. **Runtime → Run all** (first run installs everything, ~5 min)
-3. Copy the `https://….trycloudflare.com` URL printed in step 4 and paste it into AutoStudio → **Connect engine**.
+3. When step 4 finishes, click **Open desktop app & connect** (or **Connect browser version**). You can also copy the `https://….trycloudflare.com` URL into AutoStudio → **Connect engine**.
 
 The URL changes every session. Models download on first use and are cached for the session.
 """
@@ -93,8 +93,22 @@ time.sleep(4)
 print("=" * 64)
 print("✅ AUTOSTUDIO ENGINE READY")
 print("🔗 ENGINE URL:", PUBLIC_URL)
-print("   Paste it into AutoStudio → Connect engine")
+print("   Click a Connect button below, or paste the URL into AutoStudio → Connect engine")
 print("=" * 64)
+from urllib.parse import quote
+from IPython.display import HTML, display
+_q = quote(PUBLIC_URL or "", safe="")
+display(HTML(f'''
+<div style="font-family:system-ui;padding:14px;border-radius:12px;background:#14161c;color:#eee;max-width:680px">
+  <b style="font-size:16px">Connect AutoStudio to this engine</b>
+  <div style="margin:10px 0;display:flex;gap:10px;flex-wrap:wrap">
+    <a href="autostudio://engine?url={_q}" style="background:#8b6cff;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:700">Open desktop app &amp; connect</a>
+    <a href="http://localhost:5173/#engine={_q}" target="_blank" style="background:#2a2f3a;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:700">Connect browser version</a>
+    <button onclick="navigator.clipboard.writeText('{PUBLIC_URL}');this.innerText='Copied ✓'" style="background:#2a2f3a;color:#fff;padding:10px 16px;border-radius:8px;border:0;font-weight:700;cursor:pointer">Copy URL</button>
+  </div>
+  <code style="color:#b39dff">{PUBLIC_URL}</code>
+  <div style="color:#999;font-size:12px;margin-top:8px">Keep this tab open — the engine stops when the Colab session ends. A new run gives a new URL.</div>
+</div>'''))
 """
 
 KEEP = """
@@ -127,7 +141,47 @@ def main():
     out = HERE / "AutoStudio_Engine.ipynb"
     out.write_text(json.dumps(nb, indent=1, ensure_ascii=False), encoding="utf-8")
     print("wrote", out)
+    return out
+
+
+PUBLIC_REPO = "https://github.com/SKILL3R01/autostudio-engine.git"
+PUBLIC_README = """# AutoStudio engine (Google Colab)
+
+Free GPU backend for the AutoStudio video editor: voiceover + voice cloning (Chatterbox), word-level captions
+(faster-whisper), image generation (SDXL), LLM (Qwen2.5) and upscaling (Real-ESRGAN).
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SKILL3R01/autostudio-engine/blob/main/AutoStudio_Engine.ipynb)
+
+1. Open the notebook in Colab (badge above), then **Runtime → Change runtime type → T4 GPU**.
+2. **Runtime → Run all**.
+3. When it finishes, click **Open desktop app & connect** (or copy the URL into AutoStudio → Connect engine).
+"""
+
+
+def publish(nb: Path):
+    """Push the generated notebook to the public repo that Colab opens (only the notebook is public)."""
+    import shutil
+    import subprocess
+
+    dest = HERE / ".publish"
+    if (dest / ".git").exists():
+        subprocess.run(["git", "-C", str(dest), "pull", "-q"], check=False)
+    else:
+        subprocess.run(["git", "clone", "-q", PUBLIC_REPO, str(dest)], check=True)
+    shutil.copy(nb, dest / nb.name)
+    (dest / "README.md").write_text(PUBLIC_README, encoding="utf-8")
+    subprocess.run(["git", "-C", str(dest), "add", "-A"], check=True)
+    if subprocess.run(["git", "-C", str(dest), "diff", "--cached", "--quiet"]).returncode == 0:
+        return print("public notebook already up to date")
+    ident = ["-c", "user.name=Maher Ayadi", "-c", "user.email=SKILL3R01@users.noreply.github.com"]
+    subprocess.run(["git", "-C", str(dest), *ident, "commit", "-q", "-m", "Update AutoStudio engine notebook"], check=True)
+    subprocess.run(["git", "-C", str(dest), "push", "-q", "-u", "origin", "HEAD:main"], check=True)
+    print("published to", PUBLIC_REPO)
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+
+    path = main()
+    if "--publish" in sys.argv:
+        publish(path)

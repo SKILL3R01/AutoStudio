@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Header } from './components/Header';
-import { Toasts } from './components/Toast';
+import { Toasts, toast } from './components/Toast';
 import { Home } from './pages/Home';
 import { Projects } from './pages/Projects';
 import { Editor } from './pages/Editor';
@@ -35,9 +35,24 @@ export function App() {
   const [route, setRoute] = useState(parse);
   useEffect(() => {
     const demo = () => location.hash === '#demo' && void import('./lib/demo').then((m) => m.createDemoProject()).then((p) => navigate({ page: 'editor', id: p.id }));
-    const on = () => (setRoute(parse()), demo());
+    // `#engine=<url>` comes from the Colab notebook's "Connect" link (or the desktop app's autostudio:// handler).
+    let lastHash = location.hash.startsWith('#engine=') ? '' : location.hash;
+    const connect = () => {
+      if (!location.hash.startsWith('#engine=')) return false;
+      const url = decodeURIComponent(location.hash.slice(8));
+      location.hash = lastHash;
+      useEngine.getState().setUrl(url);
+      void useEngine.getState().check().then((ok) => toast(ok ? `Engine connected · ${useEngine.getState().info?.gpu ?? 'GPU'}` : `Could not reach ${url}`, ok ? 'ok' : 'error'));
+      return true;
+    };
+    const on = () => {
+      if (connect()) return;
+      lastHash = location.hash;
+      setRoute(parse());
+      demo();
+    };
     window.addEventListener('hashchange', on);
-    demo();
+    if (!connect()) demo();
     void useEngine.getState().check();
     const iv = setInterval(() => useEngine.getState().url && useEngine.getState().check(), 60000);
     return () => (window.removeEventListener('hashchange', on), clearInterval(iv));

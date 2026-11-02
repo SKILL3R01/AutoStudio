@@ -2,7 +2,7 @@ import type { Asset, CaptionLine, Clip, Overlay, Project, Transition } from '../
 import { clipEnd, projectLength } from '../store';
 import { clamp, easeInOut, hash } from '../lib/util';
 import { isDepthMotion, motionXform, parallaxCamera, resolveMotion, resolveTransition } from './motion';
-import { drawKeywords } from './keywordsRender';
+import { drawTypography } from './typography';
 import { animateRegions } from './regions';
 import { renderParallax } from './parallax';
 import { drawCaptions, roundRect } from './captions';
@@ -95,6 +95,11 @@ export function clipIndexAt(clips: Clip[], t: number) {
 function drawClip(g: CanvasRenderingContext2D, m: RenderModel, i: number, t: number, src: FrameSource, W: number, H: number) {
   const p = m.project;
   const clip = p.clips[i];
+  if (clip.fill) {
+    g.fillStyle = clip.fill;
+    g.fillRect(0, 0, W, H);
+    return;
+  }
   const asset = m.assets.get(clip.assetId);
   if (!asset) return;
   const start = i === 0 ? 0 : clip.start;
@@ -271,7 +276,7 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
   for (const fx of p.effects) if (fx.kind !== 'none') drawEffect(ctx, fx.kind, fx.intensity, t, W, H);
   for (const o of p.overlays) drawOverlay(ctx, o, t, src, W, H);
   if (p.captions.mode !== 'keywords') drawCaptions(ctx, m.lines, t, p.captions, W, H);
-  if (p.captions.mode !== 'full') drawKeywords(ctx, p.keywords, t, p.keywordSettings, W, H);
+  if (p.captions.mode !== 'full') drawTypography(ctx, p.typo, t, W, H);
   const { fadeIn, fadeOut } = p.sceneFades;
   const black = Math.max(fadeIn > 0 ? 1 - t / fadeIn : 0, fadeOut > 0 ? 1 - (m.length - t) / fadeOut : 0);
   if (black > 0) {

@@ -57,6 +57,8 @@ export interface Clip {
   volume: number;
   fit: 'cover' | 'contain';
   color?: ColorAdjust;
+  /** Blank section: when set the clip has no media and is filled with this colour. */
+  fill?: string;
   /** Asset id of a grayscale depth map (white = near). */
   depthId?: string;
   regions?: Region[];
@@ -111,6 +113,52 @@ export interface KeywordSettings {
   stroke: boolean;
   shadow: boolean;
   uppercase: boolean;
+}
+
+export const TYPO_TEMPLATES = ['stack', 'stackSide', 'mixed', 'scriptCaps', 'punch', 'random'] as const;
+export type TypoTemplate = (typeof TYPO_TEMPLATES)[number];
+export type TypoRole = 'main' | 'minor' | 'accent' | 'script' | 'side';
+export type TypoBg = 'none' | 'shadow' | 'card' | 'frame';
+
+export interface TypoWord {
+  text: string;
+  /** When the word is spoken (it pops in then). */
+  start: number;
+  end: number;
+  role: TypoRole;
+  font?: string;
+  color?: string;
+}
+
+/** A kinetic-typography composition: a short phrase laid out artistically, revealed word by word with the voice. */
+export interface TypoBlock {
+  id: string;
+  start: number;
+  end: number;
+  template: Exclude<TypoTemplate, 'random'>;
+  /** Centre of the block as a fraction of the frame. */
+  x: number;
+  y: number;
+  scale: number;
+  rotate: number;
+  palette: string;
+  fontPair: string;
+  bg: TypoBg;
+  words: TypoWord[];
+  locked: boolean;
+}
+
+export interface TypoSettings {
+  /** Blocks per 10 seconds. */
+  density: number;
+  template: TypoTemplate;
+  palette: string;
+  fontPair: string;
+  bg: TypoBg;
+  /** Extra seconds a block stays after its last word. */
+  hold: number;
+  maxWords: number;
+  seed: number;
 }
 
 export interface FlowScene {
@@ -207,6 +255,12 @@ export interface Project {
   voiceover?: { assetId: string; volume: number };
   /** Explicit length when there is no voiceover. */
   length: number;
+  /** Seconds of visuals before the narration starts (intro). */
+  voiceStart: number;
+  /** Seconds after the narration ends (outro). */
+  tail: number;
+  /** Master audio fade in/out in seconds. */
+  audioFade: { in: number; out: number };
   clips: Clip[];
   motionDepth: number;
   transitionDuration: number;
@@ -215,8 +269,11 @@ export interface Project {
   /** Line-level captions (used when only coarse timings are available). */
   lines: CaptionLine[];
   captions: CaptionSettings;
+  /** Legacy single-word keywords (migrated into `typo` on load). */
   keywords: KeywordItem[];
   keywordSettings: KeywordSettings;
+  typo: TypoBlock[];
+  typoSettings: TypoSettings;
   /** Scene list sent to the Google Flow extension (prompt order → timestamp). */
   flowScenes: FlowScene[];
   overlays: Overlay[];

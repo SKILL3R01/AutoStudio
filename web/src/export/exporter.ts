@@ -5,6 +5,7 @@ import {
 import type { Asset, Clip, Project } from '../types';
 import { renderMix } from '../audio/mix';
 import { media } from '../render/media';
+import { ensureTypoFonts } from '../render/typography';
 import {
   activeClipIndices, clipSourceTime, clipStart, imagesNeededAt, makeModel, outputSize, renderFrame, type Drawable, type FrameSource,
 } from '../render/renderer';
@@ -61,7 +62,7 @@ export async function exportVideo(p: Project, lines: CaptionLine[], onProgress: 
   const webm = p.export.format === 'webm';
 
   onProgress({ stage: 'Loading fonts & media', progress: 0 });
-  await document.fonts.ready;
+  await ensureTypoFonts();
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;

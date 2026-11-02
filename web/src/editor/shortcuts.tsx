@@ -15,7 +15,7 @@ export function deleteSelection() {
     if (selection?.kind === 'overlay') p.overlays = p.overlays.filter((o) => o.id !== selection.id);
     if (selection?.kind === 'music') p.music = p.music.filter((o) => o.id !== selection.id);
     if (selection?.kind === 'sfx') p.sfx = p.sfx.filter((o) => o.id !== selection.id);
-    if (selection?.kind === 'keyword') p.keywords = p.keywords.filter((o) => o.id !== selection.id);
+    if (selection?.kind === 'keyword') p.typo = p.typo.filter((o) => o.id !== selection.id);
   });
   select(null);
 }

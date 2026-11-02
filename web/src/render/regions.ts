@@ -65,7 +65,7 @@ function maskInfo(mask: Drawable, w: number, h: number): MaskInfo {
 /** Strength 0..1 of a region at time t, depending on its trigger. */
 function envelope(r: Region, t: number, m: RenderModel) {
   if (r.trigger === 'loop') return 1;
-  const hits = r.trigger === 'beats' ? m.beats : m.project.keywords.map((k) => k.start);
+  const hits = r.trigger === 'beats' ? m.beats : m.project.typo.flatMap((b) => b.words.map((w) => w.start));
   let last = -Infinity;
   for (const b of hits) if (b <= t && b > last) last = b;
   return Math.exp(-(t - last) * (3 + r.speed * 3));

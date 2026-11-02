@@ -64,6 +64,13 @@ const targets = (items: ReviewItem[]) => {
 const apply = (items: ReviewItem[], times: Map<string, number | null>) =>
   items.map((i) => (times.has(i.id) ? { ...i, time: times.get(i.id)!, confirmed: true } : i));
 
+/** Rename a row: the time is re-detected from the new name (and used as the clip's asset name). */
+export function renameItem(i: ReviewItem, name: string): ReviewItem {
+  const guess = detectTime(name);
+  const time = guess.kind === 'timestamp' || guess.kind === 'number' ? guess.time : guess.kind === 'sequence' ? i.time : null;
+  return { ...i, name, guess, time, confirmed: guess.kind === 'timestamp' };
+}
+
 export const ops = {
   spread(items: ReviewItem[], length: number) {
     const t = targets(items);
@@ -111,6 +118,14 @@ export const ops = {
       if (!cur || i.guess.variant < cur.guess.variant!) best.set(i.guess.seq, i);
     }
     return items.map((i) => (i.guess.variant !== undefined && i.guess.seq !== undefined && best.get(i.guess.seq) !== i ? { ...i, include: false } : i));
+  },
+  /** Rename the target rows to canonical stamps (`mm-ss-cc_name`) from their current times. */
+  stampNames(items: ReviewItem[], stamp: (t: number) => string) {
+    const ids = new Set(targets(items).filter((i) => i.time !== null).map((i) => i.id));
+    return items.map((i) => (ids.has(i.id) ? { ...renameItem(i, `${stamp(i.time!)}_${i.name.replace(/^[\s\S]*?(\d{1,3}(?:-\d{1,3}){1,3})[_ -]?/, '')}`), time: i.time, confirmed: true } : i));
+  },
+  removeSelected(items: ReviewItem[]) {
+    return items.filter((i) => !i.selected);
   },
   clear(items: ReviewItem[]) {
     return apply(items, new Map(targets(items).map((i) => [i.id, null])));

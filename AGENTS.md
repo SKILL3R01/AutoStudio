@@ -8,7 +8,7 @@
   - `parallax.ts` (WebGL2)
   - `regions.ts` (animated details)
   - `captions.ts`
-  - `keywordsRender.ts`
+  - `typography.ts` (kinetic typography layouts; phrase picking lives in `src/lib/typography.ts`)
   - `effects.ts`
 - Audio mix is shared by preview and export: `src/audio/mix.ts` (`buildMix`). SFX are synthesized in `src/audio/sfx.ts`; onset detection lives in `src/audio/beats.ts`.
 - Export: `src/export/exporter.ts` (mediabunny CanvasSource + AudioBufferSource → MP4/WebM, plus WAV).
@@ -18,6 +18,19 @@
 - Import review: `src/lib/timecode.ts` (`detectTime`) + `src/editor/review.ts` (bulk ops) + `ReviewTable.tsx`.
 - Flow bridge: `src/tools/FlowBridge.tsx`. The prompt file is blank-line separated, the extension names downloads `NNN_vK`, and `project.flowScenes` maps sequence → time.
 - `engine/server.py` + `engine/tts_worker.py` are the source of truth. `engine/AutoStudio_Engine.ipynb` is generated from them by `python engine/build_notebook.py`.
+  - `--publish` also pushes the notebook to the public repo `SKILL3R01/autostudio-engine`. The app's "Open in Colab" button opens that repo.
+  - The notebook is also bundled into the app (`EngineDialog.tsx`, `?raw` import) as a download fallback.
+- Engine auto-connect: the notebook prints two links.
+  - `autostudio://engine?url=…`: the Electron protocol handler turns it into `#engine=`.
+  - `http://localhost:5173/#engine=…`: for the browser version.
+  - `App.tsx` handles `#engine=` in both cases.
+- Timeline length = `voiceStart` (intro) + narration + `tail` (outro).
+  - Use `setVoiceStart()` to move the narration; it shifts captions, typography and SFX with it.
+  - Blank sections are clips with `fill`.
+- Filename times:
+  - 2 parts = m-s; 3 parts = m-s-fraction; 4 parts = h-m-s-fraction.
+  - The fraction is tenths with 1 digit, hundredths with 2, ms with 3 (`src/lib/timecode.ts`).
+- Kinetic typography: `TypoBlock` (`project.typo`). Old single-word `keywords` are migrated on load.
 
 ## Desktop app
 - Electron shell: `web/electron/main.cjs`. It serves `dist/` over the privileged `app://autostudio` scheme, so the app is a secure context and IndexedDB stays on one stable origin.

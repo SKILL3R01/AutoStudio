@@ -1,4 +1,4 @@
-import type { Asset, AssetKind, Clip, KeywordSettings, Project } from '../types';
+import type { Asset, AssetKind, Clip, KeywordSettings, Project, TypoBlock, TypoSettings } from '../types';
 import { saveBlob } from './db';
 import { uid } from './util';
 
@@ -6,6 +6,18 @@ export const defaultKeywordSettings = (): KeywordSettings => ({
   density: 3, combo: 'bold-serif', palette: 'neon', placement: 'safe', seed: 1, anims: ['pop', 'slam', 'slide', 'rotate'],
   hold: 1.2, stroke: true, shadow: true, uppercase: true,
 });
+
+export const defaultTypoSettings = (): TypoSettings => ({
+  density: 2, template: 'random', palette: 'mono-yellow', fontPair: 'spartan-pacifico', bg: 'shadow', hold: 0.8, maxWords: 4, seed: 1,
+});
+
+/** Turn legacy single-word keywords into one-word typography blocks. */
+function migrateKeywords(p: Project): TypoBlock[] {
+  return (p.keywords ?? []).map((k) => ({
+    id: k.id, start: k.start, end: k.end, template: 'punch', x: k.x, y: k.y, scale: k.size, rotate: k.rotate, palette: 'mono-yellow',
+    fontPair: 'spartan-pacifico', bg: 'shadow', locked: k.locked, words: [{ text: k.text, start: k.start, end: k.end, role: 'main', font: k.font, color: k.color }],
+  }));
+}
 
 export function newProject(name = 'Untitled project'): Project {
   return {
@@ -15,6 +27,9 @@ export function newProject(name = 'Untitled project'): Project {
     updatedAt: Date.now(),
     assets: [],
     length: 10,
+    voiceStart: 0,
+    tail: 0,
+    audioFade: { in: 0, out: 0 },
     clips: [],
     motionDepth: 0.12,
     transitionDuration: 0.5,
@@ -24,6 +39,8 @@ export function newProject(name = 'Untitled project'): Project {
     captions: { enabled: true, mode: 'full', style: 'neon', font: '', size: 1, position: 82, maxWords: 6, uppercase: false, wordLevel: true },
     keywords: [],
     keywordSettings: defaultKeywordSettings(),
+    typo: [],
+    typoSettings: defaultTypoSettings(),
     flowScenes: [],
     overlays: [],
     music: [],
@@ -42,12 +59,31 @@ export function normalizeProject(p: Project): Project {
     ...p,
     captions: { ...d.captions, ...p.captions },
     keywordSettings: { ...d.keywordSettings, ...p.keywordSettings },
-    keywords: p.keywords ?? [],
+    keywords: [],
+    typo: p.typo ?? migrateKeywords(p),
+    typoSettings: { ...d.typoSettings, ...p.typoSettings },
     flowScenes: p.flowScenes ?? [],
     effects: p.effects ?? [],
     export: { ...d.export, ...p.export },
+    voiceStart: p.voiceStart ?? 0,
+    tail: p.tail ?? 0,
+    audioFade: { ...d.audioFade, ...p.audioFade },
   };
 }
+
+/** Move the narration start; captions, keywords and SFX follow so they stay in sync with the voice. */
+export function setVoiceStart(p: Project, v: number) {
+  const d = Math.max(0, v) - p.voiceStart;
+  if (!d) return;
+  p.voiceStart = Math.max(0, v);
+  p.words.forEach((w) => ((w.start += d), (w.end += d)));
+  p.lines.forEach((l) => ((l.start += d), (l.end += d), l.words.forEach((w) => ((w.start += d), (w.end += d)))));
+  p.typo.forEach((b) => ((b.start += d), (b.end += d), b.words.forEach((w) => ((w.start += d), (w.end += d)))));
+  p.sfx.forEach((s) => (s.start = Math.max(0, s.start + d)));
+}
+
+/** A blank (solid colour) section starting at `start`. */
+export const blankClip = (start: number, fill = '#000000'): Clip => ({ ...defaultClip('', start), fill, motion: 'none', volume: 0 });
 
 export const kindOf = (f: File): AssetKind | null =>
   f.type.startsWith('image/') ? 'image' : f.type.startsWith('video/') ? 'video' : f.type.startsWith('audio/') ? 'audio'

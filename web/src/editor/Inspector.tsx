@@ -4,7 +4,8 @@ import { useProject, useThumb } from './hooks';
 import { FilePick, Section, Select, Slider, LogBox, Toggle } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
-import { MOTIONS, TRANSITIONS, REGION_EFFECTS, KEYWORD_ANIMS, type Overlay, type KeywordItem, type Region, type MusicItem, type SfxItem } from '../types';
+import { MOTIONS, TRANSITIONS, REGION_EFFECTS, TYPO_TEMPLATES, type Overlay, type Region, type MusicItem, type SfxItem, type TypoBlock, type TypoBg, type TypoRole, type TypoTemplate } from '../types';
+import { FONT_PAIRS, TEMPLATE_LABELS, TYPO_PALETTES } from '../lib/typography';
 import { MOTION_LABELS, TRANSITION_LABELS } from './Panels';
 import { fmtTime } from '../lib/util';
 import { probe } from '../lib/project';
@@ -30,6 +31,18 @@ function ClipInspector({ id }: { id: string }) {
   const asset = clip && findAsset(p, clip.assetId);
   const thumb = useThumb(asset?.id, asset?.kind);
   const depthThumb = useThumb(clip?.depthId, clip?.depthId ? 'image' : undefined);
+  if (clip?.fill) {
+    return (
+      <Section title={`Blank section · clip ${i + 1} of ${p.clips.length}`}>
+        <p className="hint">{fmtTime(i === 0 ? 0 : clip.start)} → {fmtTime(clipEnd(p, i))} · a solid colour with no media (outros, pauses, title cards).</p>
+        <label className="field"><span>Colour</span><input type="color" value={clip.fill} onChange={(e) => update((d) => void (d.clips.find((c) => c.id === id)!.fill = e.target.value), `fill${id}`)} /></label>
+        {i > 0 && <Slider label="Starts at" value={clip.start} min={i > 1 ? p.clips[i - 1].start + 0.1 : 0.1} max={clipEnd(p, i) - 0.1} step={0.01} onChange={(v) => update((d) => void (d.clips.find((c) => c.id === id)!.start = v), `start${id}`)} suffix="s" />}
+        <Select label="Transition in" value={clip.transition} options={TRANSITIONS.map((m) => [m, TRANSITION_LABELS[m]] as [typeof m, string])} onChange={(v) => update((d) => void (d.clips.find((c) => c.id === id)!.transition = v))} />
+        <p className="hint">Tip: add text in the Text panel to turn it into a title or end card.</p>
+        <button className="btn sm ghost danger" onClick={deleteSelection}><Icon name="trash" /> Delete</button>
+      </Section>
+    );
+  }
   if (!clip || !asset) return null;
   const set = (fn: (c: typeof clip) => void, k?: string) => update((d) => fn(d.clips.find((c) => c.id === id)!), k && `${k}${id}`);
   const setRegion = (rid: string, fn: (r: Region) => void, k?: string) => set((c) => fn(c.regions!.find((r) => r.id === rid)!), k && `${k}${rid}`);
@@ -165,33 +178,55 @@ function OverlayInspector({ id }: { id: string }) {
   );
 }
 
+const ROLE_LABELS: [TypoRole, string][] = [['main', 'Main (big caps)'], ['minor', 'Small caps'], ['script', 'Script accent'], ['side', 'Vertical side'], ['accent', 'Accent']];
+
 function KeywordInspector({ id }: { id: string }) {
   const p = useProject();
   const update = useEditor((s) => s.update);
-  const k = p.keywords.find((x) => x.id === id);
-  if (!k) return null;
-  const set = (fn: (k: KeywordItem) => void, key?: string) => update((d) => {
-    const it = d.keywords.find((x) => x.id === id)!;
+  const b = p.typo.find((x) => x.id === id);
+  if (!b) return null;
+  const set = (fn: (b: TypoBlock) => void, key?: string) => update((d) => {
+    const it = d.typo.find((x) => x.id === id)!;
     fn(it);
     it.locked = true;
   }, key && `${key}-${id}`);
+  const pal = TYPO_PALETTES[b.palette] ?? TYPO_PALETTES['mono-yellow'];
   return (
-    <Section title="Keyword">
-      <input value={k.text} onChange={(e) => set((x) => void (x.text = e.target.value), 'kt')} />
-      <div className="row">
-        <Select label="Font" value={k.font} options={CAPTION_FONTS} onChange={(v) => set((x) => void (x.font = v))} />
-        <label className="field"><span>Colour</span><input type="color" value={k.color} onChange={(e) => set((x) => void (x.color = e.target.value), 'kc')} /></label>
-      </div>
-      <Select label="Animation" value={k.anim} options={KEYWORD_ANIMS} onChange={(v) => set((x) => void (x.anim = v))} />
-      <Slider label="Size" value={k.size} min={0.3} max={3} onChange={(v) => set((x) => void (x.size = v), 'ks')} />
-      <Slider label="Rotate" value={k.rotate} min={-45} max={45} step={1} onChange={(v) => set((x) => void (x.rotate = v), 'kr')} suffix="°" />
-      <Slider label="X" value={k.x} min={0} max={1} onChange={(v) => set((x) => void (x.x = v), 'kx')} />
-      <Slider label="Y" value={k.y} min={0} max={1} onChange={(v) => set((x) => void (x.y = v), 'ky')} />
-      <Slider label="Appears" value={k.start} min={0} max={projectLength(p)} step={0.05} onChange={(v) => set((x) => void (x.start = v), 'k0')} suffix="s" />
-      <Slider label="Until" value={k.end} min={k.start + 0.2} max={projectLength(p)} step={0.05} onChange={(v) => set((x) => void (x.end = v), 'k1')} suffix="s" />
-      <p className="hint">Drag it on the preview to reposition. Editing locks its look against 🎲 Randomize.</p>
-      <button className="btn sm ghost danger" onClick={deleteSelection}><Icon name="trash" /> Delete</button>
-    </Section>
+    <>
+      <Section title="Typography block">
+        <Select label="Template" value={b.template} options={TYPO_TEMPLATES.filter((t) => t !== 'random').map((t) => [t, TEMPLATE_LABELS[t]] as [Exclude<TypoTemplate, 'random'>, string])} onChange={(v) => set((x) => void (x.template = v))} />
+        <div className="row">
+          <Select label="Font pair" value={b.fontPair} options={Object.entries(FONT_PAIRS).map(([k, v]) => [k, v.name] as [string, string])} onChange={(v) => set((x) => void (x.fontPair = v))} />
+          <Select label="Colours" value={b.palette} options={Object.entries(TYPO_PALETTES).map(([k, v]) => [k, v.name] as [string, string])} onChange={(v) => set((x) => void (x.palette = v))} />
+        </div>
+        <Select label="Background" value={b.bg} options={[['none', 'None'], ['shadow', 'Shadow'], ['card', 'Colour card'], ['frame', 'Full frame']] as [TypoBg, string][]} onChange={(v) => set((x) => void (x.bg = v))} />
+        <Slider label="Size" value={b.scale} min={0.3} max={2.5} onChange={(v) => set((x) => void (x.scale = v), 'ts')} />
+        <Slider label="Rotate" value={b.rotate} min={-30} max={30} step={1} onChange={(v) => set((x) => void (x.rotate = v), 'tr')} suffix="°" />
+        <Slider label="X" value={b.x} min={0} max={1} onChange={(v) => set((x) => void (x.x = v), 'tx')} />
+        <Slider label="Y" value={b.y} min={0} max={1} onChange={(v) => set((x) => void (x.y = v), 'ty')} />
+        <Slider label="Until" value={b.end} min={b.words[b.words.length - 1].end} max={projectLength(p)} step={0.05} onChange={(v) => set((x) => void (x.end = v), 'te')} suffix="s" />
+      </Section>
+      <Section title="Words" hint="Each word appears when it is spoken. Change its role to change how it is drawn.">
+        {b.words.map((w, k) => (
+          <div key={k} className="card">
+            <div className="row">
+              <input value={w.text} onChange={(e) => set((x) => void (x.words[k].text = e.target.value), `tw${k}`)} />
+              <input type="color" value={w.color ?? (w.role === 'script' || w.role === 'accent' ? pal.accent : pal.text)} onChange={(e) => set((x) => void (x.words[k].color = e.target.value), `tc${k}`)} style={{ width: 44 }} />
+            </div>
+            <div className="row">
+              <Select label="Role" value={w.role} options={ROLE_LABELS} onChange={(v) => set((x) => void (x.words[k].role = v))} />
+              <Select label="Font" value={w.font ?? ''} options={[['', 'From pair'], ...CAPTION_FONTS.map((f) => [f, f] as [string, string]), ...['League Spartan', 'Archivo Black', 'Oswald', 'Pacifico', 'Dancing Script', 'Caveat Brush', 'Lalezar'].map((f) => [f, f] as [string, string])]} onChange={(v) => set((x) => void (x.words[k].font = v || undefined))} />
+            </div>
+            <Slider label="Appears" value={w.start} min={Math.max(0, b.start - 2)} max={b.end} step={0.01} onChange={(v) => set((x) => {
+              x.words[k].start = v;
+              x.start = Math.min(...x.words.map((y) => y.start));
+            }, `tws${k}`)} suffix="s" />
+          </div>
+        ))}
+        <p className="hint">Drag the block on the preview to move it. Editing locks its look against 🎲 Shuffle.</p>
+        <button className="btn sm ghost danger" onClick={deleteSelection}><Icon name="trash" /> Delete block</button>
+      </Section>
+    </>
   );
 }
 
@@ -239,7 +274,7 @@ function ProjectSummary() {
         <dt>Clips</dt><dd>{p.clips.length}</dd>
         <dt>Voiceover</dt><dd>{vo?.name ?? '—'}</dd>
         <dt>Captions</dt><dd>{p.words.length ? `${p.words.length} words` : p.lines.length ? `${p.lines.length} lines` : '—'} · {p.captions.mode}</dd>
-        <dt>Keywords</dt><dd>{p.keywords.length}</dd>
+        <dt>Typography</dt><dd>{p.typo.length} blocks</dd>
         <dt>Depth maps</dt><dd>{p.clips.filter((c) => c.depthId).length}</dd>
         <dt>Format</dt><dd>{p.export.aspect} · {p.export.fps} fps</dd>
       </dl>

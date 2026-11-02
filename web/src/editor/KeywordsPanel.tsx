@@ -1,146 +1,173 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../store';
 import { useProject } from './hooks';
-import { Section, Seg, Slider, Toggle } from '../components/ui';
+import { Section, Seg, Slider } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
-import { FONT_COMBOS, PALETTES, layoutKeywords, pickKeywords } from '../lib/keywords';
-import { drawKeyword } from '../render/keywordsRender';
-import { chatJson, useLlm } from '../lib/llm';
-import { KEYWORD_ANIMS, type KeywordAnim, type KeywordItem, type KeywordSettings } from '../types';
-import { uid } from '../lib/util';
+import { FONT_PAIRS, TEMPLATE_LABELS, TYPO_PALETTES, aiBlocks, autoBlocks, blockText, makeBlock, restyle } from '../lib/typography';
+import { drawTypography, ensureTypoFonts } from '../render/typography';
+import { useLlm } from '../lib/llm';
+import { TYPO_TEMPLATES, type TypoBg, type TypoSettings, type TypoTemplate, type Word } from '../types';
 
-function ComboPreview({ fonts, colors }: { fonts: string[]; colors: string[] }) {
+const SAMPLES: Record<Exclude<TypoTemplate, 'random'>, string[]> = {
+  stack: ['let', 'us', 'create'],
+  stackSide: ['motion', 'with', 'let', 'us', 'create'],
+  mixed: ['intro', 'outro', 'kinetic', 'typography'],
+  scriptCaps: ['doodle', 'whimsy'],
+  punch: ['boom'],
+};
+
+/** Live thumbnail of a template with the current font pair / palette / background. */
+function TemplatePreview({ template, s }: { template: TypoTemplate; s: TypoSettings }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = ref.current!;
     const draw = () => {
       const g = c.getContext('2d')!;
-      g.fillStyle = '#1c2029';
+      g.fillStyle = '#20242e';
       g.fillRect(0, 0, c.width, c.height);
-      const words = ['BIG', 'idea', 'NOW'];
-      words.forEach((w, i) => {
-        const k: KeywordItem = { id: '', text: w, start: -1, end: 9, x: 0.2 + i * 0.3, y: i === 1 ? 0.64 : 0.36, font: fonts[i % fonts.length], color: colors[i % colors.length], size: 3.2, rotate: i === 1 ? -6 : 4, anim: 'pop', locked: false };
-        drawKeyword(g, k, 1, { stroke: true, shadow: false }, c.width, c.height);
-      });
+      const tpl = template === 'random' ? 'stackSide' : template;
+      const words: Word[] = SAMPLES[tpl].map((text, i) => ({ text, start: i * 0.1, end: i * 0.1 + 0.1 }));
+      const b = makeBlock(words, { ...s, template: tpl, hold: 5 }, 1, tpl === 'stackSide' ? [0.5, 0, 2, 2, 2] : tpl === 'scriptCaps' ? [0, 2] : tpl === 'mixed' ? [2, 2, 2, 0.5] : undefined);
+      b.x = 0.5;
+      b.y = 0.5;
+      if (tpl === 'scriptCaps') b.words[0].role = 'script';
+      if (tpl === 'stackSide') (b.words[0].role = 'side'), (b.words[1].role = 'script');
+      drawTypography(g, [b], 3, c.width, c.height);
     };
     draw();
-    void document.fonts.ready.then(draw);
-  }, [fonts, colors]);
-  return <canvas ref={ref} width={180} height={64} />;
+    void ensureTypoFonts().then(draw);
+  }, [template, s.fontPair, s.palette, s.bg]);
+  return <canvas ref={ref} width={320} height={180} />;
 }
 
 export function KeywordsPanel() {
   const p = useProject();
-  const { update, select, selection, time } = useEditor();
-  const llm = useLlm((s) => s.status);
+  const { update, select, selection } = useEditor();
+  const llm = useLlm((x) => x.status);
   const [busy, setBusy] = useState(false);
-  const s = p.keywordSettings;
-  const words = p.words.length ? p.words : p.lines.flatMap((l) => l.words);
-  const setS = (fn: (s: KeywordSettings) => void, key?: string) => update((d) => fn(d.keywordSettings), key);
-  const relayout = (seed = s.seed) => update((d) => {
-    d.keywordSettings.seed = seed;
-    d.keywords = layoutKeywords(d.keywords, d.keywordSettings, d.export.aspect, d.keywords);
+  const [range, setRange] = useState<[number, number] | null>(null);
+  const s = p.typoSettings;
+  const words = useMemo(() => (p.words.length ? p.words : p.lines.flatMap((l) => l.words)), [p.words, p.lines]);
+  const setS = (fn: (s: TypoSettings) => void, key?: string) => update((d) => fn(d.typoSettings), key);
+  const enableMode = (d: typeof p) => d.captions.mode === 'full' && (d.captions.mode = 'keywords');
+  const used = useMemo(() => {
+    const set = new Set<number>();
+    p.typo.forEach((b) => words.forEach((w, i) => w.start >= b.words[0].start - 0.01 && w.end <= b.words[b.words.length - 1].end + 0.01 && set.add(i)));
+    return set;
+  }, [p.typo, words]);
+
+  const auto = () => update((d) => {
+    d.typo = autoBlocks(words, d.typoSettings);
+    enableMode(d);
   });
-  const autoPick = () => update((d) => {
-    d.keywords = layoutKeywords(pickKeywords(words, d.keywordSettings), d.keywordSettings, d.export.aspect);
-    if (d.captions.mode === 'full') d.captions.mode = 'keywords';
-  });
-  const aiPick = async () => {
+  const ai = async () => {
     setBusy(true);
     try {
-      const target = Math.max(3, Math.round((words[words.length - 1].end / 10) * s.density));
-      const indexed = words.map((w, i) => `${i}:${w.text}`).join(' ');
-      const res = await chatJson<{ index: number; text?: string }[]>(
-        'You pick the most powerful, emotional or important single words from a voiceover transcript, to show as big animated keywords on screen. Avoid filler words. Spread picks across the whole transcript.',
-        `Transcript (index:word): ${indexed}\n\nPick about ${target} keywords. Return a JSON array like [{"index": 12}, {"index": 40}].`,
-        2000,
-      );
-      const picks = res.map((r) => words[r.index]).filter(Boolean).map((w) => ({ text: w.text.replace(/[.,;:!?،]+$/, ''), start: w.start, end: w.end }));
-      if (!picks.length) throw new Error('No keywords returned');
-      update((d) => {
-        d.keywords = layoutKeywords(picks.sort((a, b) => a.start - b.start), d.keywordSettings, d.export.aspect);
-        if (d.captions.mode === 'full') d.captions.mode = 'keywords';
-      });
-      toast(`AI picked ${picks.length} keywords`, 'ok');
+      const blocks = await aiBlocks(words, s);
+      if (!blocks.length) throw new Error('The AI returned no phrases');
+      update((d) => ((d.typo = blocks), enableMode(d)));
+      toast(`AI picked ${blocks.length} phrases`, 'ok');
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
       setBusy(false);
     }
   };
-  const addAtPlayhead = () => {
-    const w = words.find((x) => x.start <= time && x.end >= time) ?? { text: 'KEYWORD', start: time, end: time + 1 };
-    const [k] = layoutKeywords([{ text: w.text, start: w.start, end: w.end }], { ...s, seed: s.seed + p.keywords.length + 7 }, p.export.aspect);
-    update((d) => void (d.keywords = [...d.keywords, k].sort((a, b) => a.start - b.start)));
-    select({ kind: 'keyword', id: k.id });
+  const createFromRange = () => {
+    if (!range) return;
+    const [a, b] = [Math.min(...range), Math.max(...range)];
+    const blk = makeBlock(words.slice(a, b + 1), s, s.seed * 13 + a);
+    update((d) => {
+      d.typo = [...d.typo.filter((x) => x.end <= blk.start || x.start >= blk.end), blk].sort((x, y) => x.start - y.start);
+      enableMode(d);
+    });
+    select({ kind: 'keyword', id: blk.id });
+    useEditor.getState().seek(blk.start + 0.05);
+    setRange(null);
   };
-  const toggleAnim = (a: KeywordAnim) => setS((x) => void (x.anims = x.anims.includes(a) ? x.anims.filter((y) => y !== a) : [...x.anims, a]));
+  const pick = (i: number, shift: boolean) => setRange((r) => (shift && r ? [r[0], i] : [i, i]));
+  const inRange = (i: number) => range && i >= Math.min(...range) && i <= Math.max(...range);
 
   return (
     <>
       <Section title="Caption mode">
-        <Seg options={[['full', 'Subtitles'], ['keywords', 'Keywords only'], ['both', 'Both']] as const} value={p.captions.mode} onChange={(v) => update((d) => void (d.captions.mode = v))} />
-        <p className="hint">Keywords appear around the frame in artistic fonts, colours and motion — like the punchy “faceless” style.</p>
+        <Seg options={[['full', 'Subtitles'], ['keywords', 'Typography'], ['both', 'Both']] as const} value={p.captions.mode} onChange={(v) => update((d) => void (d.captions.mode = v))} />
+        <p className="hint">Kinetic typography: short phrases from your voiceover appear as artistic compositions — word by word, in sync with the voice.</p>
       </Section>
-      <Section title="Pick keywords">
-        {!words.length && <p className="warn">Add captions first (Captions panel → transcribe or upload a script) — keywords use word timings.</p>}
-        <Slider label="Density" value={s.density} min={0.5} max={8} step={0.5} onChange={(v) => setS((x) => void (x.density = v), 'kd')} fmt={(v) => `${v}/10s`} />
-        <Slider label="Hold" value={s.hold} min={0.4} max={4} step={0.1} onChange={(v) => setS((x) => void (x.hold = v), 'kh')} suffix="s" />
+      <Section title="1 · Choose the phrases">
+        {!words.length && <p className="warn">Add captions first (Captions panel → transcribe or upload a script). Typography uses the word timings.</p>}
+        <Slider label="Density" value={s.density} min={0.3} max={6} step={0.1} onChange={(v) => setS((x) => void (x.density = v), 'td')} fmt={(v) => `${v.toFixed(1)}/10s`} />
+        <Slider label="Max words" value={s.maxWords} min={1} max={6} step={1} onChange={(v) => setS((x) => void (x.maxWords = v), 'tw')} />
+        <Slider label="Hold after" value={s.hold} min={0} max={3} step={0.1} onChange={(v) => setS((x) => void (x.hold = v), 'th')} suffix="s" />
         <div className="row wrap">
-          <button className="btn sm primary" disabled={!words.length} onClick={autoPick}><Icon name="bolt" /> Auto-pick</button>
-          <button className="btn sm" disabled={!words.length || busy || llm !== 'ready'} onClick={aiPick} title={llm !== 'ready' ? 'Connect the LLM in the top bar' : ''}><Icon name="wand" /> {busy ? 'Thinking…' : 'AI pick'}</button>
-          <button className="btn sm" onClick={addAtPlayhead}><Icon name="plus" /> At playhead</button>
+          <button className="btn sm primary" disabled={!words.length} onClick={auto}><Icon name="bolt" /> Auto-pick</button>
+          <button className="btn sm" disabled={!words.length || busy || llm !== 'ready'} onClick={ai} title={llm !== 'ready' ? 'Connect the LLM in the top bar' : ''}><Icon name="wand" /> {busy ? 'Thinking…' : 'AI pick'}</button>
+          {p.typo.length > 0 && <button className="btn sm ghost" onClick={() => update((d) => void (d.typo = []))}>Clear</button>}
         </div>
+        {words.length > 0 && (
+          <>
+            <span className="hint">…or pick manually: click a word, Shift-click the last word, then create.</span>
+            <div className="word-picker">
+              {words.slice(0, 4000).map((w, i) => (
+                <span key={i} className={`${used.has(i) ? 'used' : ''} ${inRange(i) ? 'pick' : ''}`} onClick={(e) => pick(i, e.shiftKey)} title={`${w.start.toFixed(2)}s`}>{w.text} </span>
+              ))}
+            </div>
+            <button className="btn sm" disabled={!range} onClick={createFromRange}><Icon name="plus" /> Create typography{range ? ` (${Math.abs(range[1] - range[0]) + 1} words)` : ''}</button>
+          </>
+        )}
       </Section>
-      <Section title="Look">
-        <span className="hint">Font combination</span>
-        <div className="combos">
-          {Object.entries(FONT_COMBOS).map(([id, c]) => (
-            <button key={id} className={`combo ${s.combo === id ? 'on' : ''}`} onClick={() => (setS((x) => void (x.combo = id)), setTimeout(() => relayout(), 0))}>
-              <ComboPreview fonts={c.fonts} colors={PALETTES[s.palette]?.colors ?? ['#fff']} />
-              <span>{c.name}</span>
+      <Section title="2 · Look">
+        <span className="hint">Template</span>
+        <div className="styles">
+          {TYPO_TEMPLATES.map((tpl) => (
+            <button key={tpl} className={`style ${s.template === tpl ? 'on' : ''}`} onClick={() => update((d) => ((d.typoSettings.template = tpl), (d.typo = restyle(d.typo, d.typoSettings))))}>
+              <TemplatePreview template={tpl} s={s} />
+              <span>{TEMPLATE_LABELS[tpl]}</span>
             </button>
           ))}
         </div>
-        <span className="hint">Colour palette</span>
-        <div className="palettes">
-          {Object.entries(PALETTES).map(([id, pal]) => (
-            <button key={id} className={`palette ${s.palette === id ? 'on' : ''}`} onClick={() => (setS((x) => void (x.palette = id)), setTimeout(() => relayout(), 0))} title={pal.name}>
-              {pal.colors.map((c) => <i key={c} style={{ background: c }} />)}
-            </button>
-          ))}
-        </div>
-        <span className="hint">Placement</span>
-        <Seg options={[['safe', 'Safe zones'], ['random', 'Random'], ['grid', 'Grid']] as const} value={s.placement} onChange={(v) => (setS((x) => void (x.placement = v)), setTimeout(() => relayout(), 0))} />
-        <span className="hint">Animations (random mix of the selected)</span>
+        <span className="hint">Font pair</span>
         <div className="chips">
-          {KEYWORD_ANIMS.map((a) => <button key={a} className={`chipbtn ${s.anims.includes(a) ? 'on' : ''}`} onClick={() => toggleAnim(a)}>{a}</button>)}
+          {Object.entries(FONT_PAIRS).map(([id, fp]) => (
+            <button key={id} className={`chipbtn ${s.fontPair === id ? 'on' : ''}`} style={{ fontFamily: fp.main.family, fontWeight: fp.main.weight }} onClick={() => update((d) => {
+              d.typoSettings.fontPair = id;
+              d.typo.forEach((b) => !b.locked && (b.fontPair = id));
+            })}>{fp.name}</button>
+          ))}
         </div>
-        <div className="row wrap">
-          <Toggle label="UPPERCASE" value={s.uppercase} onChange={(v) => setS((x) => void (x.uppercase = v))} />
-          <Toggle label="Outline" value={s.stroke} onChange={(v) => setS((x) => void (x.stroke = v))} />
-          <Toggle label="Shadow" value={s.shadow} onChange={(v) => setS((x) => void (x.shadow = v))} />
+        <span className="hint">Colours</span>
+        <div className="palettes">
+          {Object.entries(TYPO_PALETTES).map(([id, pal]) => (
+            <button key={id} className={`palette ${s.palette === id ? 'on' : ''}`} title={pal.name} onClick={() => update((d) => {
+              d.typoSettings.palette = id;
+              d.typo.forEach((b) => !b.locked && (b.palette = id));
+            })}>
+              {[pal.card.startsWith('rgba') ? '#222' : pal.card, pal.text, pal.accent].map((c, k) => <i key={k} style={{ background: c }} />)}
+            </button>
+          ))}
         </div>
-        <button className="btn" disabled={!p.keywords.length} onClick={() => relayout(s.seed + 1)}><Icon name="dice" /> Randomize fonts, colours & positions</button>
-        <p className="hint">Locked keywords (moved by hand or with 🔒) keep their look.</p>
+        <span className="hint">Background</span>
+        <Seg options={[['none', 'None'], ['shadow', 'Shadow'], ['card', 'Card'], ['frame', 'Full frame']] as [TypoBg, string][]} value={s.bg} onChange={(v) => update((d) => {
+          d.typoSettings.bg = v;
+          d.typo.forEach((b) => !b.locked && (b.bg = v));
+        })} />
+        <button className="btn" disabled={!p.typo.length} onClick={() => update((d) => ((d.typoSettings.seed += 1), (d.typo = restyle(d.typo, d.typoSettings))))}><Icon name="dice" /> Shuffle layouts & positions</button>
+        <p className="hint">Locked blocks (edited by hand or 🔒) keep their look.</p>
       </Section>
-      <Section title={`Keywords (${p.keywords.length})`}>
+      <Section title={`Blocks (${p.typo.length})`}>
         <div className="list tall">
-          {p.keywords.map((k) => (
-            <div key={k.id} className={`list-item kw-row ${selection?.id === k.id ? 'on' : ''}`} onClick={() => (select({ kind: 'keyword', id: k.id }), useEditor.getState().seek(k.start + 0.15))}>
-              <span className="kw-dot" style={{ background: k.color }} />
-              <span style={{ fontFamily: k.font }}>{k.text}</span>
-              <span className="hint">{k.start.toFixed(1)}s</span>
-              <button className="icon-btn" title={k.locked ? 'Unlock' : 'Lock look'} onClick={(e) => (e.stopPropagation(), update((d) => void (d.keywords.find((x) => x.id === k.id)!.locked = !k.locked)))}><Icon name="lock" className={k.locked ? 'on' : 'dim'} /></button>
-              <button className="icon-btn" onClick={(e) => (e.stopPropagation(), update((d) => void (d.keywords = d.keywords.filter((x) => x.id !== k.id))))}><Icon name="x" /></button>
+          {p.typo.map((b) => (
+            <div key={b.id} className={`list-item kw-row ${selection?.id === b.id ? 'on' : ''}`} onClick={() => (select({ kind: 'keyword', id: b.id }), useEditor.getState().seek(b.start + 0.3))}>
+              <span className="kw-dot" style={{ background: TYPO_PALETTES[b.palette]?.accent }} />
+              <span style={{ fontFamily: FONT_PAIRS[b.fontPair]?.main.family }}>{blockText(b)}</span>
+              <span className="hint">{b.start.toFixed(1)}s</span>
+              <button className="icon-btn" title={b.locked ? 'Unlock' : 'Lock look'} onClick={(e) => (e.stopPropagation(), update((d) => void (d.typo.find((x) => x.id === b.id)!.locked = !b.locked)))}><Icon name="lock" className={b.locked ? 'on' : 'dim'} /></button>
+              <button className="icon-btn" onClick={(e) => (e.stopPropagation(), update((d) => void (d.typo = d.typo.filter((x) => x.id !== b.id))))}><Icon name="x" /></button>
             </div>
           ))}
         </div>
-        {p.keywords.length > 0 && <button className="btn sm ghost" onClick={() => update((d) => void (d.keywords = []))}>Remove all</button>}
       </Section>
     </>
   );
 }
-
-export const newKeyword = (text: string, t: number): KeywordItem => ({ id: uid(), text, start: t, end: t + 1.2, x: 0.5, y: 0.4, font: 'Bebas Neue', color: '#ffe600', size: 1, rotate: 0, anim: 'pop', locked: true });

@@ -1,0 +1,20 @@
+[
+  { "wait": 7000 },
+  { "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.includes('Typography')).click(); 'typo'" },
+  { "wait": 1500 },
+  { "eval": "(() => { const k = document.querySelectorAll('.item.kw')[1]; if (!k) return 'no blocks'; k.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); window.dispatchEvent(new PointerEvent('pointerup')); return k.textContent; })()" },
+  { "wait": 2000 },
+  { "eval": "(() => { const s = document.querySelector('.scrub').getBoundingClientRect(); const t = +document.querySelectorAll('.item.kw')[1].style.left.replace('px','') ; return t; })()" },
+  { "shot": "typo" },
+  { "eval": "(() => { const c = document.querySelectorAll('.tr-chip')[1]; c.click(); return c.textContent; })()" },
+  { "wait": 800 },
+  { "shot": "transition" },
+  { "eval": "document.querySelector('.tr-pop .icon-btn').click(); [...document.querySelectorAll('.rail button')].find(b => b.textContent.includes('Audio')).click(); 'audio'" },
+  { "wait": 800 },
+  { "eval": "[...document.querySelectorAll('.panels button')].find(b => b.textContent.includes('black outro')).click(); 'outro added'" },
+  { "wait": 1500 },
+  { "shot": "outro" },
+  { "eval": "[...document.querySelectorAll('.header button')].find(b => b.textContent.includes('engine')).click(); 'engine'" },
+  { "wait": 800 },
+  { "shot": "engine" }
+]

@@ -1,5 +1,5 @@
 import type { Project } from '../types';
-import { clipEnd, projectLength } from '../store';
+import { clipEnd, projectLength, voiceEnd } from '../store';
 import { media } from '../render/media';
 import { sfxBuffer } from './sfx';
 
@@ -33,7 +33,7 @@ export async function loadBuffers(p: Project): Promise<Buffers> {
 /** Time ranges with speech, used to duck background music. */
 function speechRanges(p: Project): [number, number][] {
   const src = p.words.length ? p.words.map((w) => [w.start, w.end] as [number, number]) : p.lines.map((l) => [l.start, l.end] as [number, number]);
-  if (!src.length) return p.voiceover ? [[0, projectLength(p)]] : [];
+  if (!src.length) return p.voiceover ? [[p.voiceStart ?? 0, voiceEnd(p)]] : [];
   const out: [number, number][] = [];
   for (const r of src) {
     const last = out[out.length - 1];
@@ -52,6 +52,16 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
   const master = ctx.createGain();
   master.connect(ctx.destination);
   const toCtx = (T: number) => at + (T - from);
+  // Master fade in / out over the whole mix.
+  const len = projectLength(p);
+  const fi = p.audioFade?.in ?? 0, fo = p.audioFade?.out ?? 0;
+  const level = (T: number) => Math.min(1, fi > 0 ? T / fi : 1, fo > 0 ? (len - T) / fo : 1);
+  master.gain.setValueAtTime(Math.max(0, level(from)), at);
+  if (fi > 0 && from < fi) master.gain.linearRampToValueAtTime(1, toCtx(fi));
+  if (fo > 0) {
+    if (from < len - fo) master.gain.setValueAtTime(1, toCtx(len - fo));
+    master.gain.linearRampToValueAtTime(0, toCtx(len));
+  }
 
   const play = (buf: AudioBuffer | undefined, start: number, dur: number, trimIn: number, dest: AudioNode, loopEnd?: number) => {
     if (!buf) return;
@@ -76,7 +86,7 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     const g = ctx.createGain();
     g.gain.value = p.voiceover.volume;
     g.connect(master);
-    play(bufs.assets.get(p.voiceover.assetId), 0, Infinity, 0, g);
+    play(bufs.assets.get(p.voiceover.assetId), p.voiceStart ?? 0, Infinity, 0, g);
   }
 
   const speech = speechRanges(p);

@@ -1,12 +1,18 @@
 import { memo, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor, clipEnd, projectLength } from '../store';
 import { useLines, useProject, useThumb } from './hooks';
 import { media, peaks } from '../render/media';
 import { clipIndexAt } from '../render/renderer';
 import { fmtTime, uid } from '../lib/util';
-import type { Clip } from '../types';
+import { TRANSITIONS, type Clip, type Transition } from '../types';
 import { deleteSelection } from './shortcuts';
 import { Icon } from '../components/icons';
+import { Slider } from '../components/ui';
+import { TRANSITION_LABELS } from './Panels';
+import { stampFor } from '../lib/timecode';
+import { blankClip, setVoiceStart } from '../lib/project';
+import { voiceEnd } from '../store';
 
 /** Pointer-drag helper reporting the horizontal delta in seconds. */
 function startDrag(e: React.PointerEvent, zoom: number, onMove: (dt: number) => void, onClick?: () => void) {
@@ -26,10 +32,7 @@ function startDrag(e: React.PointerEvent, zoom: number, onMove: (dt: number) => 
   window.addEventListener('pointerup', up);
 }
 
-const stamp = (t: number) => {
-  const m = Math.floor(t / 60), s = Math.floor(t % 60), ms = Math.round((t % 1) * 1000);
-  return `${String(m).padStart(2, '0')}-${String(s).padStart(2, '0')}-${String(ms).padStart(3, '0')}`;
-};
+const stamp = stampFor;
 
 const ClipBlock = memo(function ClipBlock({ clip, i, end, zoom, selected, kind, name }: { clip: Clip; i: number; end: number; zoom: number; selected: boolean; kind?: 'image' | 'video' | 'audio'; name?: string }) {
   const thumb = useThumb(clip.assetId, kind);
@@ -45,9 +48,9 @@ const ClipBlock = memo(function ClipBlock({ clip, i, end, zoom, selected, kind, 
   };
   return (
     <div
-      className={`clip ${selected ? 'sel' : ''} ${kind === 'video' ? 'video' : ''}`}
-      style={{ left: start * zoom, width: w, backgroundImage: thumb && w > 18 ? `url(${thumb})` : undefined }}
-      title={`${name} · ${fmtTime(start)} → ${fmtTime(end)}`}
+      className={`clip ${selected ? 'sel' : ''} ${kind === 'video' ? 'video' : ''} ${clip.fill ? 'blank' : ''}`}
+      style={{ left: start * zoom, width: w, backgroundImage: thumb && w > 18 ? `url(${thumb})` : undefined, backgroundColor: clip.fill }}
+      title={`${clip.fill ? 'Blank section' : name} · ${fmtTime(start)} → ${fmtTime(end)}`}
       onPointerDown={(e) => {
         const shift = e.shiftKey || e.ctrlKey || e.metaKey;
         startDrag(e, zoom, () => {}, () => {
@@ -59,6 +62,7 @@ const ClipBlock = memo(function ClipBlock({ clip, i, end, zoom, selected, kind, 
       }}
     >
       {w > 34 && <span className="dur">{(end - start).toFixed(1)}s</span>}
+      {clip.fill && w > 50 && <span className="blank-label">Blank</span>}
       {w > 60 && <span className="ts">{stamp(start)}</span>}
       {w > 20 && (kind === 'video' || clip.depthId || clip.regions?.length) && (
         <span className="vid">{kind === 'video' ? '▶' : ''}{clip.depthId ? '◆' : ''}{clip.regions?.length ? '✦' : ''}</span>
@@ -103,6 +107,45 @@ function WaveTile({ pk, x0, w, zoom }: { pk?: Float32Array; x0: number; w: numbe
     }
   }, [pk, x0, w, zoom]);
   return <canvas ref={ref} width={w} height={40} style={{ position: 'absolute', left: x0, top: 2 }} />;
+}
+
+const SHORT: Partial<Record<Transition, string>> = {
+  none: 'Cut', crossfade: 'Fade', fadeBlack: 'Black', fadeWhite: 'White', slideLeft: 'Slide ←', slideRight: 'Slide →', slideUp: 'Slide ↑',
+  slideDown: 'Slide ↓', zoomPunch: 'Punch', random: '✦',
+};
+
+/** The transition into clip i, drawn on the cut: a shaded zone of its duration plus a clickable chip. */
+function TransitionMarker({ clip, i, zoom, duration, open, onOpen }: { clip: Clip; i: number; zoom: number; duration: number; open: boolean; onOpen: (i: number | null) => void }) {
+  const update = useEditor((s) => s.update);
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const kind = clip.transition;
+  const w = kind === 'none' ? 0 : duration * zoom;
+  return (
+    <>
+      {w > 2 && <div className="tr-zone" style={{ left: clip.start * zoom - w / 2, width: w }} />}
+      <button
+        className={`tr-chip ${kind === 'none' ? 'cut' : ''} ${open ? 'on' : ''}`}
+        style={{ left: clip.start * zoom }}
+        title={`Transition into clip ${i + 1}: ${TRANSITION_LABELS[kind]}`}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => (setAnchor(e.currentTarget.getBoundingClientRect()), onOpen(open ? null : i))}
+      >
+        {zoom * 3 > 40 ? SHORT[kind] ?? TRANSITION_LABELS[kind] : kind === 'none' ? '|' : '◆'}
+      </button>
+      {open && anchor && createPortal(
+        <div className="tr-pop" style={{ left: Math.min(window.innerWidth - 340, Math.max(8, anchor.left - 160)), bottom: window.innerHeight - anchor.top + 8 }} onPointerDown={(e) => e.stopPropagation()}>
+          <div className="row between"><b>Transition into clip {i + 1}</b><button className="icon-btn" onClick={() => onOpen(null)}><Icon name="x" /></button></div>
+          <div className="grid3">
+            {TRANSITIONS.map((t) => (
+              <button key={t} className={`tile ${kind === t ? 'on' : ''}`} onClick={() => update((d) => void (d.clips.find((c) => c.id === clip.id)!.transition = t))}>{TRANSITION_LABELS[t]}</button>
+            ))}
+          </div>
+          <Slider label="Duration (all)" value={duration} min={0.1} max={2} onChange={(v) => update((d) => void (d.transitionDuration = v), 'td')} suffix="s" />
+        </div>,
+        document.body,
+      )}
+    </>
+  );
 }
 
 function Ruler({ length, zoom }: { length: number; zoom: number }) {
@@ -178,19 +221,44 @@ export function Timeline() {
     return () => (el.removeEventListener('scroll', on), window.removeEventListener('resize', on));
   }, []);
 
-  const moveItem = (key: 'music' | 'sfx' | 'overlays' | 'keywords', id: string, e: React.PointerEvent, mode: 'move' | 'resize' = 'move') => {
+  const [trOpen, setTrOpen] = useState<number | null>(null);
+  const moveItem = (key: 'music' | 'sfx' | 'overlays' | 'typo', id: string, e: React.PointerEvent, mode: 'move' | 'resize' = 'move') => {
     const item = (p[key] as { id: string; start: number; duration?: number; end?: number }[]).find((x) => x.id === id)!;
     const s0 = item.start, d0 = item.duration ?? 0, e0 = item.end ?? 0;
-    const kind = key === 'overlays' ? 'overlay' : key === 'keywords' ? 'keyword' : key;
+    const words0 = key === 'typo' ? p.typo.find((b) => b.id === id)!.words.map((w) => [w.start, w.end]) : [];
+    const kind = key === 'overlays' ? 'overlay' : key === 'typo' ? 'keyword' : key;
     startDrag(e, zoom, (dt) => update((d) => {
-      const it = (d[key] as { id: string; start: number; duration?: number; end?: number }[]).find((x) => x.id === id)!;
+      const it = (d[key] as { id: string; start: number; duration?: number; end?: number; words?: { start: number; end: number }[] }[]).find((x) => x.id === id)!;
       if (mode === 'move') {
-        it.start = Math.max(0, s0 + dt);
-        if (it.end !== undefined) it.end = Math.max(it.start + 0.2, e0 + dt);
+        const shift = Math.max(-s0, dt);
+        it.start = s0 + shift;
+        if (it.end !== undefined) it.end = e0 + shift;
+        it.words?.forEach((w, k) => ((w.start = words0[k][0] + shift), (w.end = words0[k][1] + shift)));
       } else if (it.end !== undefined) it.end = Math.max(it.start + 0.2, e0 + dt);
       else it.duration = Math.max(0.2, d0 + dt);
     }, `${mode}-${id}`), () => (useEditor.getState().select({ kind, id }), useEditor.getState().seek(s0 + 0.05)));
   };
+  // Drag the narration later/earlier (intro before the voice); captions and SFX move with it.
+  const dragVoice = (e: React.PointerEvent) => {
+    const v0 = p.voiceStart;
+    startDrag(e, zoom, (dt) => update((d) => setVoiceStart(d, Math.round((v0 + dt) * 20) / 20), 'voiceStart'));
+  };
+  // Drag the end of the video: past the narration this becomes the outro.
+  const dragEnd = (e: React.PointerEvent) => {
+    const l0 = length;
+    startDrag(e, zoom, (dt) => update((d) => {
+      const want = Math.max(0.5, l0 + dt);
+      const ve = voiceEnd(d);
+      if (ve) d.tail = Math.max(0, Math.round((want - ve) * 10) / 10);
+      else d.length = Math.round(want * 10) / 10;
+    }, 'end'));
+  };
+  const insertBlank = () => update((d) => {
+    const t = useEditor.getState().time;
+    d.clips.push(blankClip(d.clips.length ? t : 0));
+    d.clips.sort((a, b) => a.start - b.start);
+  });
+  const ve = voiceEnd(p);
   const resize = (e: React.PointerEvent) => {
     const y0 = e.clientY, h0 = height;
     const move = (ev: PointerEvent) => {
@@ -210,6 +278,8 @@ export function Timeline() {
       <div className="tl-tools">
         <button className="icon-btn" onClick={splitAtPlayhead} title="Split at playhead (S)"><Icon name="scissors" /></button>
         <button className="icon-btn" disabled={!selCount} onClick={deleteSelection} title="Delete (Del)"><Icon name="trash" /></button>
+        <button className="btn ghost sm" onClick={insertBlank} title="Insert a blank (black) section at the playhead"><Icon name="plus" /> Blank</button>
+        <span className="hint">Drag the ◀▶ end handle to extend the end · drag the voice lane to add an intro</span>
         {selCount > 1 && <span className="chip">{selCount} clips selected</span>}
         <div className="grow" />
         <button className="icon-btn" onClick={() => setZoom(Math.max(1, zoom / 1.5))} title="Zoom out">−</button>
@@ -236,6 +306,11 @@ export function Timeline() {
         }}>
           <div className="tl-inner" style={{ width }}>
             <Ruler length={length} zoom={zoom} />
+            <div className="end-handle" style={{ left: length * zoom }} onPointerDown={dragEnd} title={`End of video ${fmtTime(length)} — drag to extend or shorten`}>
+              <span>◀▶</span>
+            </div>
+            {ve > 0 && length > ve + 0.05 && <div className="outro-zone" style={{ left: ve * zoom, width: (length - ve) * zoom }} title="Outro (after the narration)" />}
+            {p.voiceStart > 0 && <div className="outro-zone intro" style={{ left: 0, width: p.voiceStart * zoom }} title="Intro (before the narration)" />}
             <div className="track t-text">
               {p.overlays.filter((o) => inView(o.start, o.start + o.duration)).map((o) => (
                 <div key={o.id} className={`item overlay ${sel?.id === o.id ? 'sel' : ''}`} style={{ left: o.start * zoom, width: Math.max(8, o.duration * zoom) }} onPointerDown={(e) => moveItem('overlays', o.id, e)}>
@@ -245,10 +320,10 @@ export function Timeline() {
               ))}
             </div>
             <div className="track t-kw">
-              {p.captions.mode !== 'full' && p.keywords.filter((k) => inView(k.start, k.end)).map((k) => (
-                <div key={k.id} className={`item kw ${sel?.id === k.id ? 'sel' : ''}`} style={{ left: k.start * zoom, width: Math.max(10, (k.end - k.start) * zoom), borderColor: k.color }} onPointerDown={(e) => moveItem('keywords', k.id, e)}>
-                  {k.text}
-                  <div className="resize" onPointerDown={(e) => moveItem('keywords', k.id, e, 'resize')} />
+              {p.captions.mode !== 'full' && p.typo.filter((k) => inView(k.start, k.end)).map((k) => (
+                <div key={k.id} className={`item kw ${sel?.id === k.id ? 'sel' : ''}`} style={{ left: k.start * zoom, width: Math.max(10, (k.end - k.start) * zoom) }} onPointerDown={(e) => moveItem('typo', k.id, e)}>
+                  {k.words.map((w) => w.text).join(' ')}
+                  <div className="resize" onPointerDown={(e) => moveItem('typo', k.id, e, 'resize')} />
                 </div>
               ))}
             </div>
@@ -259,6 +334,9 @@ export function Timeline() {
                   <ClipBlock key={c.id} clip={c} i={i} end={end} zoom={zoom} selected={sel?.id === c.id || multi.includes(c.id)} kind={assets.get(c.assetId)?.kind} name={assets.get(c.assetId)?.name} />
                 ) : null;
               })}
+              {p.clips.map((c, i) => (i > 0 && inView(c.start - 1, c.start + 1) ? (
+                <TransitionMarker key={`tr-${c.id}`} clip={c} i={i} zoom={zoom} duration={p.transitionDuration} open={trOpen === i} onOpen={setTrOpen} />
+              ) : null))}
             </div>
             <div className="track t-caps">
               {p.captions.enabled && p.captions.mode !== 'keywords' && lines.filter((l) => inView(l.start, l.end)).map((l, k) => (
@@ -268,7 +346,11 @@ export function Timeline() {
               ))}
             </div>
             <div className="track t-audio">
-              {p.voiceover && <Waveform assetId={p.voiceover.assetId} length={assets.get(p.voiceover.assetId)?.duration ?? length} zoom={zoom} />}
+              {p.voiceover && (
+                <div className="voice-clip" style={{ left: p.voiceStart * zoom }} onPointerDown={dragVoice} title="Narration — drag to start it later (intro)">
+                  <Waveform assetId={p.voiceover.assetId} length={assets.get(p.voiceover.assetId)?.duration ?? length} zoom={zoom} />
+                </div>
+              )}
             </div>
             <div className="track t-music">
               {p.music.map((m) => (

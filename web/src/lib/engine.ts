@@ -26,7 +26,7 @@ interface EngineStore {
 const clean = (u: string) => u.trim().replace(/\/+$/, '');
 
 export const useEngine = create<EngineStore>((set, get) => ({
-  url: localStorage.getItem('engineUrl') ?? '',
+  url: globalThis.localStorage?.getItem('engineUrl') ?? '',
   status: 'offline',
   setUrl: (u) => {
     localStorage.setItem('engineUrl', clean(u));

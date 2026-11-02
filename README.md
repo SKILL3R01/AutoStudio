@@ -46,7 +46,11 @@ If you edit `engine/server.py` or `engine/tts_worker.py`, rebuild the notebook w
 | Animate a detail | Click on part of an image (SlimSAM) and make it sway, ripple, glow, flicker, shimmer, cycle hue, blink, sparkle or pop — always, on music beats, or on keywords |
 | Transitions | 14 transitions + random, auto-whoosh on every cut |
 | Captions | 20 animated word-level styles, Arabic/Urdu fonts and RTL, SRT/VTT/JSON import/export, typo editor |
-| **Keyword captions** | Keywords only / subtitles / both. Auto-pick or AI-pick keywords; font combinations, colour palettes, placement (safe zones / random / grid), 9 animations (pop, slam, typewriter, slide, rotate, glow, draw, split, marker), 🎲 randomize, drag on the preview, lock, per-keyword editing, K lane on the timeline |
+| **Kinetic typography** | Phrases from your transcript are laid out artistically and revealed word by word with the voice.<br>Templates: stack, stack + vertical side word, mixed weights / outline, script + caps, single punch, random.<br>Artistic font pairs (League Spartan, Archivo Black, Oswald, Pacifico, Dancing Script, Caveat Brush, Arabic) and palettes, with card or full-frame backgrounds.<br>Pick phrases automatically, with the AI, or by clicking words. |
+| Start & end | Intro before the narration (drag the voice lane), outro after it (drag the ◀▶ end handle), blank / colour sections, master audio fade in/out |
+| Timeline transitions | Every cut shows its transition; click to change it |
+| Engine setup | One-click **Open in Colab**; the notebook's **Open desktop app & connect** button connects AutoStudio automatically |
+| **Keyword captions** (legacy) | Keywords only / subtitles / both. Auto-pick or AI-pick keywords; font combinations, colour palettes, placement (safe zones / random / grid), 9 animations (pop, slam, typewriter, slide, rotate, glow, draw, split, marker), 🎲 randomize, drag on the preview, lock, per-keyword editing, K lane on the timeline |
 | Overlays | Titles, lower thirds, call-to-action, logo/watermark images; drag on the preview |
 | Audio | Voiceover, music with fades, ducking under speech and loop-to-fill, 14 synthesized SFX + your own, video clip sound with trim in/out and loop |
 | Effects | Grain, VHS, CRT, glitch, light leak, vignette, snow, dust, rain, embers, bokeh, cinematic (stackable) |

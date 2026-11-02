@@ -27,7 +27,7 @@ interface LlmState {
   check: () => Promise<boolean>;
 }
 
-const saved = JSON.parse(localStorage.getItem('llm') ?? '{}');
+const saved = JSON.parse(globalThis.localStorage?.getItem('llm') ?? '{}');
 
 export const useLlm = create<LlmState>((set, get) => ({
   preset: saved.preset ?? 'lmstudio',

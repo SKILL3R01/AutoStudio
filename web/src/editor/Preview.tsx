@@ -6,6 +6,7 @@ import { activeClipIndices, clipIndexAt, clipSourceTime, clipStart, imagesNeeded
 import { buildMix, loadBuffers } from '../audio/mix';
 import { fmtTime } from '../lib/util';
 import { Icon } from '../components/icons';
+import { blockBox } from '../render/typography';
 import type { Project } from '../types';
 
 const PREVIEW_LONG = 1280;
@@ -60,11 +61,9 @@ function hitBoxes(p: Project, t: number, W: number, H: number): Draggable[] {
     }
   }
   if (p.captions.mode !== 'full') {
-    for (const k of p.keywords) {
-      if (t < k.start || t > k.end + 0.2) continue;
-      const fs = Math.min(W, (H * 16) / 9) * 0.075 * k.size;
-      g.font = `900 ${fs}px "${k.font}"`;
-      out.push({ kind: 'keyword', id: k.id, x: k.x, y: k.y, w: g.measureText(k.text).width / W + 0.02, h: (fs * 1.1) / H });
+    for (const b of p.typo) {
+      if (t < b.start || t > b.end + 0.2) continue;
+      out.push({ kind: 'keyword', id: b.id, ...blockBox(b, W, H) });
     }
   }
   return out;
@@ -176,7 +175,7 @@ export function Preview() {
       // Snap to centre lines.
       const sx = Math.abs(nx - 0.5) < 0.015 ? 0.5 : nx, sy = Math.abs(ny - 0.5) < 0.015 ? 0.5 : ny;
       st.update((d) => {
-        const it = hit.kind === 'overlay' ? d.overlays.find((o) => o.id === hit.id) : d.keywords.find((k) => k.id === hit.id);
+        const it = hit.kind === 'overlay' ? d.overlays.find((o) => o.id === hit.id) : d.typo.find((k) => k.id === hit.id);
         if (it) {
           it.x = sx;
           it.y = sy;

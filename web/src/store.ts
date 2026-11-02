@@ -89,9 +89,16 @@ export const useEditor = create<EditorState>((set, get) => ({
   setZoom: (zoom) => set({ zoom }),
 }));
 
-export const projectLength = (p: Project) => {
+/** Narration end on the timeline (0 without a voiceover). */
+export const voiceEnd = (p: Project) => {
   const vo = p.voiceover && p.assets.find((a) => a.id === p.voiceover!.assetId);
-  return Math.max(0.1, vo?.duration ?? p.length);
+  return vo?.duration ? (p.voiceStart ?? 0) + vo.duration : 0;
+};
+
+/** Total length: intro + narration + outro, or the explicit length when there is no voiceover. */
+export const projectLength = (p: Project) => {
+  const ve = voiceEnd(p);
+  return Math.max(0.1, ve ? ve + (p.tail ?? 0) : p.length);
 };
 
 /** Clip i spans [clips[i].start, clips[i+1].start) — the last one runs to the project end. */

@@ -39,6 +39,7 @@
     "files": ["dist/**/*", "electron/main.cjs", "electron/icon.png", "package.json"],
     "asar": true,
     "npmRebuild": false,
+    "protocols": [{ "name": "AutoStudio", "schemes": ["autostudio"] }],
     "win": {
       "icon": "electron/icon.png",
       "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }]

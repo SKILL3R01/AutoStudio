@@ -4,7 +4,9 @@ import { buildLines, parseCaptionFile, spreadWords } from './captions';
 import { layoutKeywords, pickKeywords } from './keywords';
 import { splitScenes } from './scenes';
 import { ops, statuses, type ReviewItem } from '../editor/review';
-import { defaultKeywordSettings } from './project';
+import { defaultKeywordSettings, defaultTypoSettings, newProject, setVoiceStart } from './project';
+import { autoBlocks, makeBlock } from './typography';
+import { projectLength } from '../store';
 import type { CaptionSettings, Word } from '../types';
 
 describe('detectTime', () => {
@@ -16,6 +18,14 @@ describe('detectTime', () => {
     expect(g.kind).toBe('timestamp');
     expect(g.time).toBeCloseTo(t);
   });
+  it.each([
+    ['(1)_00-01-23_bridge_76c4b2ac.jpg', 1.23], ['(2)_00-02-15_bridge_9f8cfd52.jpg', 2.15], ['(6)_00-05-12_bridge_5cf32754.jpg', 5.12],
+    ['00-01-230.png', 1.23], ['00-01-5.png', 1.5], ['04-12-936.png', 252.936], ['01-20-11-03.mp4', 4811.03], ['scene_1_00-03.png', 3],
+  ])('user rule: %s → %s s', (name, t) => {
+    const g = detectTime(name);
+    expect(g.kind).toBe('timestamp');
+    expect(g.time).toBeCloseTo(t, 3);
+  });
   it('reads Flow names as sequence + variant', () => expect(detectTime('007-a lighthouse_v2.png')).toMatchObject({ kind: 'sequence', seq: 7, variant: 2 }));
   it('rejects camera names', () => expect(detectTime('IMG_20240101_123456.jpg').kind).toBe('rejected'));
   it('treats copy markers as missing', () => expect(detectTime('image (16).png').kind).toBe('none'));
@@ -23,7 +33,7 @@ describe('detectTime', () => {
 });
 
 describe('parseClock', () => {
-  it.each([['1:32.4', 92.4], ['92', 92], ['92.5s', 92.5], ['1m32', 92], ['1:02:03', 3723], ['', null], ['abc', null]])('%s', (s, t) => {
+  it.each([['1:32.4', 92.4], ['00-01-23', 1.23], ['1:20:11.03', 4811.03], ['92', 92], ['92.5s', 92.5], ['1m32', 92], ['1:02:03', 3723], ['', null], ['abc', null]])('%s', (s, t) => {
     const v = parseClock(s);
     if (t === null) expect(v).toBeNull();
     else expect(v).toBeCloseTo(t);
@@ -87,6 +97,47 @@ describe('keywords', () => {
     const c = layoutKeywords(locked, { ...s, seed: 99 }, '16:9', locked);
     expect(c[0].x).toBe(0.123);
     expect(a.every((k) => k.x >= 0 && k.x <= 1 && k.y >= 0 && k.y <= 1)).toBe(true);
+  });
+});
+
+describe('typography', () => {
+  const ws = words('Have you ever gone to bed full of plans for the morning and woken up already behind? Every single morning you lose the same fight with yourself', 0.45);
+  it('auto-picks non-overlapping phrases with a main word', () => {
+    const blocks = autoBlocks(ws, { ...defaultTypoSettings(), density: 3 });
+    expect(blocks.length).toBeGreaterThan(1);
+    blocks.forEach((b, i) => {
+      expect(b.words.some((w) => w.role === 'main')).toBe(true);
+      expect(b.words.length).toBeLessThanOrEqual(4);
+      if (blocks[i + 1]) expect(b.end).toBeLessThanOrEqual(blocks[i + 1].start);
+    });
+  });
+  it('makes connectors script accents and picks script+caps for two words', () => {
+    const b = makeBlock(words('with love'), { ...defaultTypoSettings(), template: 'random' }, 1);
+    expect(b.template).toBe('scriptCaps');
+    expect(b.words[0].role).toBe('script');
+    expect(b.words[1].role).toBe('main');
+  });
+});
+
+describe('start & end', () => {
+  const proj = () => {
+    const p = newProject();
+    p.assets.push({ id: 'vo', name: 'vo.wav', kind: 'audio', mime: 'audio/wav', duration: 20 });
+    p.voiceover = { assetId: 'vo', volume: 1 };
+    p.words = words('a b c');
+    return p;
+  };
+  it('length = intro + narration + outro', () => {
+    const p = proj();
+    p.tail = 3;
+    setVoiceStart(p, 2);
+    expect(projectLength(p)).toBe(25);
+  });
+  it('moving the narration shifts captions with it', () => {
+    const p = proj();
+    const before = p.words[1].start;
+    setVoiceStart(p, 1.5);
+    expect(p.words[1].start).toBeCloseTo(before + 1.5);
   });
 });
 

@@ -2,7 +2,7 @@ import { createProject } from './scenes';
 import { spreadWords } from './captions';
 import { uid } from './util';
 import { saveProject } from './db';
-import { layoutKeywords, pickKeywords } from './keywords';
+import { autoBlocks } from './typography';
 
 const SCENES = [
   ['#1e3c72', '#2a5298', 'Morning city'],
@@ -51,7 +51,7 @@ export async function createDemoProject() {
   p.effects.push({ kind: 'grain', intensity: 0.4 }, { kind: 'vignette', intensity: 0.4 });
   p.sfx.push({ id: uid(), sound: 'whoosh', start: 2.6, volume: 0.6 });
   p.captions.mode = 'both';
-  p.keywords = layoutKeywords(pickKeywords(p.words, p.keywordSettings), p.keywordSettings, p.export.aspect);
+  p.typo = autoBlocks(p.words, { ...p.typoSettings, density: 3 });
   await saveProject(p);
   return p;
 }
