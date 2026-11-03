@@ -72,23 +72,36 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     master.gain.linearRampToValueAtTime(0, toCtx(len));
   }
 
-  const play = (buf: AudioBuffer | undefined, start: number, dur: number, trimIn: number, dest: AudioNode, loopEnd?: number) => {
+  /** Play `buf` from timeline `start` for `dur` timeline seconds, from `trimIn` in the file, at `rate`. */
+  const play = (buf: AudioBuffer | undefined, start: number, dur: number, trimIn: number, dest: AudioNode, loopEnd?: number, rate = 1) => {
     if (!buf) return;
     const end = Math.min(start + dur, until);
     if (end <= from || trimIn >= buf.duration) return;
     const skip = Math.max(0, from - start);
     const src = ctx.createBufferSource();
     src.buffer = buf;
+    src.playbackRate.value = rate;
     src.connect(dest);
     if (loopEnd !== undefined) {
       src.loop = true;
       src.loopStart = trimIn;
       src.loopEnd = Math.min(loopEnd, buf.duration);
       const span = Math.max(0.05, src.loopEnd - trimIn);
-      src.start(Math.max(at, toCtx(start)), trimIn + (skip % span));
+      src.start(Math.max(at, toCtx(start)), trimIn + ((skip * rate) % span));
       src.stop(toCtx(end));
-    } else src.start(Math.max(at, toCtx(start)), trimIn + skip, Math.max(0, end - start - skip));
+    } else src.start(Math.max(at, toCtx(start)), trimIn + skip * rate, Math.max(0, (end - start - skip) * rate));
     nodes.push(src);
+  };
+
+  /** Fade a gain node in/out over [start, end] on the timeline (`from` may be mid-fade). */
+  const fades = (g: GainNode, v: number, start: number, end: number, fi: number, fo: number) => {
+    const lvl = (T: number) => v * Math.max(0, Math.min(1, fi > 0 ? (T - start) / fi : 1, fo > 0 ? (end - T) / fo : 1));
+    g.gain.setValueAtTime(lvl(Math.max(from, start)), Math.max(at, toCtx(start)));
+    if (fi > 0 && from < start + fi) g.gain.linearRampToValueAtTime(lvl(start + fi), toCtx(start + fi));
+    if (fo > 0 && from < end) {
+      if (from < end - fo) g.gain.setValueAtTime(lvl(end - fo), toCtx(end - fo));
+      g.gain.linearRampToValueAtTime(0, toCtx(end));
+    }
   };
 
   if (p.voiceover) {
@@ -125,19 +138,21 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
       set(end - m.fadeOut, v);
       set(end, 0);
     }
-    play(bufs.assets.get(m.assetId), m.start, m.duration, m.trimIn, g);
+    play(bufs.assets.get(m.assetId), m.start, m.duration, m.trimIn, g, undefined, m.rate ?? 1);
   }
 
   p.clips.forEach((c, i) => {
     const buf = bufs.assets.get(c.assetId);
     if (!buf || c.volume <= 0) return;
     const g = ctx.createGain();
-    g.gain.value = c.volume;
     g.connect(master);
     const start = i === 0 ? 0 : c.start;
+    const rate = c.speed ?? 1;
     const srcEnd = Math.min(c.trimOut ?? Infinity, buf.duration);
-    if (c.loop) play(buf, start, clipEnd(p, i) - start, c.trimIn, g, srcEnd);
-    else play(buf, start, Math.min(clipEnd(p, i) - start, srcEnd - c.trimIn), c.trimIn, g);
+    const dur = c.loop ? clipEnd(p, i) - start : Math.min(clipEnd(p, i) - start, (srcEnd - c.trimIn) / rate);
+    fades(g, c.volume, start, start + dur, c.fadeIn ?? 0, c.fadeOut ?? 0);
+    if (c.loop) play(buf, start, dur, c.trimIn, g, srcEnd, rate);
+    else play(buf, start, dur, c.trimIn, g, undefined, rate);
   });
 
   for (const s of p.sfx) {

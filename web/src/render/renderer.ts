@@ -72,7 +72,7 @@ function layer(i: number, W: number, H: number) {
 export function clipSourceTime(clip: Clip, asset: Asset, local: number) {
   const end = Math.min(clip.trimOut ?? Infinity, asset.duration ?? Infinity) - 0.04;
   const span = Math.max(0.05, end - clip.trimIn);
-  const l = Math.max(0, local);
+  const l = Math.max(0, local) * (clip.speed ?? 1);
   return clip.trimIn + (clip.loop ? l % span : Math.min(l, span));
 }
 

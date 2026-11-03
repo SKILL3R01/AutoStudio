@@ -69,6 +69,11 @@ export interface Clip {
   motion: Motion;
   transition: Transition;
   volume: number;
+  /** For video assets: playback speed (0.25–4, default 1). Sound follows the speed (pitch changes). */
+  speed?: number;
+  /** Seconds the clip's own sound fades in / out. */
+  fadeIn?: number;
+  fadeOut?: number;
   fit: 'cover' | 'contain';
   color?: ColorAdjust;
   /** Per-clip motion strength (overrides the project's motion depth). */
@@ -259,6 +264,8 @@ export interface MusicItem {
   volume: number;
   fadeIn: number;
   fadeOut: number;
+  /** Playback rate (detached audio of a sped-up clip keeps its speed). Default 1. */
+  rate?: number;
   duck: boolean;
   /** Music level while the voice speaks, as a fraction of its volume (default 0.35). */
   duckDepth?: number;
@@ -293,7 +300,8 @@ export interface Project {
   createdAt: number;
   updatedAt: number;
   assets: Asset[];
-  voiceover?: { assetId: string; volume: number };
+  /** `splits` = cut points (seconds into the voice file) that divide the narration into selectable segments. */
+  voiceover?: { assetId: string; volume: number; splits?: number[] };
   /** Explicit length when there is no voiceover. */
   length: number;
   /** Seconds of visuals before the narration starts (intro). */

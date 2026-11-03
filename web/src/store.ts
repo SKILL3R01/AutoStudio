@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import type { Project } from './types';
 import { saveProject } from './lib/db';
 
-export type Selection = { kind: 'clip' | 'overlay' | 'music' | 'sfx' | 'keyword'; id: string } | null;
+/** `voice` selections use the segment index as id. */
+export type Selection = { kind: 'clip' | 'overlay' | 'music' | 'sfx' | 'keyword' | 'voice'; id: string } | null;
 
 interface EditorState {
   project: Project | null;
@@ -27,6 +28,9 @@ interface EditorState {
   seek: (t: number) => void;
   seekId: number;
   setPlaying: (p: boolean) => void;
+  /** Snap dragged edges to the playhead, cuts and other items. */
+  snap: boolean;
+  setSnap: (on: boolean) => void;
   setZoom: (z: number) => void;
 }
 
@@ -86,6 +90,8 @@ export const useEditor = create<EditorState>((set, get) => ({
     set((s) => ({ time: Math.max(0, Math.min(p ? projectLength(p) : t, t)), seekId: s.seekId + 1 }));
   },
   setPlaying: (playing) => set({ playing }),
+  snap: globalThis.localStorage?.getItem('snap') !== '0',
+  setSnap: (snap) => (localStorage.setItem('snap', snap ? '1' : '0'), set({ snap })),
   setZoom: (zoom) => set({ zoom }),
 }));
 

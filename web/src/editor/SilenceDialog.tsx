@@ -1,41 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useEditor, findAsset } from '../store';
 import { media } from '../render/media';
-import { analyzeLevels, cutBuffer, detectSilences, encodeWav, remapTime, type Levels, type Range, type SilenceOptions } from '../audio/silence';
+import { analyzeLevels, cutBuffer, detectSilences, encodeWav, type Levels, type Range, type SilenceOptions } from '../audio/silence';
+import { applyCuts } from './edit';
 import { probe } from '../lib/project';
 import { Seg, Slider } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
-import type { Project } from '../types';
 
 interface Pause extends Range {
   approved: boolean;
-}
-
-/** Remove (or shorten) the approved pauses: new trimmed voiceover asset + everything after each cut moves earlier. */
-export function applyCuts(p: Project, cutsVoice: Range[], newAssetId: string) {
-  const off = p.voiceStart ?? 0;
-  const cuts = cutsVoice.map((c) => ({ start: c.start + off, end: c.end + off }));
-  const r = (t: number) => remapTime(t, cuts);
-  p.voiceover = { ...p.voiceover!, assetId: newAssetId };
-  p.words.forEach((w) => ((w.start = r(w.start)), (w.end = r(w.end))));
-  p.lines.forEach((l) => ((l.start = r(l.start)), (l.end = r(l.end)), l.words.forEach((w) => ((w.start = r(w.start)), (w.end = r(w.end))))));
-  p.typo.forEach((b) => ((b.start = r(b.start)), (b.end = r(b.end)), b.words.forEach((w) => ((w.start = r(w.start)), (w.end = r(w.end))))));
-  p.sfx.forEach((s) => (s.start = r(s.start)));
-  p.overlays.forEach((o) => {
-    const end = r(o.start + o.duration);
-    o.start = r(o.start);
-    o.duration = Math.max(0.2, end - o.start);
-  });
-  p.music.forEach((m) => {
-    const end = r(m.start + m.duration);
-    m.start = r(m.start);
-    m.duration = Math.max(0.2, end - m.start);
-  });
-  p.clips.forEach((c, i) => i > 0 && (c.start = r(c.start)));
-  // Clips squeezed to nothing by a cut keep a tiny length so the order stays valid.
-  for (let i = 1; i < p.clips.length; i++) if (p.clips[i].start <= p.clips[i - 1].start + 0.05) p.clips[i].start = p.clips[i - 1].start + 0.05;
-  p.effects.forEach((e) => e.scope?.kind === 'range' && ((e.scope.start = r(e.scope.start)), (e.scope.end = r(e.scope.end))));
 }
 
 export function SilenceDialog({ onClose }: { onClose: () => void }) {

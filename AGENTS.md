@@ -36,6 +36,10 @@
   - `detectSilences`, `speechRangesFromLevels`: music ducking prefers these over captions.
   - `remapTime`, `cutBuffer`, `encodeWav`.
   - Silence removal UI: `editor/SilenceDialog.tsx`. `applyCuts` shifts every timed item.
+- Timeline editing:
+  - Pure operations live in `editor/edit.ts`: split, ripple delete, copy/paste, `detachAudio`, `applyCuts` / `applyTimeMap`, voice segments (`voiceover.splits`), and `snapPoints` / `snapTime`.
+  - UI actions (clipboard, toasts, async voice cuts) live in `editor/actions.ts`, and shortcuts in `editor/shortcuts.tsx`.
+  - Clip `speed` is applied in `clipSourceTime`, the mix (`playbackRate`) and the preview `<video>.playbackRate`. MusicItem `rate` keeps detached audio at the clip's speed.
 - Effects can be scoped (`EffectLayer.scope`: all / range / clips, plus fades); `effectAmount()` in `renderer.ts`.
 - Per-clip motion overrides (`motionDepth`, `motionReverse`, `motionEasing`, `motionCustom` for the `custom` motion) go through `clipMotionXform()` in `render/motion.ts`.
 - Performance profiles: `src/lib/perf.ts`.
@@ -63,6 +67,7 @@
   - `scripts/steps-depth2.json`: depth maps
   - `scripts/steps-phaseA.json`: settings, collapsed panels, effect ranges, typography animation + handles
   - `scripts/steps-silence.json`: synthetic voice with pauses → Remove silences → length shrinks
+  - `scripts/steps-phaseB.json`: duplicate, ripple delete, snapping toggle, split voice → cut a part → undo
   - `scripts/steps-ai.json`: all AI-assistant actions against `node scripts/fake-llm.mjs` (port 1235; mimics LM Studio + Gemma, with messy JSON replies)
   - `scripts/steps-region.json`: object selection. The first run downloads models, and headless WebGPU is flaky, so the CPU fallback can take ~2 min.
 

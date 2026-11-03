@@ -11,7 +11,8 @@ import { fmtTime } from '../lib/util';
 import { probe } from '../lib/project';
 import { fetchResult, runJob, useEngine } from '../lib/engine';
 import { media } from '../render/media';
-import { splitAtPlayhead } from './Timeline';
+import { deleteVoiceSegment, detachSelectedAudio, splitAtPlayhead, splitVoiceAtPlayhead } from './actions';
+import { removeVoiceSplit, voiceSegments } from './edit';
 import { deleteSelection } from './shortcuts';
 import { CAPTION_FONTS } from '../render/captions';
 import { makeDepthAsset } from '../ai/jobs';
@@ -132,8 +133,19 @@ function ClipInspector({ id }: { id: string }) {
           <Slider label="Trim in" value={clip.trimIn} min={0} max={Math.max(0, (clip.trimOut ?? asset.duration ?? 0) - 0.1)} step={0.01} onChange={(v) => set((c) => void (c.trimIn = v), 'trim')} suffix="s" />
           <Slider label="Trim out" value={clip.trimOut ?? asset.duration ?? 0} min={clip.trimIn + 0.1} max={asset.duration ?? 1} step={0.01} onChange={(v) => set((c) => void (c.trimOut = v), 'trimo')} suffix="s" />
           <Toggle label="Loop the trimmed range (otherwise hold the last frame)" value={!!clip.loop} onChange={(v) => set((c) => void (c.loop = v))} />
+          <Slider label="Speed" value={clip.speed ?? 1} min={0.25} max={4} step={0.05} onChange={(v) => set((c) => void (c.speed = Math.abs(v - 1) < 0.03 ? undefined : v), 'cspeed')} fmt={(v) => `${v.toFixed(2)}×`} />
+          <div className="row wrap">
+            {[0.5, 1, 1.5, 2].map((v) => <button key={v} className={`btn sm ghost ${(clip.speed ?? 1) === v ? 'on' : ''}`} onClick={() => set((c) => void (c.speed = v === 1 ? undefined : v))}>{v}×</button>)}
+          </div>
           <Slider label="Clip sound" value={clip.volume} min={0} max={1.5} onChange={(v) => set((c) => void (c.volume = v), 'cvol')} fmt={(v) => `${Math.round(v * 100)}%`} />
-          <p className="hint">The clip's own sound is mixed under the narration; motion (zoom/pan) applies to videos too.</p>
+          {clip.volume > 0 && (
+            <div className="row">
+              <Slider label="Sound fade in" value={clip.fadeIn ?? 0} min={0} max={3} step={0.1} onChange={(v) => set((c) => void (c.fadeIn = v), 'cfi')} suffix="s" />
+              <Slider label="Fade out" value={clip.fadeOut ?? 0} min={0} max={3} step={0.1} onChange={(v) => set((c) => void (c.fadeOut = v), 'cfo')} suffix="s" />
+            </div>
+          )}
+          <button className="btn sm" disabled={clip.volume <= 0} onClick={detachSelectedAudio}><Icon name="unlink" /> Detach audio to the music lane</button>
+          <p className="hint">The clip's own sound is mixed under the narration and follows the speed; motion (zoom/pan) applies to videos too.</p>
         </Section>
       )}
       <Section title="Depth & animated details" hint="Make the image come alive: 3D depth motion, and effects on a part of the image you click.">
@@ -342,6 +354,43 @@ function ProjectSummary() {
   );
 }
 
+function VoiceSegmentInspector({ index }: { index: number }) {
+  const p = useProject();
+  const update = useEditor((s) => s.update);
+  const vo = p.voiceover && findAsset(p, p.voiceover.assetId);
+  if (!vo || !p.voiceover) return null;
+  const segs = voiceSegments(p, vo.duration ?? 0);
+  const sg = segs[index];
+  if (!sg) return null;
+  const off = p.voiceStart ?? 0;
+  const words = (p.words.length ? p.words : p.lines.flatMap((l) => l.words)).filter((w) => w.start >= sg.start + off - 0.05 && w.end <= sg.end + off + 0.05);
+  return (
+    <>
+      <Section title={`Narration part ${index + 1} of ${segs.length}`}>
+        <dl className="specs">
+          <dt>From</dt><dd>{fmtTime(sg.start + off)}</dd>
+          <dt>To</dt><dd>{fmtTime(sg.end + off)}</dd>
+          <dt>Length</dt><dd>{(sg.end - sg.start).toFixed(2)} s</dd>
+        </dl>
+        {words.length > 0 && <p className="hint">“{words.map((w) => w.text).join(' ').slice(0, 220)}”</p>}
+        <div className="row wrap">
+          <button className="btn sm" onClick={() => (useEditor.getState().seek(sg.start + off), useEditor.getState().setPlaying(true))}><Icon name="play" /> Play</button>
+          <button className="btn sm" onClick={splitVoiceAtPlayhead}><Icon name="scissors" /> Split at playhead</button>
+          <button className="btn sm danger" disabled={segs.length < 2} onClick={() => void deleteVoiceSegment(index)}><Icon name="ripple" /> Cut this part out</button>
+        </div>
+        {segs.length < 2 && <p className="hint">Move the playhead and click <b>Split</b> to divide the narration, then select a part to cut it. Captions, typography, SFX and clips after it move earlier.</p>}
+        <div className="row wrap">
+          {index > 0 && <button className="btn sm ghost" onClick={() => update((d) => removeVoiceSplit(d, index - 1))}>Join with previous</button>}
+          {index < segs.length - 1 && <button className="btn sm ghost" onClick={() => update((d) => removeVoiceSplit(d, index))}>Join with next</button>}
+        </div>
+      </Section>
+      <Section title="Voiceover">
+        <Slider label="Volume" value={p.voiceover.volume} min={0} max={2} onChange={(v) => update((d) => void (d.voiceover!.volume = v), 'vvol')} fmt={(v) => `${Math.round(v * 100)}%`} />
+      </Section>
+    </>
+  );
+}
+
 export function Inspector() {
   const sel = useEditor((s) => s.selection);
   const multi = useEditor((s) => s.multi);
@@ -355,6 +404,7 @@ export function Inspector() {
         {sel?.kind === 'keyword' && <KeywordInspector id={sel.id} />}
         {sel?.kind === 'music' && <MusicInspector id={sel.id} />}
         {sel?.kind === 'sfx' && <SfxInspector id={sel.id} />}
+        {sel?.kind === 'voice' && <VoiceSegmentInspector index={+sel.id} />}
       </div>
     </aside>
   );

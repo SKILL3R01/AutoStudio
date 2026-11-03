@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom';
 import { useEditor, clipEnd, projectLength } from '../store';
 import { useLines, useProject, useThumb } from './hooks';
 import { media, peaks } from '../render/media';
-import { clipIndexAt } from '../render/renderer';
-import { fmtTime, uid } from '../lib/util';
+import { fmtTime } from '../lib/util';
 import { TRANSITIONS, type Clip, type Transition } from '../types';
-import { deleteSelection } from './shortcuts';
+import { deleteAction } from './shortcuts';
+import { copySelection, detachSelectedAudio, duplicate, hasClipboard, paste, rippleDelete, splitAtPlayhead, splitVoiceAtPlayhead } from './actions';
+import { snapPoints, snapTime, voiceSegments } from './edit';
 import { Icon } from '../components/icons';
 import { Slider } from '../components/ui';
 import { TRANSITION_LABELS } from './Panels';
@@ -44,7 +45,9 @@ const ClipBlock = memo(function ClipBlock({ clip, i, end, zoom, selected, kind, 
     const t0 = p0.clips[i].start;
     const lo = i > 0 ? (i === 1 ? 0 : p0.clips[i - 1].start) + 0.1 : 0;
     const hi = (i + 1 < p0.clips.length ? p0.clips[i + 1].start : projectLength(p0)) - 0.1;
-    startDrag(e, zoom, (dt) => update((p) => void (p.clips[i].start = Math.min(hi, Math.max(lo, t0 + dt))), `edge-${clip.id}`));
+    const st = useEditor.getState();
+    const pts = st.snap ? snapPoints(p0, st.time, clip.id) : [];
+    startDrag(e, zoom, (dt) => update((p) => void (p.clips[i].start = Math.min(hi, Math.max(lo, pts.length ? snapTime(t0 + dt, pts, zoom) : t0 + dt))), `edge-${clip.id}`));
   };
   return (
     <div
@@ -179,20 +182,6 @@ function Playhead({ zoom, scroller }: { zoom: number; scroller: React.RefObject<
   return <div className="playhead" style={{ left: x }} />;
 }
 
-export function splitAtPlayhead() {
-  const { project: p, time, update } = useEditor.getState();
-  if (!p?.clips.length) return;
-  const i = clipIndexAt(p.clips, time);
-  const c = p.clips[i];
-  const start = i === 0 ? 0 : c.start;
-  if (time - start < 0.2 || clipEnd(p, i) - time < 0.2) return;
-  update((d) => {
-    const asset = d.assets.find((a) => a.id === c.assetId);
-    const copy = { ...structuredClone(c), id: uid(), start: time, trimIn: asset?.kind === 'video' ? c.trimIn + (time - start) : 0 };
-    d.clips.splice(i + 1, 0, copy);
-  });
-}
-
 export function Timeline() {
   const p = useProject();
   const lines = useLines();
@@ -232,32 +221,62 @@ export function Timeline() {
   }, []);
 
   const [trOpen, setTrOpen] = useState<number | null>(null);
-  const moveItem = (key: 'music' | 'sfx' | 'overlays' | 'typo', id: string, e: React.PointerEvent, mode: 'move' | 'resize' = 'move') => {
-    const item = (p[key] as { id: string; start: number; duration?: number; end?: number }[]).find((x) => x.id === id)!;
-    const s0 = item.start, d0 = item.duration ?? 0, e0 = item.end ?? 0;
+  const voiceDur = (p.voiceover && assets.get(p.voiceover.assetId)?.duration) || 0;
+  const segs = p.voiceover ? voiceSegments(p, voiceDur) : [];
+  const snapOn = useEditor((s) => s.snap);
+  const setSnap = useEditor((s) => s.setSnap);
+  /** Move an item, drag its right edge (`resize`) or its left edge (`trimStart`, music / text only). Edges snap. */
+  const moveItem = (key: 'music' | 'sfx' | 'overlays' | 'typo', id: string, e: React.PointerEvent, mode: 'move' | 'resize' | 'trimStart' = 'move') => {
+    const item = (p[key] as { id: string; start: number; duration?: number; end?: number; trimIn?: number; rate?: number }[]).find((x) => x.id === id)!;
+    const s0 = item.start, d0 = item.duration ?? 0, e0 = item.end ?? 0, tin0 = item.trimIn ?? 0, rate = item.rate ?? 1;
+    const len0 = item.end !== undefined ? e0 - s0 : d0;
     const words0 = key === 'typo' ? p.typo.find((b) => b.id === id)!.words.map((w) => [w.start, w.end]) : [];
     const kind = key === 'overlays' ? 'overlay' : key === 'typo' ? 'keyword' : key;
+    const st = useEditor.getState();
+    const pts = st.snap ? snapPoints(p, st.time, id) : [];
+    const snap = (t: number) => (pts.length ? snapTime(t, pts, zoom) : t);
     startDrag(e, zoom, (dt) => update((d) => {
-      const it = (d[key] as { id: string; start: number; duration?: number; end?: number; words?: { start: number; end: number }[] }[]).find((x) => x.id === id)!;
+      const it = (d[key] as { id: string; start: number; duration?: number; end?: number; trimIn?: number; words?: { start: number; end: number }[] }[]).find((x) => x.id === id)!;
       if (mode === 'move') {
-        const shift = Math.max(-s0, dt);
+        // Snap whichever edge lands nearer a snap point.
+        const raw = s0 + dt;
+        const a = snap(raw), b = snap(raw + len0) - len0;
+        const want = a !== raw && (b === raw || Math.abs(a - raw) <= Math.abs(b - raw)) ? a : b;
+        const shift = Math.max(-s0, want - s0);
         it.start = s0 + shift;
         if (it.end !== undefined) it.end = e0 + shift;
         it.words?.forEach((w, k) => ((w.start = words0[k][0] + shift), (w.end = words0[k][1] + shift)));
-      } else if (it.end !== undefined) it.end = Math.max(it.start + 0.2, e0 + dt);
-      else it.duration = Math.max(0.2, d0 + dt);
+      } else if (mode === 'trimStart') {
+        const lo = key === 'music' ? s0 - tin0 / rate : 0;
+        const ns = Math.min(s0 + d0 - 0.2, Math.max(lo, snap(s0 + dt)));
+        it.start = ns;
+        it.duration = d0 - (ns - s0);
+        if (key === 'music') it.trimIn = Math.max(0, tin0 + (ns - s0) * rate);
+      } else if (it.end !== undefined) it.end = Math.max(it.start + 0.2, snap(e0 + dt));
+      else it.duration = Math.max(0.2, snap(s0 + d0 + dt) - s0);
     }, `${mode}-${id}`), () => (useEditor.getState().select({ kind, id }), useEditor.getState().seek(s0 + 0.05)));
   };
   // Drag the narration later/earlier (intro before the voice); captions and SFX move with it.
   const dragVoice = (e: React.PointerEvent) => {
     const v0 = p.voiceStart;
-    startDrag(e, zoom, (dt) => update((d) => setVoiceStart(d, Math.round((v0 + dt) * 20) / 20), 'voiceStart'));
+    const st = useEditor.getState();
+    const pts = st.snap ? snapPoints({ ...p, voiceover: undefined }, st.time) : [];
+    const x = e.clientX - e.currentTarget.getBoundingClientRect().left;
+    startDrag(e, zoom, (dt) => update((d) => setVoiceStart(d, pts.length ? Math.max(0, snapTime(v0 + dt, pts, zoom)) : Math.round((v0 + dt) * 20) / 20), 'voiceStart'), () => {
+      // Click = select the narration segment under the pointer.
+      const local = x / zoom;
+      const k = voiceSegments(p, voiceDur).findIndex((sg) => local >= sg.start && local < sg.end);
+      st.select({ kind: 'voice', id: String(Math.max(0, k)) });
+      st.seek(p.voiceStart + local);
+    });
   };
   // Drag the end of the video: past the narration this becomes the outro.
   const dragEnd = (e: React.PointerEvent) => {
     const l0 = length;
+    const st = useEditor.getState();
+    const pts = st.snap ? snapPoints(p, st.time).filter((q) => Math.abs(q - l0) > 1e-6) : [];
     startDrag(e, zoom, (dt) => update((d) => {
-      const want = Math.max(0.5, l0 + dt);
+      const want = Math.max(0.5, pts.length ? snapTime(l0 + dt, pts, zoom) : l0 + dt);
       const ve = voiceEnd(d);
       if (ve) d.tail = Math.max(0, Math.round((want - ve) * 10) / 10);
       else d.length = Math.round(want * 10) / 10;
@@ -286,10 +305,18 @@ export function Timeline() {
     <div className="timeline" style={{ height: shownHeight }}>
       <div className="tl-resize" onPointerDown={resize} title="Drag to resize" />
       <div className="tl-tools">
-        <button className="icon-btn" onClick={splitAtPlayhead} title="Split at playhead (S)"><Icon name="scissors" /></button>
-        <button className="icon-btn" disabled={!selCount} onClick={deleteSelection} title="Delete (Del)"><Icon name="trash" /></button>
+        <button className="icon-btn" onClick={splitAtPlayhead} title="Split at playhead (S): the selected music, text or narration, otherwise the clip"><Icon name="scissors" /></button>
+        <button className="icon-btn" disabled={!selCount} onClick={deleteAction} title="Delete (Del)"><Icon name="trash" /></button>
+        <button className="icon-btn" disabled={!(sel?.kind === 'clip' || sel?.kind === 'voice' || multi.length)} onClick={() => void rippleDelete()} title="Ripple delete (Shift+Del): remove and close the gap"><Icon name="ripple" /></button>
+        <span className="tl-sep" />
+        <button className="icon-btn" disabled={!selCount || sel?.kind === 'voice'} onClick={() => void copySelection()} title="Copy (Ctrl+C)"><Icon name="copy" /></button>
+        <button className="icon-btn" disabled={!hasClipboard()} onClick={() => paste()} title="Paste at playhead (Ctrl+V)"><Icon name="paste" /></button>
+        <button className="icon-btn" disabled={!selCount || sel?.kind === 'voice'} onClick={duplicate} title="Duplicate (Ctrl+D)"><Icon name="layers" /></button>
+        <button className="icon-btn" disabled={sel?.kind !== 'clip' || assets.get(p.clips.find((c) => c.id === sel.id)?.assetId ?? '')?.kind !== 'video'} onClick={detachSelectedAudio} title="Detach audio: move a video clip's sound to the music lane"><Icon name="unlink" /></button>
+        {p.voiceover && <button className="btn ghost sm" onClick={splitVoiceAtPlayhead} title="Split the narration at the playhead, then click a part to select and delete it"><Icon name="mic" size={13} /> Split voice</button>}
+        <span className="tl-sep" />
+        <button className={`icon-btn ${snapOn ? 'on' : ''}`} onClick={() => setSnap(!snapOn)} title={`Snapping ${snapOn ? 'on' : 'off'} (N)`}><Icon name="magnet" /></button>
         <button className="btn ghost sm" onClick={insertBlank} title="Insert a blank (black) section at the playhead"><Icon name="plus" /> Blank</button>
-        <span className="hint">Drag the ◀▶ end handle to extend the end · drag the voice lane to add an intro</span>
         {selCount > 1 && <span className="chip">{selCount} clips selected</span>}
         <div className="grow" />
         <button className="icon-btn" onClick={() => setZoom(Math.max(1, zoom / 1.5))} title="Zoom out">−</button>
@@ -324,6 +351,7 @@ export function Timeline() {
             <div className="track t-text">
               {p.overlays.filter((o) => inView(o.start, o.start + o.duration)).map((o) => (
                 <div key={o.id} className={`item overlay ${sel?.id === o.id ? 'sel' : ''}`} style={{ left: o.start * zoom, width: Math.max(8, o.duration * zoom) }} onPointerDown={(e) => moveItem('overlays', o.id, e)}>
+                  <div className="resize left" onPointerDown={(e) => moveItem('overlays', o.id, e, 'trimStart')} />
                   {o.assetId ? '🖼' : 'T'} {o.text}
                   <div className="resize" onPointerDown={(e) => moveItem('overlays', o.id, e, 'resize')} />
                 </div>
@@ -359,13 +387,17 @@ export function Timeline() {
               {p.voiceover && (
                 <div className="voice-clip" style={{ left: p.voiceStart * zoom }} onPointerDown={dragVoice} title="Narration — drag to start it later (intro)">
                   <Waveform assetId={p.voiceover.assetId} length={assets.get(p.voiceover.assetId)?.duration ?? length} zoom={zoom} />
+                  {segs.map((sg, k) => (
+                    <div key={k} className={`voice-seg ${sel?.kind === 'voice' && sel.id === String(k) ? 'sel' : ''}`} style={{ left: sg.start * zoom, width: (sg.end - sg.start) * zoom }} />
+                  ))}
                 </div>
               )}
             </div>
             <div className="track t-music">
               {p.music.map((m) => (
                 <div key={m.id} className={`item music ${sel?.id === m.id ? 'sel' : ''}`} style={{ left: m.start * zoom, width: Math.max(8, m.duration * zoom) }} onPointerDown={(e) => moveItem('music', m.id, e)}>
-                  ♫ {assets.get(m.assetId)?.name}
+                  <div className="resize left" onPointerDown={(e) => moveItem('music', m.id, e, 'trimStart')} />
+                  ♫ {assets.get(m.assetId)?.name}{m.rate && m.rate !== 1 ? ` · ${m.rate}×` : ''}
                   <div className="resize" onPointerDown={(e) => moveItem('music', m.id, e, 'resize')} />
                 </div>
               ))}

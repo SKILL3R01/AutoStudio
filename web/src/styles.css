@@ -422,3 +422,11 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .sel-box .h-scale.sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
 .sel-box .h-rot { left: 50%; top: -28px; margin-left: -7px; border-radius: 50%; cursor: grab; }
 .sel-box .h-rot::after { content: ''; position: absolute; left: 4px; top: 12px; width: 2px; height: 14px; background: var(--accent); }
+/* v1.3: timeline tools */
+.tl-sep { width: 1px; height: 18px; background: var(--line2); margin: 0 4px; }
+.icon-btn.on { color: var(--accent2); background: var(--accent-bg); }
+.btn.on { border-color: var(--accent); color: var(--text); }
+.item .resize.left { left: 0; right: auto; }
+.voice-seg { position: absolute; top: 2px; bottom: 2px; border-left: 2px solid rgba(255, 200, 80, 0.85); pointer-events: none; }
+.voice-seg:first-of-type { border-left-color: transparent; }
+.voice-seg.sel { background: rgba(255, 200, 80, 0.18); outline: 1px solid rgba(255, 200, 80, 0.9); }

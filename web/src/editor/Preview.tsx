@@ -21,6 +21,8 @@ function syncVideos(m: RenderModel, t: number, playing: boolean) {
     active.add(asset.id);
     const v = media.video(asset.id);
     const want = clipSourceTime(clip, asset, t - clipStart(m.project.clips, i));
+    const rate = clip.speed ?? 1;
+    if (v.playbackRate !== rate) v.playbackRate = rate;
     if (playing) {
       if (v.paused) {
         v.currentTime = want;
