@@ -4,7 +4,7 @@ import { useProject, useThumb } from './hooks';
 import { FilePick, Section, Select, Slider, LogBox, Toggle } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
-import { MOTIONS, TRANSITIONS, REGION_EFFECTS, TYPO_TEMPLATES, type Overlay, type Region, type MusicItem, type SfxItem, type TypoBlock, type TypoBg, type TypoRole, type TypoTemplate } from '../types';
+import { MOTIONS, TRANSITIONS, REGION_EFFECTS, TYPO_TEMPLATES, TYPO_ENTERS, TYPO_EXITS, type TypoEnter, type TypoExit, type Framing, type MotionEasing, type Overlay, type Region, type MusicItem, type SfxItem, type TypoBlock, type TypoBg, type TypoRole, type TypoTemplate } from '../types';
 import { FONT_PAIRS, TEMPLATE_LABELS, TYPO_PALETTES } from '../lib/typography';
 import { MOTION_LABELS, TRANSITION_LABELS } from './Panels';
 import { fmtTime } from '../lib/util';
@@ -15,6 +15,7 @@ import { splitAtPlayhead } from './Timeline';
 import { deleteSelection } from './shortcuts';
 import { CAPTION_FONTS } from '../render/captions';
 import { makeDepthAsset } from '../ai/jobs';
+import { confirmHeavyAi } from '../lib/perf';
 import { RegionDialog } from './RegionDialog';
 import { useVision } from '../ai/vision';
 
@@ -73,6 +74,7 @@ function ClipInspector({ id }: { id: string }) {
     }
   };
   const depth = async () => {
+    if (!confirmHeavyAi()) return;
     setDepthBusy(true);
     try {
       const d = await makeDepthAsset(clip, asset);
@@ -91,6 +93,37 @@ function ClipInspector({ id }: { id: string }) {
         <p className="hint">{asset.name} · {asset.width}×{asset.height} · {fmtTime(start)} → {fmtTime(clipEnd(p, i))}</p>
         {i > 0 && <Slider label="Starts at" value={clip.start} min={i > 1 ? p.clips[i - 1].start + 0.1 : 0.1} max={clipEnd(p, i) - 0.1} step={0.01} onChange={(v) => set((c) => void (c.start = v), 'start')} suffix="s" />}
         <Select label="Motion" value={clip.motion} options={MOTIONS.map((m) => [m, MOTION_LABELS[m]] as [typeof m, string])} onChange={(v) => set((c) => void (c.motion = v))} />
+        {clip.motion !== 'none' && (
+          <>
+            {clip.motion !== 'custom' && <Slider label="Strength" value={clip.motionDepth ?? p.motionDepth} min={0} max={0.5} onChange={(v) => set((c) => void (c.motionDepth = v), 'mdepth')} fmt={(v) => `${Math.round(v * 100)}%`} />}
+            <div className="row">
+              <Select label="Easing" value={clip.motionEasing ?? 'easeInOut'} options={[['easeInOut', 'Smooth'], ['linear', 'Linear'], ['easeIn', 'Speed up'], ['easeOut', 'Slow down']] as [MotionEasing, string][]} onChange={(v) => set((c) => void (c.motionEasing = v))} />
+              <Toggle label="Reverse" value={!!clip.motionReverse} onChange={(v) => set((c) => void (c.motionReverse = v))} />
+            </div>
+          </>
+        )}
+        {clip.motion === 'custom' && (() => {
+          const mc = clip.motionCustom ?? { from: { scale: 1, x: 0, y: 0 }, to: { scale: 1.15, x: 0, y: 0 } };
+          const setF = (end: 'from' | 'to', key: keyof Framing, v: number) => set((c) => void (c.motionCustom = { ...mc, [end]: { ...mc[end], [key]: v } }), `mc${end}${key}`);
+          return (
+            <div className="card">
+              <b>Custom framing</b>
+              {(['from', 'to'] as const).map((end) => (
+                <div key={end}>
+                  <span className="hint">{end === 'from' ? 'Start of clip' : 'End of clip'}</span>
+                  <Slider label="Zoom" value={mc[end].scale} min={1} max={2.5} onChange={(v) => setF(end, 'scale', v)} fmt={(v) => `${v.toFixed(2)}×`} />
+                  <Slider label="Left ↔ right" value={mc[end].x} min={-0.5} max={0.5} onChange={(v) => setF(end, 'x', v)} />
+                  <Slider label="Up ↕ down" value={mc[end].y} min={-0.5} max={0.5} onChange={(v) => setF(end, 'y', v)} />
+                </div>
+              ))}
+              <div className="row wrap">
+                <button className="btn sm ghost" onClick={() => set((c) => void (c.motionCustom = { from: mc.to, to: mc.from }))}>Swap start/end</button>
+                <button className="btn sm ghost" onClick={() => useEditor.getState().seek(i === 0 ? 0 : clip.start)}>Preview from start</button>
+              </div>
+              <p className="hint">Tip: keep zoom above the pan amount so no black edges appear.</p>
+            </div>
+          );
+        })()}
         <Select label="Transition in" value={clip.transition} options={TRANSITIONS.map((m) => [m, TRANSITION_LABELS[m]] as [typeof m, string])} onChange={(v) => set((c) => void (c.transition = v))} />
         <Select label="Fit" value={clip.fit} options={[['cover', 'Fill frame (crop)'], ['contain', 'Fit whole image']]} onChange={(v) => set((c) => void (c.fit = v))} />
       </Section>
@@ -108,7 +141,7 @@ function ClipInspector({ id }: { id: string }) {
           {depthThumb && <img className="depth-thumb" src={depthThumb} alt="depth" />}
           <button className="btn sm" disabled={depthBusy} onClick={depth}><Icon name="depth" /> {depthBusy ? (vision.label ? `${vision.label} ${Math.round(vision.value * 100)}%` : 'Estimating…') : clip.depthId ? 'Redo depth map' : 'Generate depth map'}</button>
         </div>
-        <button className="btn sm primary" onClick={() => setRegionOpen(true)}><Icon name="cursor" /> Animate a detail…</button>
+        <button className="btn sm primary" onClick={() => confirmHeavyAi() && setRegionOpen(true)}><Icon name="cursor" /> Animate a detail…</button>
         {(clip.regions ?? []).map((r) => (
           <div key={r.id} className="card">
             <div className="row between"><b>{r.name}</b><button className="icon-btn" onClick={() => set((c) => void (c.regions = c.regions!.filter((x) => x.id !== r.id)))}><Icon name="trash" /></button></div>
@@ -180,6 +213,11 @@ function OverlayInspector({ id }: { id: string }) {
 
 const ROLE_LABELS: [TypoRole, string][] = [['main', 'Main (big caps)'], ['minor', 'Small caps'], ['script', 'Script accent'], ['side', 'Vertical side'], ['accent', 'Accent']];
 
+const ENTER_LABELS: Record<TypoEnter, string> = {
+  auto: 'By role (template)', pop: 'Pop', slam: 'Slam', slide: 'Slide in', drop: 'Drop', zoom: 'Zoom', fade: 'Fade', draw: 'Hand-drawn reveal', typewriter: 'Typewriter',
+};
+const EXIT_LABELS: Record<TypoExit, string> = { auto: 'Fade & grow', fade: 'Fade', zoomOut: 'Zoom out', slideOut: 'Slide up', none: 'Cut' };
+
 function KeywordInspector({ id }: { id: string }) {
   const p = useProject();
   const update = useEditor((s) => s.update);
@@ -206,6 +244,18 @@ function KeywordInspector({ id }: { id: string }) {
         <Slider label="Y" value={b.y} min={0} max={1} onChange={(v) => set((x) => void (x.y = v), 'ty')} />
         <Slider label="Until" value={b.end} min={b.words[b.words.length - 1].end} max={projectLength(p)} step={0.05} onChange={(v) => set((x) => void (x.end = v), 'te')} suffix="s" />
       </Section>
+      <Section title="Animation" hint="How the words come in and how the block leaves.">
+        <div className="row">
+          <Select label="Entrance" value={b.enter ?? 'auto'} options={TYPO_ENTERS.map((k) => [k, ENTER_LABELS[k]] as [TypoEnter, string])} onChange={(v) => set((x) => void (x.enter = v))} />
+          <Select label="Exit" value={b.exit ?? 'auto'} options={TYPO_EXITS.map((k) => [k, EXIT_LABELS[k]] as [TypoExit, string])} onChange={(v) => set((x) => void (x.exit = v))} />
+        </div>
+        <Slider label="Speed" value={b.speed ?? 1} min={0.5} max={2} step={0.05} onChange={(v) => set((x) => void (x.speed = v), 'tsp')} fmt={(v) => `${v.toFixed(2)}×`} />
+        <Slider label="Word rhythm" value={b.stagger ?? 0} min={0} max={0.8} step={0.02} onChange={(v) => set((x) => void (x.stagger = v || undefined), 'tst')} fmt={(v) => (v ? `${v.toFixed(2)} s` : 'when spoken')} />
+        <div className="row wrap">
+          <button className="btn sm" onClick={() => (useEditor.getState().seek(Math.max(0, b.start - 0.3)), useEditor.getState().setPlaying(true))}><Icon name="play" /> Preview block</button>
+          <button className="btn sm ghost" onClick={() => update((d) => d.typo.forEach((x) => Object.assign(x, { enter: b.enter, exit: b.exit, speed: b.speed, stagger: b.stagger })))}>Apply to all blocks</button>
+        </div>
+      </Section>
       <Section title="Words" hint="Each word appears when it is spoken. Change its role to change how it is drawn.">
         {b.words.map((w, k) => (
           <div key={k} className="card">
@@ -215,6 +265,7 @@ function KeywordInspector({ id }: { id: string }) {
             </div>
             <div className="row">
               <Select label="Role" value={w.role} options={ROLE_LABELS} onChange={(v) => set((x) => void (x.words[k].role = v))} />
+              <Select label="Animation" value={w.anim ?? ''} options={[['', 'Block default'], ...TYPO_ENTERS.map((e) => [e, ENTER_LABELS[e]] as [string, string])]} onChange={(v) => set((x) => void (x.words[k].anim = (v || undefined) as TypoEnter | undefined))} />
               <Select label="Font" value={w.font ?? ''} options={[['', 'From pair'], ...CAPTION_FONTS.map((f) => [f, f] as [string, string]), ...['League Spartan', 'Archivo Black', 'Oswald', 'Pacifico', 'Dancing Script', 'Caveat Brush', 'Lalezar'].map((f) => [f, f] as [string, string])]} onChange={(v) => set((x) => void (x.words[k].font = v || undefined))} />
             </div>
             <Slider label="Appears" value={w.start} min={Math.max(0, b.start - 2)} max={b.end} step={0.01} onChange={(v) => set((x) => {
@@ -243,7 +294,15 @@ function MusicInspector({ id }: { id: string }) {
       <Slider label="Trim in" value={m.trimIn} min={0} max={Math.max(0, (findAsset(p, m.assetId)?.duration ?? 1) - 1)} step={0.1} onChange={(v) => set((x) => void (x.trimIn = v), 'mt')} suffix="s" />
       <Slider label="Fade in" value={m.fadeIn} min={0} max={5} onChange={(v) => set((x) => void (x.fadeIn = v), 'mfi')} suffix="s" />
       <Slider label="Fade out" value={m.fadeOut} min={0} max={8} onChange={(v) => set((x) => void (x.fadeOut = v), 'mfo')} suffix="s" />
-      <Toggle label="Duck under voice" value={m.duck} onChange={(v) => set((x) => void (x.duck = v))} />
+      <Toggle label="Duck under voice (dips while someone speaks, rises in the pauses)" value={m.duck} onChange={(v) => set((x) => void (x.duck = v))} />
+      {m.duck && (
+        <>
+          <Slider label="Duck level" value={m.duckDepth ?? 0.35} min={0} max={1} onChange={(v) => set((x) => void (x.duckDepth = v), 'mdd')} fmt={(v) => `${Math.round(v * 100)}%`} />
+          <Slider label="Dip before" value={m.duckAttack ?? 0.25} min={0.05} max={1.5} step={0.05} onChange={(v) => set((x) => void (x.duckAttack = v), 'mda')} suffix="s" />
+          <Slider label="Back up after" value={m.duckRelease ?? 0.4} min={0.05} max={3} step={0.05} onChange={(v) => set((x) => void (x.duckRelease = v), 'mdr')} suffix="s" />
+          <p className="hint">Pauses are detected from the voiceover audio itself — press play to hear it.</p>
+        </>
+      )}
       <button className="btn sm ghost danger" onClick={deleteSelection}><Icon name="trash" /> Remove</button>
     </Section>
   );

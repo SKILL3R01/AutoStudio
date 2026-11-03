@@ -1,8 +1,8 @@
 import { ALL_FORMATS, BlobSource, CanvasSink, Input } from 'mediabunny';
 import { loadBlob } from '../lib/db';
 
-const MAX_DIM = 1920;
-const LRU_SIZE = 30;
+/** Image cache limits — tuned by the performance profile (see lib/perf.ts). */
+export const mediaLimits = { maxDim: 1920, lru: 30 };
 
 /** Loads project media from IndexedDB and keeps bounded caches for rendering. */
 class MediaCache {
@@ -54,11 +54,11 @@ class MediaCache {
         const b = await this.blob(id);
         if (!b) return undefined;
         const probe = await createImageBitmap(b);
-        const s = Math.min(1, MAX_DIM / Math.max(probe.width, probe.height));
+        const s = Math.min(1, mediaLimits.maxDim / Math.max(probe.width, probe.height));
         const bmp = s < 1 ? await createImageBitmap(probe, { resizeWidth: Math.round(probe.width * s), resizeHeight: Math.round(probe.height * s), resizeQuality: 'high' }) : probe;
         if (bmp !== probe) probe.close();
         this.images.set(id, bmp);
-        while (this.images.size > LRU_SIZE) {
+        while (this.images.size > mediaLimits.lru) {
           const [k, v] = this.images.entries().next().value!;
           v.close();
           this.images.delete(k);

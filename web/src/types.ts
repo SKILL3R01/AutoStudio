@@ -10,9 +10,16 @@ export interface Asset {
   height?: number;
 }
 
+export type MotionEasing = 'easeInOut' | 'linear' | 'easeIn' | 'easeOut';
+export interface Framing {
+  scale: number;
+  x: number;
+  y: number;
+}
+
 export const MOTIONS = [
   'none', 'zoomIn', 'zoomOut', 'panLeft', 'panRight', 'tiltUp', 'tiltDown',
-  'diagonal', 'drift', 'breathe', 'alternate', 'random', 'parallaxZoom', 'parallaxOrbit', 'dollyZoom',
+  'diagonal', 'drift', 'breathe', 'alternate', 'random', 'custom', 'parallaxZoom', 'parallaxOrbit', 'dollyZoom',
 ] as const;
 /** Motions that need a depth map (generated in-browser). */
 export const DEPTH_MOTIONS = ['parallaxZoom', 'parallaxOrbit', 'dollyZoom'] as const;
@@ -30,9 +37,16 @@ export const EFFECTS = [
 ] as const;
 export type EffectKind = (typeof EFFECTS)[number];
 
+export type EffectScope = { kind: 'all' } | { kind: 'range'; start: number; end: number } | { kind: 'clips'; ids: string[] };
+
 export interface EffectLayer {
   kind: EffectKind;
   intensity: number;
+  /** Where the effect applies (missing = whole video). */
+  scope?: EffectScope;
+  /** Seconds the effect fades in / out at the edges of its range. */
+  fadeIn?: number;
+  fadeOut?: number;
 }
 
 export interface ColorAdjust {
@@ -57,6 +71,13 @@ export interface Clip {
   volume: number;
   fit: 'cover' | 'contain';
   color?: ColorAdjust;
+  /** Per-clip motion strength (overrides the project's motion depth). */
+  motionDepth?: number;
+  /** Play the preset backwards (pan right ↔ left, zoom in ↔ out). */
+  motionReverse?: boolean;
+  motionEasing?: MotionEasing;
+  /** For the `custom` motion: framing at the start and end of the clip (scale ≥ 1, x/y offsets as fractions). */
+  motionCustom?: { from: Framing; to: Framing };
   /** Blank section: when set the clip has no media and is filled with this colour. */
   fill?: string;
   /** Asset id of a grayscale depth map (white = near). */
@@ -120,6 +141,11 @@ export type TypoTemplate = (typeof TYPO_TEMPLATES)[number];
 export type TypoRole = 'main' | 'minor' | 'accent' | 'script' | 'side';
 export type TypoBg = 'none' | 'shadow' | 'card' | 'frame';
 
+export const TYPO_ENTERS = ['auto', 'pop', 'slam', 'slide', 'drop', 'zoom', 'fade', 'draw', 'typewriter'] as const;
+export type TypoEnter = (typeof TYPO_ENTERS)[number];
+export const TYPO_EXITS = ['auto', 'fade', 'zoomOut', 'slideOut', 'none'] as const;
+export type TypoExit = (typeof TYPO_EXITS)[number];
+
 export interface TypoWord {
   text: string;
   /** When the word is spoken (it pops in then). */
@@ -128,6 +154,8 @@ export interface TypoWord {
   role: TypoRole;
   font?: string;
   color?: string;
+  /** Per-word entrance animation (overrides the block's). */
+  anim?: TypoEnter;
 }
 
 /** A kinetic-typography composition: a short phrase laid out artistically, revealed word by word with the voice. */
@@ -146,6 +174,13 @@ export interface TypoBlock {
   bg: TypoBg;
   words: TypoWord[];
   locked: boolean;
+  /** Word entrance animation (`auto` = by role, the template default). */
+  enter?: TypoEnter;
+  exit?: TypoExit;
+  /** Animation speed multiplier (default 1). */
+  speed?: number;
+  /** Seconds between word reveals; 0 / missing = each word appears when it is spoken. */
+  stagger?: number;
 }
 
 export interface TypoSettings {
@@ -225,6 +260,12 @@ export interface MusicItem {
   fadeIn: number;
   fadeOut: number;
   duck: boolean;
+  /** Music level while the voice speaks, as a fraction of its volume (default 0.35). */
+  duckDepth?: number;
+  /** Seconds to dip before speech starts (default 0.25). */
+  duckAttack?: number;
+  /** Seconds to come back up after speech ends (default 0.4). */
+  duckRelease?: number;
 }
 
 export interface SfxItem {

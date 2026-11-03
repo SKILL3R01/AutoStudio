@@ -4,6 +4,7 @@ import {
 } from 'mediabunny';
 import type { Asset, Clip, Project } from '../types';
 import { renderMix } from '../audio/mix';
+import { encodeWav } from '../audio/silence';
 import { media } from '../render/media';
 import { ensureTypoFonts } from '../render/typography';
 import {
@@ -145,14 +146,5 @@ export function videoBitrate(p: Project, W: number, H: number) {
 
 /** Export just the audio mix as a WAV file. */
 export async function exportAudio(p: Project) {
-  const buf = await renderMix(p, 48000);
-  const ch = buf.numberOfChannels, len = buf.length;
-  const data = new DataView(new ArrayBuffer(44 + len * ch * 2));
-  const w = (o: number, s: string) => [...s].forEach((c, i) => data.setUint8(o + i, c.charCodeAt(0)));
-  w(0, 'RIFF'); data.setUint32(4, 36 + len * ch * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
-  data.setUint32(16, 16, true); data.setUint16(20, 1, true); data.setUint16(22, ch, true); data.setUint32(24, 48000, true);
-  data.setUint32(28, 48000 * ch * 2, true); data.setUint16(32, ch * 2, true); data.setUint16(34, 16, true); w(36, 'data'); data.setUint32(40, len * ch * 2, true);
-  const chans = Array.from({ length: ch }, (_, c) => buf.getChannelData(c));
-  for (let i = 0, o = 44; i < len; i++) for (let c = 0; c < ch; c++, o += 2) data.setInt16(o, Math.max(-1, Math.min(1, chans[c][i])) * 0x7fff, true);
-  return new Blob([data.buffer], { type: 'audio/wav' });
+  return encodeWav(await renderMix(p, 48000));
 }

@@ -1,0 +1,18 @@
+[
+  { "wait": 7000 },
+  { "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.includes('Audio')).click(); 'audio'" },
+  { "wait": 600 },
+  { "eval": "(() => { const sr = 48000, dur = 12, n = sr * dur; const speech = [[0, 2], [3.5, 6], [7, 12]]; const d = new DataView(new ArrayBuffer(44 + n * 2)); const w = (o, s) => [...s].forEach((c, i) => d.setUint8(o + i, c.charCodeAt(0))); w(0, 'RIFF'); d.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, sr, true); d.setUint32(28, sr * 2, true); d.setUint16(32, 2, true); d.setUint16(34, 16, true); w(36, 'data'); d.setUint32(40, n * 2, true); for (let i = 0; i < n; i++) { const t = i / sr; const on = speech.some(([a, b]) => t >= a && t < b); const v = on ? 0.4 * Math.sin(2 * Math.PI * 220 * t) * (0.6 + 0.4 * Math.sin(2 * Math.PI * 3 * t)) : (Math.random() - 0.5) * 0.002; d.setInt16(44 + i * 2, v * 32767, true); } const file = new File([d.buffer], 'voice_test.wav', { type: 'audio/wav' }); const input = [...document.querySelectorAll('.panels input[type=file]')].find(i => (i.accept || '').includes('audio')); if (!input) return 'no input'; const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; input.dispatchEvent(new Event('change', { bubbles: true })); return 'voice added'; })()" },
+  { "wait": 3000 },
+  { "eval": "[...document.querySelectorAll('.inspector dd')].map(d => d.textContent).slice(0, 3).join(' | ')" },
+  { "eval": "(() => { const b = [...document.querySelectorAll('.panels button')].find(b => b.textContent.includes('Remove silences')); if (!b) return 'no button'; b.click(); return 'silence dialog'; })()" },
+  { "wait": 3000 },
+  { "eval": "(document.querySelector('.modal')?.innerText ?? 'no modal').replace(/\\n+/g, ' / ').slice(0, 400)" },
+  { "shot": "dialog" },
+  { "eval": "(() => { const b = [...document.querySelectorAll('.modal button')].find(b => b.textContent.startsWith('Apply')); if (!b || b.disabled) return 'apply disabled'; b.click(); return 'applied'; })()" },
+  { "wait": 3000 },
+  { "eval": "[...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | ') || 'no toast'" },
+  { "eval": "[...document.querySelectorAll('.inspector dd')].map(d => d.textContent).slice(0, 3).join(' | ')" },
+  { "eval": "[...document.querySelectorAll('.item.clip')].map(c => c.style.left).join(',')" },
+  { "shot": "after" }
+]

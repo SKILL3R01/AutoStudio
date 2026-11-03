@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { navigate } from '../App';
 import { useEditor, findAsset } from '../store';
-import { importAudio, importVisuals, kindOf } from '../lib/project';
+import { importAudio, importVisuals, kindOf, probe } from '../lib/project';
+import { uid } from '../lib/util';
 import { FilePick, Progress } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
@@ -19,11 +20,14 @@ export function ImportReview({ project, voice, onBuilt, cta = 'Validate & build 
   useEffect(() => () => itemsRef.current.forEach((i) => URL.revokeObjectURL(i.url)), []);
   const voDur = voice ? null : project.voiceover ? findAsset(project, project.voiceover.assetId)?.duration ?? null : null;
   const [voiceDur, setVoiceDur] = useState<number | null>(null);
+  // A voiceover dropped into the list counts like the separate voiceover box.
+  const voiceFile = voice ?? (items.find((i) => i.kind === 'audio' && i.include && i.audioRole === 'voiceover')?.file as File | undefined) ?? null;
   useEffect(() => {
-    if (!voice) return setVoiceDur(null);
-    const a = new Audio(URL.createObjectURL(voice));
-    a.onloadedmetadata = () => setVoiceDur(a.duration);
-  }, [voice]);
+    if (!voiceFile) return setVoiceDur(null);
+    const u = URL.createObjectURL(voiceFile);
+    const a = new Audio(u);
+    a.onloadedmetadata = () => (setVoiceDur(a.duration), URL.revokeObjectURL(u));
+  }, [voiceFile]);
   const length = voiceDur ?? voDur;
   const add = async (files: File[]) => {
     // A scenes.json from the Flow bridge can be dropped together with the downloads.
@@ -41,18 +45,32 @@ export function ImportReview({ project, voice, onBuilt, cta = 'Validate & build 
     }
     setItems((cur) => {
       const names = new Set(cur.map((c) => c.name));
-      return [...cur, ...toReviewItems(files.filter((f) => !names.has(f.name)))];
+      const hasVoice = !!voice || !!project.voiceover || cur.some((c) => c.audioRole === 'voiceover');
+      return [...cur, ...toReviewItems(files.filter((f) => !names.has(f.name)), hasVoice)];
     });
   };
   const ready = reviewReady(items, length);
   const build = async () => {
-    const chosen = items.filter((i) => i.include && i.time !== null);
+    const chosen = items.filter((i) => i.include && i.time !== null && i.kind !== 'audio');
+    const sounds = items.filter((i) => i.include && i.kind === 'audio');
     setBusy(0);
     try {
       let next = voice ? await importAudio(project, [voice], { asVoiceover: true }) : project;
+      for (const a of sounds) {
+        const file = a.file as File;
+        if (a.audioRole === 'voiceover') next = await importAudio(next, [file], { asVoiceover: true });
+        else if (a.audioRole === 'music') {
+          next = await importAudio(next, [file], { asMusic: true });
+          const m = next.music[next.music.length - 1];
+          if (m) m.start = a.time ?? 0;
+        } else {
+          const asset = await probe(file, a.name, 'audio');
+          next = { ...next, assets: [...next.assets, asset], sfx: [...next.sfx, { id: uid(), sound: `asset:${asset.id}`, start: a.time ?? 0, volume: 0.8 }] };
+        }
+      }
       next = await importVisuals(next, chosen.map((i) => ({ file: i.file, name: i.name, time: i.time! })), setBusy);
       update((d) => Object.assign(d, next));
-      toast(`Added ${chosen.length} clips`, 'ok');
+      toast(`Added ${chosen.length} clips${sounds.length ? ` · ${sounds.length} sound file${sounds.length > 1 ? 's' : ''}` : ''}`, 'ok');
       onBuilt?.();
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -62,10 +80,10 @@ export function ImportReview({ project, voice, onBuilt, cta = 'Validate & build 
   };
   return (
     <>
-      <FilePick className="drop" accept="image/*,video/*,.json" multiple onFiles={add}>
+      <FilePick className="drop" accept="image/*,video/*,audio/*,.json" multiple onFiles={add}>
         <span className="icon"><Icon name="media" size={20} /></span>
-        <b>{items.length ? 'Add more media' : 'Storyboard images & video'}</b>
-        <span>Images or video clips named by timestamp (0-00, 0-06…), or Flow downloads (001_v1…). Drop files or whole folders — even several at once.</span>
+        <b>{items.length ? 'Add more media' : 'Storyboard images, video & sound'}</b>
+        <span>Images or video clips named by timestamp (0-00, 0-06…), Flow downloads (001_v1…), and sound files (voiceover, music, sound effects). Drop files or whole folders — even several at once.</span>
       </FilePick>
       {items.length > 0 && <ReviewTable items={items} setItems={(f) => setItems(f)} length={length} flowScenes={project.flowScenes} />}
       {busy !== null ? (

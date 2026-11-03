@@ -64,7 +64,7 @@ export const useLlm = create<LlmState>((set, get) => ({
 }));
 
 /** Send a chat to the configured LLM and return the reply text. */
-export async function chat(messages: ChatMessage[], opts: { maxTokens?: number; temperature?: number } = {}): Promise<string> {
+export async function chat(messages: ChatMessage[], opts: { maxTokens?: number; temperature?: number; timeoutMs?: number } = {}): Promise<string> {
   const { preset, url, key, model, status } = useLlm.getState();
   if (status !== 'ready' && !(await useLlm.getState().check())) throw new Error('AI assistant is not connected. Click "Connect LLM" in the top bar.');
   if (preset === 'colab') {
@@ -73,18 +73,33 @@ export async function chat(messages: ChatMessage[], opts: { maxTokens?: number; 
     f.append('max_tokens', String(opts.maxTokens ?? 600));
     f.append('temperature', String(opts.temperature ?? 0.6));
     const j = await runJob('chat', f, () => {});
-    return j.data.reply as string;
+    return cleanReply(String(j.data.reply ?? ''));
   }
   // Some chat templates (e.g. Gemma) reject a system role — fold it into the first user turn.
   const msgs = /gemma/i.test(model) ? foldSystem(messages) : messages;
-  const r = await fetch(`${url.replace(/\/+$/, '')}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
-    body: JSON.stringify({ model, messages: msgs, temperature: opts.temperature ?? 0.6, max_tokens: opts.maxTokens ?? 600, stream: false }),
-  });
+  let r: Response;
+  try {
+    r = await fetch(`${url.replace(/\/+$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
+      body: JSON.stringify({ model, messages: msgs, temperature: opts.temperature ?? 0.6, max_tokens: opts.maxTokens ?? 600, stream: false }),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 180_000),
+    });
+  } catch (e) {
+    const err = e as Error;
+    if (err.name === 'TimeoutError') throw new Error('The AI assistant took too long to answer. Try a smaller model or try again.');
+    throw new Error(`Cannot reach the AI assistant at ${url}. Is the server running, and is CORS enabled (LM Studio → Developer → Settings → Enable CORS)?`);
+  }
   if (!r.ok) throw new Error(`LLM error ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const j = await r.json();
-  return String(j.choices?.[0]?.message?.content ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  const text = cleanReply(String(j.choices?.[0]?.message?.content ?? ''));
+  if (!text) throw new Error('The model returned an empty answer (thinking models may need a higher token limit, or a non-thinking model).');
+  return text;
+}
+
+/** Strip reasoning blocks (closed or cut off) that thinking models put before the answer. */
+export function cleanReply(s: string): string {
+  return s.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/^\s*<think>[\s\S]*$/, '').trim();
 }
 
 function foldSystem(m: ChatMessage[]): ChatMessage[] {
@@ -94,10 +109,57 @@ function foldSystem(m: ChatMessage[]): ChatMessage[] {
   return [{ ...rest[0], content: `${sys}\n\n${rest[0].content}` }, ...rest.slice(1)];
 }
 
-/** Ask for JSON and parse the first JSON object/array in the reply. */
+/**
+ * Find and parse JSON in a model reply: handles ```json fences, prose before/after, and trailing commas.
+ * Scans for the first balanced {…} or […] that parses.
+ */
+export function parseJsonLoose<T>(reply: string): T {
+  const fenced = reply.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const text = fenced ? fenced[1] : reply;
+  const tryParse = (x: string) => {
+    try {
+      return { ok: true as const, v: JSON.parse(x.replace(/,\s*([\]}])/g, '$1')) };
+    } catch {
+      return { ok: false as const };
+    }
+  };
+  const whole = tryParse(text.trim());
+  if (whole.ok) return whole.v as T;
+  for (let i = 0; i < text.length; i++) {
+    const open = text[i];
+    if (open !== '{' && open !== '[') continue;
+    let depth = 0, inStr = false, esc = false;
+    for (let k = i; k < text.length; k++) {
+      const c = text[k];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (c === '\\') esc = true;
+        else if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') inStr = true;
+      else if (c === '{' || c === '[') depth++;
+      else if (c === '}' || c === ']') {
+        depth--;
+        if (depth === 0) {
+          const r = tryParse(text.slice(i, k + 1));
+          if (r.ok) return r.v as T;
+          break;
+        }
+      }
+    }
+  }
+  throw new Error('The AI assistant did not return valid JSON. Try again, or use a larger model.');
+}
+
+/** Ask for JSON and parse it; retries once with a reminder when the first reply is not valid JSON. */
 export async function chatJson<T>(system: string, user: string, maxTokens = 1200): Promise<T> {
-  const reply = await chat([{ role: 'system', content: `${system}\nReply with valid JSON only, no commentary.` }, { role: 'user', content: user }], { maxTokens, temperature: 0.3 });
-  const m = reply.match(/[[{][\s\S]*[\]}]/);
-  if (!m) throw new Error('The LLM did not return JSON.');
-  return JSON.parse(m[0]) as T;
+  const messages: ChatMessage[] = [{ role: 'system', content: `${system}\nReply with valid JSON only, no commentary.` }, { role: 'user', content: user }];
+  const reply = await chat(messages, { maxTokens, temperature: 0.3 });
+  try {
+    return parseJsonLoose<T>(reply);
+  } catch {
+    const again = await chat([...messages, { role: 'assistant', content: reply }, { role: 'user', content: 'That was not valid JSON. Reply again with only the JSON, nothing else.' }], { maxTokens, temperature: 0.1 });
+    return parseJsonLoose<T>(again);
+  }
 }

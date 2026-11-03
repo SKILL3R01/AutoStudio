@@ -1,4 +1,4 @@
-import type { Motion, Transition } from '../types';
+import type { Clip, Motion, MotionEasing, Transition } from '../types';
 import { TRANSITIONS } from '../types';
 import { easeInOut, hash, lerp } from '../lib/util';
 
@@ -23,8 +23,24 @@ export function resolveTransition(t: Transition, index: number): Transition {
 }
 
 /** Camera transform for a clip. `p` is clip progress 0..1, `local` is seconds since the clip started. */
-export function motionXform(m: Motion, p: number, local: number, depth: number, index: number): Xform {
-  const e = easeInOut(Math.min(1, Math.max(0, p)));
+const EASE: Record<MotionEasing, (t: number) => number> = {
+  easeInOut, linear: (t) => t, easeIn: (t) => t * t, easeOut: (t) => 1 - (1 - t) * (1 - t),
+};
+
+/** Motion for a clip with its per-clip overrides (strength, reverse, easing, custom framing). */
+export function clipMotionXform(clip: Clip, m: Motion, p: number, local: number, projectDepth: number, index: number): Xform {
+  const ease = EASE[clip.motionEasing ?? 'easeInOut'];
+  const q = Math.min(1, Math.max(0, p));
+  if (m === 'custom') {
+    const c = clip.motionCustom ?? { from: { scale: 1, x: 0, y: 0 }, to: { scale: 1.15, x: 0, y: 0 } };
+    const e = ease(clip.motionReverse ? 1 - q : q);
+    return { scale: Math.max(1, lerp(c.from.scale, c.to.scale, e)), dx: lerp(c.from.x, c.to.x, e), dy: lerp(c.from.y, c.to.y, e) };
+  }
+  return motionXform(m, clip.motionReverse ? 1 - q : q, local, clip.motionDepth ?? projectDepth, index, ease);
+}
+
+export function motionXform(m: Motion, p: number, local: number, depth: number, index: number, ease: (t: number) => number = easeInOut): Xform {
+  const e = ease(Math.min(1, Math.max(0, p)));
   const d = depth;
   const dir = hash(index + 11) > 0.5 ? 1 : -1;
   switch (m) {

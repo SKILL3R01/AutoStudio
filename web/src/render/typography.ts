@@ -216,9 +216,13 @@ export function drawTypography(ctx: CanvasRenderingContext2D, blocks: TypoBlock[
 function drawBlock(ctx: CanvasRenderingContext2D, b: TypoBlock, t: number, W: number, H: number) {
   const L = layoutBlock(b, W, H);
   const pal = TYPO_PALETTES[b.palette] ?? TYPO_PALETTES['mono-yellow'];
-  const exit = clamp((t - b.end) / 0.3, 0, 1);
+  const speed = b.speed ?? 1;
+  const exitMode = b.exit ?? 'auto';
+  const exit = exitMode === 'none' ? (t > b.end ? 1 : 0) : clamp((t - b.end) / (0.3 / speed), 0, 1);
   const enter = clamp((t - b.start + 0.05) / 0.2, 0, 1);
-  const s = fitScale(L, b, W, H) * (1 + 0.06 * easeInOut(exit));
+  const ex = easeInOut(exit);
+  const exitScale = exitMode === 'auto' ? 1 + 0.06 * ex : exitMode === 'zoomOut' ? 1 - 0.4 * ex : 1;
+  const s = fitScale(L, b, W, H) * exitScale;
   const alpha = enter * (1 - exit);
   if (alpha <= 0) return;
   ctx.save();
@@ -228,7 +232,7 @@ function drawBlock(ctx: CanvasRenderingContext2D, b: TypoBlock, t: number, W: nu
     ctx.fillRect(0, 0, W, H);
   }
   const half = (L.w * s) / 2, halfH = (L.h * s) / 2;
-  ctx.translate(clamp(b.x * W, Math.min(W / 2, half + W * 0.02), Math.max(W / 2, W - half - W * 0.02)), clamp(b.y * H, Math.min(H / 2, halfH + H * 0.02), Math.max(H / 2, H - halfH - H * 0.02)));
+  ctx.translate(clamp(b.x * W, Math.min(W / 2, half + W * 0.02), Math.max(W / 2, W - half - W * 0.02)), clamp(b.y * H, Math.min(H / 2, halfH + H * 0.02), Math.max(H / 2, H - halfH - H * 0.02)) - (exitMode === 'slideOut' ? ex * H * 0.08 : 0));
   ctx.rotate((b.rotate * Math.PI) / 180);
   ctx.scale(s, s);
   if (b.bg === 'card') {
@@ -244,14 +248,36 @@ function drawBlock(ctx: CanvasRenderingContext2D, b: TypoBlock, t: number, W: nu
   ctx.lineJoin = 'round';
   for (const it of L.items) {
     const w = b.words[it.word];
-    if (t < w.start - 0.02) continue;
-    const a = clamp((t - w.start + 0.02) / 0.26, 0, 1);
+    // Stagger > 0 reveals words at a fixed rhythm from the block start instead of when they are spoken.
+    const ws = b.stagger ? b.start + it.word * b.stagger : w.start;
+    if (t < ws - 0.02) continue;
+    const a = clamp(((t - ws + 0.02) * speed) / 0.26, 0, 1);
+    const anim = w.anim ?? b.enter ?? 'auto';
     let sc = 1, dx = 0, dy = 0, al = a;
-    if (it.role === 'main') {
-      sc = 1 + (1 - easeOutBack(a)) * 0.35;
-      al = clamp(a * 2, 0, 1);
-    } else if (it.role === 'minor') dy = (1 - easeInOut(a)) * it.size * 0.45;
-    else if (it.role === 'side') dx = (1 - easeInOut(a)) * it.size * 1.2;
+    let reveal = anim === 'auto' ? (it.role === 'script' || it.role === 'accent' ? easeInOut(a) : 1) : 1;
+    if (anim === 'auto') {
+      if (it.role === 'main') {
+        sc = 1 + (1 - easeOutBack(a)) * 0.35;
+        al = clamp(a * 2, 0, 1);
+      } else if (it.role === 'minor') dy = (1 - easeInOut(a)) * it.size * 0.45;
+      else if (it.role === 'side') dx = (1 - easeInOut(a)) * it.size * 1.2;
+    } else if (anim === 'pop') {
+      sc = 0.3 + 0.7 * easeOutBack(a);
+      al = clamp(a * 3, 0, 1);
+    } else if (anim === 'slam') {
+      sc = 1 + (1 - a) * (1 - a) * 1.4;
+      al = clamp(a * 3, 0, 1);
+    } else if (anim === 'slide') dx = (1 - easeInOut(a)) * it.size * 1.4;
+    else if (anim === 'drop') dy = -(1 - easeOutBack(a)) * it.size * 0.9;
+    else if (anim === 'zoom') sc = 0.55 + 0.45 * easeInOut(a);
+    else if (anim === 'draw') {
+      reveal = easeInOut(a);
+      al = 1;
+    } else if (anim === 'typewriter') {
+      const n = Math.max(1, w.text.length);
+      reveal = Math.ceil(a * n) / n;
+      al = 1;
+    }
     ctx.save();
     ctx.globalAlpha = alpha * al;
     ctx.translate(it.x, it.y);
@@ -260,10 +286,10 @@ function drawBlock(ctx: CanvasRenderingContext2D, b: TypoBlock, t: number, W: nu
     ctx.scale(sc, sc);
     ctx.font = `${it.weight} ${it.size}px "${it.family}", sans-serif`;
     ctx.letterSpacing = it.role === 'main' || it.role === 'side' ? `${-it.size * 0.02}px` : '0px';
-    if (it.role === 'script' || it.role === 'accent') {
-      // Hand-drawn reveal: the word is uncovered left to right.
+    if (reveal < 1) {
+      // Hand-drawn / typewriter reveal: the word is uncovered left to right.
       ctx.beginPath();
-      ctx.rect(-it.w / 2 - it.size * 0.3, -it.size, (it.w + it.size * 0.6) * easeInOut(a), it.size * 2);
+      ctx.rect(-it.w / 2 - it.size * 0.3, -it.size, (it.w + it.size * 0.6) * reveal, it.size * 2);
       ctx.clip();
     }
     if (b.bg === 'shadow') {

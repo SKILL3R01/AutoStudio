@@ -6,6 +6,7 @@ import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { useVision } from '../ai/vision';
 import { makeDepthAsset } from '../ai/jobs';
+import { confirmHeavyAi } from '../lib/perf';
 import { chat, chatJson, useLlm } from '../lib/llm';
 import { MOTIONS, TRANSITIONS, type Motion, type Transition } from '../types';
 import { SFX } from '../audio/sfx';
@@ -24,6 +25,7 @@ export function AiPanel() {
   const missing = p.clips.filter((c) => !c.depthId);
 
   const depthAll = async () => {
+    if (!confirmHeavyAi()) return;
     setDepthProg([0, missing.length]);
     try {
       for (const [i, c] of missing.entries()) {

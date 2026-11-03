@@ -11,6 +11,7 @@ import { Upscale } from './tools/Upscale';
 import { AutoVideo } from './tools/AutoVideo';
 import { FlowBridge } from './tools/FlowBridge';
 import { useEngine } from './lib/engine';
+import { useLlm } from './lib/llm';
 
 export type ToolId = 'voiceover' | 'transcript' | 'images' | 'upscale' | 'auto' | 'flow';
 export type Route = { page: 'home' } | { page: 'projects' } | { page: 'editor'; id: string } | { page: 'tool'; tool: ToolId };
@@ -54,7 +55,12 @@ export function App() {
     window.addEventListener('hashchange', on);
     if (!connect()) demo();
     void useEngine.getState().check();
-    const iv = setInterval(() => useEngine.getState().url && useEngine.getState().check(), 60000);
+    // Reconnect the AI assistant silently when one was set up before (otherwise every AI button stays disabled).
+    if (localStorage.getItem('llm')) void useLlm.getState().check();
+    const iv = setInterval(() => {
+      if (useEngine.getState().url) void useEngine.getState().check();
+      if (localStorage.getItem('llm') && useLlm.getState().status === 'offline') void useLlm.getState().check();
+    }, 60000);
     return () => (window.removeEventListener('hashchange', on), clearInterval(iv));
   }, []);
   const Tool = route.page === 'tool' ? TOOL_PAGES[route.tool] : null;

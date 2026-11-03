@@ -7,6 +7,7 @@ import { createDemoProject } from '../lib/demo';
 import { FilePick, useObjectUrl } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
+import { RELEASES_URL } from '../components/SettingsDialog';
 
 const ago = (t: number) => {
   const s = (Date.now() - t) / 1000;
@@ -107,6 +108,7 @@ export function Projects() {
         </button>
         {projects?.map((p) => <ProjectCard key={p.id} p={p} refresh={refresh} />)}
       </div>
+      <p className="hint center footer-version">AutoStudio v{__APP_VERSION__} · <a href={RELEASES_URL} target="_blank" rel="noreferrer">Releases</a></p>
     </main>
   );
 }

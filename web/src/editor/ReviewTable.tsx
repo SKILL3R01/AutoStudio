@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { FlowScene } from '../types';
 import { fmtClock, parseClock, stampFor } from '../lib/timecode';
-import { ops, renameItem, statuses, STATUS_LABEL, type ReviewItem, type ReviewStatus } from './review';
+import { ops, renameItem, statuses, STATUS_LABEL, type AudioRole, type ReviewItem, type ReviewStatus } from './review';
 import { Icon } from '../components/icons';
 
 function TimeInput({ value, onChange }: { value: number | null; onChange: (t: number | null) => void }) {
@@ -107,9 +107,15 @@ export function ReviewTable({ items, setItems, length, flowScenes }: { items: Re
           return (
             <div key={i.id} className={`rt-row ${i.selected ? 'sel' : ''} ${i.include ? '' : 'off'}`}>
               <input type="checkbox" checked={i.selected} onChange={(e) => set(i.id, { selected: e.target.checked })} />
-              {i.kind === 'image' ? <img src={i.url} loading="lazy" alt="" /> : <video src={`${i.url}#t=0.5`} muted preload="metadata" />}
+              {i.kind === 'image' ? <img src={i.url} loading="lazy" alt="" /> : i.kind === 'video' ? <video src={`${i.url}#t=0.5`} muted preload="metadata" /> : <span className="rt-audio"><Icon name={i.audioRole === 'voiceover' ? 'mic' : i.audioRole === 'sfx' ? 'sfx' : 'music'} size={18} /></span>}
               <NameInput value={i.name} onChange={(name) => setItems((list) => list.map((x) => (x.id === i.id ? renameItem(x, name) : x)))} />
-              <span className="hint">{i.guess.label}</span>
+              {i.kind === 'audio' ? (
+                <select className="rt-role" value={i.audioRole} onChange={(e) => set(i.id, { audioRole: e.target.value as AudioRole })} title="Where this sound goes">
+                  <option value="voiceover">Voiceover</option>
+                  <option value="music">Music</option>
+                  <option value="sfx">Sound effect</option>
+                </select>
+              ) : <span className="hint">{i.guess.label}</span>}
               <TimeInput value={i.time} onChange={(t) => set(i.id, { time: t, confirmed: t !== null })} />
               <span className={`st st-${s}`}>{s === 'ok' ? <Icon name="check" size={12} /> : <Icon name="warn" size={12} />} {STATUS_LABEL[s]}</span>
               <span className="rt-actions">

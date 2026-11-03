@@ -1,6 +1,7 @@
 // AutoStudio desktop shell: serves the built web app (dist/) over a secure custom scheme so that
 // ES modules, workers, WebGPU, WebCodecs and IndexedDB behave exactly like on https.
-const { app, BrowserWindow, Menu, net, protocol, shell, session } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, net, protocol, shell, session } = require('electron');
+const os = require('node:os');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
@@ -49,7 +50,7 @@ function createWindow() {
     title: 'AutoStudio',
     icon: path.join(__dirname, 'icon.png'),
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, preload: path.join(__dirname, 'preload.cjs') },
   });
   // Links to other sites (Colab, Flow, docs) open in the default browser, not inside the app.
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -65,6 +66,20 @@ function createWindow() {
   void win.loadURL(`${ORIGIN}/index.html`);
   return win;
 }
+
+// Hardware summary for the performance profile (RAM, CPU, GPU).
+ipcMain.handle('autostudio:hardware', async () => {
+  const gpu = await app.getGPUInfo('basic').catch(() => ({}));
+  const dev = (gpu.gpuDevice ?? []).find((d) => d.active) ?? (gpu.gpuDevice ?? [])[0];
+  const cpus = os.cpus();
+  return {
+    ramGB: Math.round(os.totalmem() / 1024 ** 3),
+    cores: cpus.length,
+    cpu: cpus[0]?.model?.trim() ?? '',
+    gpu: dev ? [dev.vendorString, dev.deviceString].filter(Boolean).join(' ') || `vendor 0x${(dev.vendorId ?? 0).toString(16)}` : '',
+    platform: process.platform,
+  };
+});
 
 app.whenReady().then(() => {
   protocol.handle(SCHEME, (req) => {

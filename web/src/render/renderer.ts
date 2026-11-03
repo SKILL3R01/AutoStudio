@@ -1,7 +1,7 @@
-import type { Asset, CaptionLine, Clip, Overlay, Project, Transition } from '../types';
+import type { Asset, CaptionLine, Clip, EffectLayer, Overlay, Project, Transition } from '../types';
 import { clipEnd, projectLength } from '../store';
 import { clamp, easeInOut, hash } from '../lib/util';
-import { isDepthMotion, motionXform, parallaxCamera, resolveMotion, resolveTransition } from './motion';
+import { clipMotionXform, isDepthMotion, parallaxCamera, resolveMotion, resolveTransition } from './motion';
 import { drawTypography } from './typography';
 import { animateRegions } from './regions';
 import { renderParallax } from './parallax';
@@ -118,7 +118,7 @@ function drawClip(g: CanvasRenderingContext2D, m: RenderModel, i: number, t: num
     if (pd) d = pd;
     else motion = 'zoomIn';
   }
-  const x = motionXform(motion, local / span, local, p.motionDepth, i);
+  const x = clipMotionXform(clip, motion, local / span, local, p.motionDepth, i);
   const c = clip.color ?? { brightness: 1, contrast: 1, saturation: 1 };
   const color = `brightness(${p.color.brightness * c.brightness}) contrast(${p.color.contrast * c.contrast}) saturate(${p.color.saturation * c.saturation})`;
   const cover = Math.max(W / w, H / h), contain = Math.min(W / w, H / h);
@@ -273,7 +273,11 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
   const p = m.project;
   ctx.save();
   drawVisuals(ctx, m, t, src, W, H);
-  for (const fx of p.effects) if (fx.kind !== 'none') drawEffect(ctx, fx.kind, fx.intensity, t, W, H);
+  for (const fx of p.effects) {
+    if (fx.kind === 'none') continue;
+    const k = effectAmount(fx, t, p.clips, m.length);
+    if (k > 0) drawEffect(ctx, fx.kind, fx.intensity * k, t, W, H);
+  }
   for (const o of p.overlays) drawOverlay(ctx, o, t, src, W, H);
   if (p.captions.mode !== 'keywords') drawCaptions(ctx, m.lines, t, p.captions, W, H);
   if (p.captions.mode !== 'full') drawTypography(ctx, p.typo, t, W, H);
@@ -285,6 +289,22 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
     ctx.fillRect(0, 0, W, H);
   }
   ctx.restore();
+}
+
+/** 0..1 strength of an effect layer at time t, from its scope (whole video / time range / chosen clips) and fades. */
+export function effectAmount(fx: EffectLayer, t: number, clips: Clip[], length: number): number {
+  const sc = fx.scope ?? { kind: 'all' as const };
+  let a = 0, b = length;
+  if (sc.kind === 'range') [a, b] = [sc.start, sc.end];
+  else if (sc.kind === 'clips') {
+    const i = clips.length ? clipIndexAt(clips, t) : -1;
+    if (i < 0 || !sc.ids.includes(clips[i].id)) return 0;
+    a = i === 0 ? 0 : clips[i].start;
+    b = i + 1 < clips.length ? clips[i + 1].start : length;
+  }
+  if (t < a || t > b) return 0;
+  const fi = fx.fadeIn ?? 0, fo = fx.fadeOut ?? 0;
+  return Math.max(0, Math.min(1, fi > 0 ? (t - a) / fi : 1, fo > 0 ? (b - t) / fo : 1));
 }
 
 /** Clips that need pixels at time t (the active one plus a transition partner). */

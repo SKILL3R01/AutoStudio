@@ -2,6 +2,7 @@ import type { Project } from '../types';
 import { clipEnd, projectLength, voiceEnd } from '../store';
 import { media } from '../render/media';
 import { sfxBuffer } from './sfx';
+import { analyzeLevels, speechRangesFromLevels } from './silence';
 
 export interface Buffers {
   assets: Map<string, AudioBuffer>;
@@ -30,8 +31,16 @@ export async function loadBuffers(p: Project): Promise<Buffers> {
   return { assets, sfx };
 }
 
-/** Time ranges with speech, used to duck background music. */
-function speechRanges(p: Project): [number, number][] {
+/**
+ * Time ranges with speech, used to duck background music. Pauses are detected from the voiceover audio itself
+ * (so ducking works without captions); captions are the fallback when the voice buffer is unavailable.
+ */
+export function speechRanges(p: Project, bufs?: Buffers): [number, number][] {
+  const vo = p.voiceover && bufs?.assets.get(p.voiceover.assetId);
+  if (vo) {
+    const off = p.voiceStart ?? 0;
+    return speechRangesFromLevels(analyzeLevels(vo)).map((r) => [r.start + off, r.end + off] as [number, number]);
+  }
   const src = p.words.length ? p.words.map((w) => [w.start, w.end] as [number, number]) : p.lines.map((l) => [l.start, l.end] as [number, number]);
   if (!src.length) return p.voiceover ? [[p.voiceStart ?? 0, voiceEnd(p)]] : [];
   const out: [number, number][] = [];
@@ -89,7 +98,7 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     play(bufs.assets.get(p.voiceover.assetId), p.voiceStart ?? 0, Infinity, 0, g);
   }
 
-  const speech = speechRanges(p);
+  const speech = speechRanges(p, bufs);
   for (const m of p.music) {
     const g = ctx.createGain();
     g.connect(master);
@@ -102,13 +111,14 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     g.gain.setValueAtTime(m.fadeIn > 0 && from < m.start + m.fadeIn ? v * Math.max(0, (from - m.start) / m.fadeIn) : v, at);
     if (m.fadeIn > 0) set(m.start + m.fadeIn, v);
     if (m.duck) {
-      const duck = v * 0.35;
+      const duck = v * (m.duckDepth ?? 0.35);
+      const attack = m.duckAttack ?? 0.25, release = m.duckRelease ?? 0.4;
       for (const [s, e] of speech) {
         if (e < m.start || s > end) continue;
-        set(Math.max(m.start + m.fadeIn, s - 0.25), v);
+        set(Math.max(m.start + m.fadeIn, s - attack), v);
         set(s, duck);
         set(e, duck);
-        set(e + 0.4, v);
+        set(e + release, v);
       }
     }
     if (m.fadeOut > 0) {

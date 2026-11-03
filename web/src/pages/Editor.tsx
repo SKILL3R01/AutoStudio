@@ -12,6 +12,7 @@ import { Inspector } from '../editor/Inspector';
 import { ImportScreen, ImportDialog } from '../editor/ImportScreen';
 import { ExportDialog } from '../editor/ExportDialog';
 import { ShortcutsDialog, useShortcuts } from '../editor/shortcuts';
+import { Splitter, usePanelSize } from '../editor/Splitter';
 import { updateThumbnail } from '../lib/thumbnail';
 import { buildLines } from '../lib/captions';
 import type { Project } from '../types';
@@ -57,6 +58,8 @@ function Workspace() {
   const { update, undo, redo, past, future } = useEditor();
   const [dialog, setDialog] = useState<'import' | 'export' | 'keys' | null>(null);
   const vo = p.voiceover && findAsset(p, p.voiceover.assetId);
+  const left = usePanelSize('layoutLeft', 300, 220, 560);
+  const right = usePanelSize('layoutRight', 300, 220, 560);
   useEffect(() => {
     const on = (e: KeyboardEvent) => e.key === '?' && !(e.target as HTMLElement).matches('input,textarea') && setDialog('keys');
     window.addEventListener('keydown', on);
@@ -76,9 +79,14 @@ function Workspace() {
         <button className="btn sm" onClick={() => setDialog('import')}><Icon name="upload" /> Add media</button>
         <button className="btn sm primary" onClick={() => setDialog('export')}><Icon name="export" /> Export</button>
       </div>
-      <div className="ed-main">
+      <div
+        className={`ed-main ${left.collapsed ? 'left-collapsed' : ''} ${right.collapsed ? 'right-collapsed' : ''}`}
+        style={{ gridTemplateColumns: `var(--rail) ${left.collapsed ? 0 : left.size}px 8px minmax(0, 1fr) 8px ${right.collapsed ? 0 : right.size}px` }}
+      >
         <Sidebar />
+        <Splitter panel={left} dir={1} label="tools panel" />
         <Preview />
+        <Splitter panel={right} dir={-1} label="properties panel" />
         <Inspector />
       </div>
       <Timeline />

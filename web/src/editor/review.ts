@@ -7,7 +7,9 @@ export interface ReviewItem {
   id: string;
   file: File | Blob;
   name: string;
-  kind: 'image' | 'video';
+  kind: 'image' | 'video' | 'audio';
+  /** For sound files: where the file goes in the project. */
+  audioRole?: AudioRole;
   guess: TimeGuess;
   time: number | null;
   /** True once the time was confirmed by the user or a bulk action (ambiguous guesses need this). */
@@ -17,6 +19,8 @@ export interface ReviewItem {
   url: string;
 }
 
+export type AudioRole = 'voiceover' | 'music' | 'sfx';
+
 export type ReviewStatus = 'ok' | 'check' | 'missing' | 'duplicate' | 'beyond' | 'excluded';
 
 export const STATUS_LABEL: Record<ReviewStatus, string> = {
@@ -25,27 +29,38 @@ export const STATUS_LABEL: Record<ReviewStatus, string> = {
 
 const byName = (a: ReviewItem, b: ReviewItem) => a.name.localeCompare(b.name, undefined, { numeric: true });
 
-export function toReviewItems(files: File[]): ReviewItem[] {
+/**
+ * Turn dropped files into review rows. Sound files become audio rows: the first one is the voiceover when the
+ * project has none, the rest music; they start at their filename time or 0 and never block the build.
+ */
+export function toReviewItems(files: File[], hasVoiceover = false): ReviewItem[] {
+  let voiceTaken = hasVoiceover;
   return files
-    .filter((f) => kindOf(f) === 'image' || kindOf(f) === 'video')
+    .filter((f) => kindOf(f) !== null)
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
     .map((f) => {
       const guess = detectTime(f.name);
-      return {
-        id: uid(), file: f, name: f.name, kind: kindOf(f) as 'image' | 'video', guess,
-        time: guess.kind === 'timestamp' || guess.kind === 'number' ? guess.time : null,
-        confirmed: guess.kind === 'timestamp', include: true, selected: false, url: URL.createObjectURL(f),
-      };
-    })
-    .sort(byName);
+      const kind = kindOf(f) as 'image' | 'video' | 'audio';
+      const base = { id: uid(), file: f, name: f.name, kind, guess, include: true, selected: false, url: URL.createObjectURL(f) };
+      if (kind === 'audio') {
+        const audioRole: AudioRole = voiceTaken ? 'music' : 'voiceover';
+        voiceTaken = true;
+        return { ...base, audioRole, time: guess.kind === 'timestamp' ? guess.time : 0, confirmed: true };
+      }
+      return { ...base, time: guess.kind === 'timestamp' || guess.kind === 'number' ? guess.time : null, confirmed: guess.kind === 'timestamp' };
+    });
 }
+
+const visual = (i: ReviewItem) => i.kind !== 'audio';
 
 export function statuses(items: ReviewItem[], length: number | null): Map<string, ReviewStatus> {
   const out = new Map<string, ReviewStatus>();
   const seen = new Map<string, number>();
-  for (const it of items) if (it.include && it.time !== null) seen.set(it.time.toFixed(2), (seen.get(it.time.toFixed(2)) ?? 0) + 1);
+  for (const it of items) if (it.include && it.time !== null && visual(it)) seen.set(it.time.toFixed(2), (seen.get(it.time.toFixed(2)) ?? 0) + 1);
   for (const it of items) {
     let s: ReviewStatus = 'ok';
     if (!it.include) s = 'excluded';
+    else if (!visual(it)) s = 'ok';
     else if (it.time === null) s = 'missing';
     else if ((seen.get(it.time.toFixed(2)) ?? 0) > 1) s = 'duplicate';
     else if (length && it.time >= length) s = 'beyond';
@@ -57,8 +72,8 @@ export function statuses(items: ReviewItem[], length: number | null): Map<string
 
 /** Items a bulk action applies to: the selected rows, or every included row when nothing is selected. */
 const targets = (items: ReviewItem[]) => {
-  const sel = items.filter((i) => i.selected && i.include);
-  return (sel.length ? sel : items.filter((i) => i.include)).sort(byName);
+  const sel = items.filter((i) => i.selected && i.include && visual(i));
+  return (sel.length ? sel : items.filter((i) => i.include && visual(i))).sort(byName);
 };
 
 const apply = (items: ReviewItem[], times: Map<string, number | null>) =>
@@ -84,7 +99,7 @@ export const ops = {
   },
   /** Place rows without a time between their named neighbours (e.g. `image (16)` between 15 and 17). */
   fillMissing(items: ReviewItem[], length: number) {
-    const list = items.filter((i) => i.include).sort(byName);
+    const list = items.filter((i) => i.include && visual(i)).sort(byName);
     const times = new Map<string, number>();
     let k = 0;
     while (k < list.length) {

@@ -7,9 +7,9 @@ import { buildMix, loadBuffers } from '../audio/mix';
 import { fmtTime } from '../lib/util';
 import { Icon } from '../components/icons';
 import { blockBox } from '../render/typography';
+import { PROFILE_SETTINGS, usePerf } from '../lib/perf';
 import type { Project } from '../types';
 
-const PREVIEW_LONG = 1280;
 
 /** Seek/play preview <video> elements so they show the right frame at timeline time t. */
 function syncVideos(m: RenderModel, t: number, playing: boolean) {
@@ -82,7 +82,8 @@ export function Preview() {
   const [guides, setGuides] = useState(false);
   const modelRef = useRef(m);
   modelRef.current = m;
-  const { W, H } = outputSize(m.project, PREVIEW_LONG);
+  const previewLong = PROFILE_SETTINGS[usePerf((s) => s.profile)].preview;
+  const { W, H } = outputSize(m.project, previewLong);
   const aKey = useMemo(() => audioKey(m.project), [m.project]);
   const stageRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -195,13 +196,54 @@ export function Preview() {
     useEditor.getState().seek(((e.clientX - r.left) / r.width) * m.length);
   };
   const sel = selection && (selection.kind === 'overlay' || selection.kind === 'keyword') ? hitBoxes(m.project, time, W, H).find((b) => b.id === selection.id) : undefined;
+  const selItem = selection?.kind === 'overlay' ? m.project.overlays.find((o) => o.id === selection.id) : selection?.kind === 'keyword' ? m.project.typo.find((b) => b.id === selection.id) : undefined;
+  const selRotation = selItem?.rotate ?? 0;
+  /** Corner handles scale (overlay.size / typography.scale); the top knob rotates, snapping near 0/±15/±45/±90°. */
+  const handleDrag = (e: React.PointerEvent, mode: 'scale' | 'rotate') => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!sel || !selection || !canvas.current) return;
+    const r = canvas.current.getBoundingClientRect();
+    const cx = r.left + sel.x * r.width, cy = r.top + sel.y * r.height;
+    const d0 = Math.hypot(e.clientX - cx, e.clientY - cy) || 1;
+    const item0 = selection.kind === 'overlay' ? m.project.overlays.find((o) => o.id === selection.id) : m.project.typo.find((b) => b.id === selection.id);
+    if (!item0) return;
+    const size0 = 'size' in item0 ? item0.size : item0.scale;
+    const st = useEditor.getState();
+    const move = (ev: PointerEvent) => {
+      st.update((d) => {
+        const it = selection.kind === 'overlay' ? d.overlays.find((o) => o.id === selection.id) : d.typo.find((b) => b.id === selection.id);
+        if (!it) return;
+        if (mode === 'scale') {
+          const k = Math.hypot(ev.clientX - cx, ev.clientY - cy) / d0;
+          const v = Math.max(0.05, Math.min(5, size0 * k));
+          if ('size' in it) it.size = v;
+          else it.scale = v;
+        } else {
+          let deg = (Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180) / Math.PI + 90;
+          if (deg > 180) deg -= 360;
+          const snap = [0, 15, -15, 45, -45, 90, -90].find((a) => Math.abs(deg - a) < 4);
+          it.rotate = Math.round(snap ?? deg);
+        }
+        if ('locked' in it) it.locked = true;
+      }, `${mode}-${selection.id}`);
+    };
+    const up = () => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up));
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
   return (
     <div className={`preview ${full ? 'full' : ''}`}>
       <div className="stage" ref={stageRef}>
         <div className="frame" style={{ width: W * fitScale, height: H * fitScale }}>
           <canvas ref={canvas} width={W} height={H} onPointerDown={onPointerDown} onDoubleClick={() => useEditor.getState().setPlaying(!playing)} />
           {guides && <div className={`guides ${m.project.export.aspect === '9:16' ? 'tall' : ''}`} />}
-          {sel && <div className="sel-box" style={{ left: `${(sel.x - sel.w / 2) * 100}%`, top: `${(sel.y - sel.h / 2) * 100}%`, width: `${sel.w * 100}%`, height: `${sel.h * 100}%` }} />}
+          {sel && (
+            <div className="sel-box" style={{ left: `${(sel.x - sel.w / 2) * 100}%`, top: `${(sel.y - sel.h / 2) * 100}%`, width: `${sel.w * 100}%`, height: `${sel.h * 100}%`, transform: `rotate(${selRotation}deg)` }}>
+              {(['nw', 'ne', 'sw', 'se'] as const).map((c) => <span key={c} className={`h-scale ${c}`} onPointerDown={(e) => handleDrag(e, 'scale')} title="Drag to resize" />)}
+              <span className="h-rot" onPointerDown={(e) => handleDrag(e, 'rotate')} title="Drag to rotate (snaps to 0/15/45/90°)" />
+            </div>
+          )}
         </div>
         {status && <span className="stage-status">{status}</span>}
       </div>

@@ -30,7 +30,20 @@
 - Filename times:
   - 2 parts = m-s; 3 parts = m-s-fraction; 4 parts = h-m-s-fraction.
   - The fraction is tenths with 1 digit, hundredths with 2, ms with 3 (`src/lib/timecode.ts`).
-- Kinetic typography: `TypoBlock` (`project.typo`). Old single-word `keywords` are migrated on load.
+- Kinetic typography: `TypoBlock` (`project.typo`). Old single-word `keywords` are migrated on load. Animation fields: `enter` / `exit` / `speed` / `stagger` per block, `anim` per word (`render/typography.ts` `drawBlock`).
+- Voice analysis: `src/audio/silence.ts`.
+  - `analyzeLevels` (10 ms RMS, cached per buffer).
+  - `detectSilences`, `speechRangesFromLevels`: music ducking prefers these over captions.
+  - `remapTime`, `cutBuffer`, `encodeWav`.
+  - Silence removal UI: `editor/SilenceDialog.tsx`. `applyCuts` shifts every timed item.
+- Effects can be scoped (`EffectLayer.scope`: all / range / clips, plus fades); `effectAmount()` in `renderer.ts`.
+- Per-clip motion overrides (`motionDepth`, `motionReverse`, `motionEasing`, `motionCustom` for the `custom` motion) go through `clipMotionXform()` in `render/motion.ts`.
+- Performance profiles: `src/lib/perf.ts`.
+  - `readHardware()` + `profileFor()` read hardware from the Electron preload (`electron/preload.cjs` → `window.autostudio.hardware()`) or browser APIs.
+  - The profile tunes the preview size and the `mediaLimits` image cache.
+  - `confirmHeavyAi()` warns before depth / SAM on Low.
+- Layout: `editor/Splitter.tsx` (`usePanelSize`, persisted in localStorage). Settings → Reset fires the `layout-reset` event.
+- `__APP_VERSION__` is injected from package.json by `vite.config.ts`.
 
 ## Desktop app
 - Electron shell: `web/electron/main.cjs`. It serves `dist/` over the privileged `app://autostudio` scheme, so the app is a secure context and IndexedDB stays on one stable origin.
@@ -48,6 +61,9 @@
   - `scripts/steps-review.json`: import review table
   - `scripts/steps-export.json`: full MP4 export
   - `scripts/steps-depth2.json`: depth maps
+  - `scripts/steps-phaseA.json`: settings, collapsed panels, effect ranges, typography animation + handles
+  - `scripts/steps-silence.json`: synthetic voice with pauses → Remove silences → length shrinks
+  - `scripts/steps-ai.json`: all AI-assistant actions against `node scripts/fake-llm.mjs` (port 1235; mimics LM Studio + Gemma, with messy JSON replies)
   - `scripts/steps-region.json`: object selection. The first run downloads models, and headless WebGPU is flaky, so the CPU fallback can take ~2 min.
 
 ## Notes

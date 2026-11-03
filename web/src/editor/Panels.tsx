@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useEditor, findAsset, projectLength, voiceEnd } from '../store';
 import { useClipTarget, useProject } from './hooks';
-import { MOTIONS, TRANSITIONS, EFFECTS, type Motion, type Transition, type Overlay, type EffectKind } from '../types';
-import { FilePick, Section, Slider } from '../components/ui';
+import { MOTIONS, TRANSITIONS, EFFECTS, type Motion, type Transition, type Overlay, type EffectKind, type EffectLayer } from '../types';
+import { FilePick, Section, Seg, Slider } from '../components/ui';
 import { Icon } from '../components/icons';
 import { CaptionsPanel } from './CaptionsPanel';
 import { KeywordsPanel } from './KeywordsPanel';
 import { MediaPanel } from './MediaPanel';
 import { AiPanel } from './AiPanel';
+import { SilenceDialog } from './SilenceDialog';
 import { EFFECT_LABELS } from '../render/effects';
 import { SFX, sfxBuffer } from '../audio/sfx';
 import { blankClip, importAudio, probe, setVoiceStart } from '../lib/project';
@@ -21,7 +22,7 @@ export type Tab = (typeof TABS)[number][0];
 
 export const MOTION_LABELS: Record<Motion, string> = {
   none: 'None', zoomIn: 'Zoom in', zoomOut: 'Zoom out', panLeft: 'Pan left', panRight: 'Pan right', tiltUp: 'Tilt up',
-  tiltDown: 'Tilt down', diagonal: 'Diagonal', drift: 'Drift', breathe: 'Breathe', alternate: 'Alternate zoom', random: 'Random mix',
+  tiltDown: 'Tilt down', diagonal: 'Diagonal', drift: 'Drift', breathe: 'Breathe', alternate: 'Alternate zoom', random: 'Random mix', custom: 'Custom framing',
   parallaxZoom: '3D push-in', parallaxOrbit: '3D orbit', dollyZoom: '3D dolly zoom',
 };
 
@@ -181,8 +182,10 @@ function MusicPanel() {
     for (let t = m.start + dur; t < len; t += dur) d.music.push({ ...m, id: uid(), start: t, duration: Math.min(dur, len - t), fadeIn: 0 });
   });
   const ve = voiceEnd(p);
+  const [silenceOpen, setSilenceOpen] = useState(false);
   return (
     <>
+      {silenceOpen && <SilenceDialog onClose={() => setSilenceOpen(false)} />}
       <Section title="Start & end" hint="Visuals before the narration (intro), after it (outro), blank sections and fades. You can also drag the voice lane and the ◀▶ end handle on the timeline.">
         {p.voiceover ? (
           <>
@@ -208,6 +211,7 @@ function MusicPanel() {
       <Section title="Voiceover">
         {p.voiceover ? (
           <>
+            <button className="btn sm" onClick={() => setSilenceOpen(true)}><Icon name="scissors" /> Remove silences…</button>
             <p className="hint"><Icon name="mic" /> {findAsset(p, p.voiceover.assetId)?.name}</p>
             <Slider label="Volume" value={p.voiceover.volume} min={0} max={2} onChange={(v) => update((d) => void (d.voiceover!.volume = v), 'vov')} fmt={(v) => `${Math.round(v * 100)}%`} />
           </>
@@ -287,22 +291,59 @@ function SfxPanel() {
 
 function EffectsPanel() {
   const p = useProject();
-  const update = useEditor((s) => s.update);
+  const { update, time, selection, multi } = useEditor();
+  const len = projectLength(p);
+  const selected = [...(selection?.kind === 'clip' ? [selection.id] : []), ...multi];
   const toggle = (k: EffectKind) => update((d) => {
     const i = d.effects.findIndex((e) => e.kind === k);
     if (i >= 0) d.effects.splice(i, 1);
-    else d.effects.push({ kind: k, intensity: 0.5 });
+    else d.effects.push({ kind: k, intensity: 0.5, scope: { kind: 'all' } });
   });
+  const setFx = (i: number, fn: (e: EffectLayer) => void, key?: string) => update((d) => fn(d.effects[i]), key);
   return (
-    <Section title="Effects" hint="Stack as many as you like — each has its own intensity.">
+    <Section title="Effects" hint="Stack as many as you like. Each can cover the whole video, a time range or chosen clips.">
       <div className="grid3">
         {EFFECTS.filter((e) => e !== 'none').map((k) => (
           <button key={k} className={`tile fx fx-${k} ${p.effects.some((e) => e.kind === k) ? 'on' : ''}`} onClick={() => toggle(k)}><i />{EFFECT_LABELS[k]}</button>
         ))}
       </div>
-      {p.effects.map((e, i) => (
-        <Slider key={e.kind} label={EFFECT_LABELS[e.kind]} value={e.intensity} min={0} max={1} onChange={(v) => update((d) => void (d.effects[i].intensity = v), `fx${e.kind}`)} fmt={(v) => `${Math.round(v * 100)}%`} />
-      ))}
+      {p.effects.map((e, i) => {
+        const sc = e.scope ?? { kind: 'all' as const };
+        return (
+          <div key={e.kind} className="card">
+            <div className="row between"><b>{EFFECT_LABELS[e.kind]}</b><button className="icon-btn" onClick={() => update((d) => void d.effects.splice(i, 1))}><Icon name="x" /></button></div>
+            <Slider label="Intensity" value={e.intensity} min={0} max={1} onChange={(v) => setFx(i, (x) => void (x.intensity = v), `fx${e.kind}`)} fmt={(v) => `${Math.round(v * 100)}%`} />
+            <Seg options={[['all', 'Whole video'], ['range', 'Time range'], ['clips', 'Chosen clips']] as const} value={sc.kind} onChange={(v) => setFx(i, (x) => {
+              if (v === 'all') x.scope = { kind: 'all' };
+              else if (v === 'range') x.scope = { kind: 'range', start: time, end: Math.min(len, time + 4) };
+              else x.scope = { kind: 'clips', ids: selected.length ? selected : p.clips[0] ? [p.clips[0].id] : [] };
+            })} />
+            {sc.kind === 'range' && (
+              <>
+                <Slider label="From" value={sc.start} min={0} max={len} step={0.05} onChange={(v) => setFx(i, (x) => void (x.scope = { kind: 'range', start: Math.min(v, sc.end - 0.1), end: sc.end }), `fxs${e.kind}`)} suffix="s" />
+                <Slider label="To" value={sc.end} min={0} max={len} step={0.05} onChange={(v) => setFx(i, (x) => void (x.scope = { kind: 'range', start: sc.start, end: Math.max(v, sc.start + 0.1) }), `fxe${e.kind}`)} suffix="s" />
+                <div className="row wrap">
+                  <button className="btn sm ghost" onClick={() => setFx(i, (x) => void (x.scope = { kind: 'range', start: time, end: Math.max(time + 0.5, sc.end) }))}>Start at playhead</button>
+                  <button className="btn sm ghost" onClick={() => setFx(i, (x) => void (x.scope = { kind: 'range', start: Math.min(sc.start, time - 0.5), end: time }))}>End at playhead</button>
+                  <button className="btn sm ghost" onClick={() => useEditor.getState().seek(sc.start)}>Jump to</button>
+                </div>
+              </>
+            )}
+            {sc.kind === 'clips' && (
+              <div className="row wrap">
+                <span className="hint">{sc.ids.length} clip{sc.ids.length === 1 ? '' : 's'}</span>
+                <button className="btn sm ghost" disabled={!selected.length} onClick={() => setFx(i, (x) => void (x.scope = { kind: 'clips', ids: selected }))}>Use selected clips ({selected.length})</button>
+              </div>
+            )}
+            {sc.kind !== 'all' && (
+              <div className="row">
+                <Slider label="Fade in" value={e.fadeIn ?? 0} min={0} max={3} step={0.1} onChange={(v) => setFx(i, (x) => void (x.fadeIn = v), `fxfi${e.kind}`)} suffix="s" />
+                <Slider label="Fade out" value={e.fadeOut ?? 0} min={0} max={3} step={0.1} onChange={(v) => setFx(i, (x) => void (x.fadeOut = v), `fxfo${e.kind}`)} suffix="s" />
+              </div>
+            )}
+          </div>
+        );
+      })}
       {p.effects.length > 0 && <button className="btn sm ghost" onClick={() => update((d) => void (d.effects = []))}>Clear all</button>}
     </Section>
   );

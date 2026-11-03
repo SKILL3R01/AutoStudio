@@ -203,7 +203,17 @@ export function Timeline() {
   const update = useEditor((s) => s.update);
   const scroller = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ left: 0, width: 2000 });
-  const [height, setHeight] = useState(() => Math.max(300, +(localStorage.getItem('tlHeight') ?? 300)));
+  const [height, setHeight] = useState(() => Math.max(160, +(localStorage.getItem('tlHeight') ?? 300)));
+  const [winH, setWinH] = useState(window.innerHeight);
+  useEffect(() => {
+    const onResize = () => setWinH(window.innerHeight);
+    const onReset = () => setHeight(300);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('layout-reset', onReset);
+    return () => (window.removeEventListener('resize', onResize), window.removeEventListener('layout-reset', onReset));
+  }, []);
+  // Never let the timeline push the preview off-screen on short windows.
+  const shownHeight = Math.max(160, Math.min(height, winH - 280));
   const length = projectLength(p);
   const width = Math.max(length * zoom + 200, 600);
   const assets = new Map(p.assets.map((a) => [a.id, a]));
@@ -260,9 +270,9 @@ export function Timeline() {
   });
   const ve = voiceEnd(p);
   const resize = (e: React.PointerEvent) => {
-    const y0 = e.clientY, h0 = height;
+    const y0 = e.clientY, h0 = shownHeight;
     const move = (ev: PointerEvent) => {
-      const h = Math.min(520, Math.max(300, h0 - (ev.clientY - y0)));
+      const h = Math.min(Math.max(200, window.innerHeight - 280), Math.max(160, h0 - (ev.clientY - y0)));
       setHeight(h);
       localStorage.setItem('tlHeight', String(h));
     };
@@ -273,7 +283,7 @@ export function Timeline() {
   const selCount = (sel ? 1 : 0) + multi.length;
 
   return (
-    <div className="timeline" style={{ height }}>
+    <div className="timeline" style={{ height: shownHeight }}>
       <div className="tl-resize" onPointerDown={resize} title="Drag to resize" />
       <div className="tl-tools">
         <button className="icon-btn" onClick={splitAtPlayhead} title="Split at playhead (S)"><Icon name="scissors" /></button>
@@ -361,6 +371,19 @@ export function Timeline() {
               ))}
             </div>
             <div className="track t-fx">
+              {p.effects.map((fx, k) => fx.scope?.kind === 'range' ? (
+                <div key={`fx-${fx.kind}`} className="item fxbar" style={{ left: fx.scope.start * zoom, width: Math.max(6, (fx.scope.end - fx.scope.start) * zoom) }} title={`${fx.kind} ${fx.scope.start.toFixed(1)}–${fx.scope.end.toFixed(1)} s`}
+                  onPointerDown={(e) => {
+                    const sc = fx.scope as { kind: 'range'; start: number; end: number };
+                    const s0 = sc.start, e0 = sc.end;
+                    startDrag(e, zoom, (dt) => update((d) => {
+                      const sh = Math.max(-s0, dt);
+                      d.effects[k].scope = { kind: 'range', start: s0 + sh, end: e0 + sh };
+                    }, `fxbar${k}`));
+                  }}>
+                  ✨ {fx.kind}
+                </div>
+              ) : null)}
               {p.sfx.map((s) => (
                 <div key={s.id} className={`item sfx ${sel?.id === s.id ? 'sel' : ''}`} style={{ left: s.start * zoom }} onPointerDown={(e) => moveItem('sfx', s.id, e)} title={s.sound}>
                   {s.sound.startsWith('asset:') ? '♪' : s.sound}
