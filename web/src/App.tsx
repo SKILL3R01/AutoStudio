@@ -11,22 +11,24 @@ import { Upscale } from './tools/Upscale';
 import { AutoVideo } from './tools/AutoVideo';
 import { FlowBridge } from './tools/FlowBridge';
 import { PromptStudio } from './tools/PromptStudio';
+import { Growth, type GrowthTab } from './growth/Growth';
 import { useEngine } from './lib/engine';
 import { useLlm } from './lib/llm';
 
 export type ToolId = 'voiceover' | 'transcript' | 'images' | 'upscale' | 'auto' | 'flow' | 'prompts';
-export type Route = { page: 'home' } | { page: 'projects' } | { page: 'editor'; id: string } | { page: 'tool'; tool: ToolId };
+export type Route = { page: 'home' } | { page: 'projects' } | { page: 'editor'; id: string } | { page: 'tool'; tool: ToolId } | { page: 'growth'; tab?: GrowthTab };
 
 const parse = (): Route => {
   const [a, b] = location.hash.slice(1).split('/');
   if (a === 'editor' && b) return { page: 'editor', id: b };
   if (a === 'tools' && b) return { page: 'tool', tool: b as ToolId };
   if (a === 'projects') return { page: 'projects' };
+  if (a === 'growth') return { page: 'growth', tab: (b || undefined) as GrowthTab | undefined };
   return { page: 'home' };
 };
 
 export const navigate = (r: Route) => {
-  location.hash = r.page === 'home' ? '' : r.page === 'projects' ? 'projects' : r.page === 'editor' ? `editor/${r.id}` : `tools/${r.tool}`;
+  location.hash = r.page === 'home' ? '' : r.page === 'projects' ? 'projects' : r.page === 'editor' ? `editor/${r.id}` : r.page === 'growth' ? `growth${r.tab ? `/${r.tab}` : ''}` : `tools/${r.tool}`;
 };
 
 const TOOL_PAGES: Record<ToolId, () => React.JSX.Element> = {
@@ -72,6 +74,7 @@ export function App() {
       {route.page === 'projects' && <Projects />}
       {route.page === 'editor' && <Editor key={route.id} id={route.id} />}
       {Tool && <Tool />}
+      {route.page === 'growth' && <Growth tab={route.tab} />}
       <Toasts />
     </div>
   );

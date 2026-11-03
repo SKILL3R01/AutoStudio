@@ -2,7 +2,7 @@
   "name": "autostudio",
   "productName": "AutoStudio",
   "private": true,
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Free all-in-one faceless video studio",
   "author": "Maher Ayadi",
   "type": "module",
@@ -43,6 +43,7 @@
       "dist/**/*",
       "electron/main.cjs",
       "electron/preload.cjs",
+      "electron/google.cjs",
       "electron/icon.png",
       "package.json"
     ],

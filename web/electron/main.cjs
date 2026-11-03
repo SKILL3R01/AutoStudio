@@ -2,6 +2,7 @@
 // ES modules, workers, WebGPU, WebCodecs and IndexedDB behave exactly like on https.
 const { app, BrowserWindow, Menu, ipcMain, net, protocol, shell, session } = require('electron');
 const os = require('node:os');
+const { registerGoogle } = require('./google.cjs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
@@ -80,6 +81,8 @@ ipcMain.handle('autostudio:hardware', async () => {
     platform: process.platform,
   };
 });
+
+registerGoogle();
 
 app.whenReady().then(() => {
   protocol.handle(SCHEME, (req) => {

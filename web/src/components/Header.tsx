@@ -18,6 +18,7 @@ export function Header({ route }: { route: Route }) {
       <nav className="topnav">
         <a href="#" className={route.page === 'home' ? 'on' : ''}>Studio</a>
         <a href="#projects" className={route.page === 'projects' || route.page === 'editor' ? 'on' : ''}>Projects</a>
+        <a href="#growth" className={route.page === 'growth' ? 'on' : ''}>Growth</a>
       </nav>
       <div className="grow" />
       <button className={`pill ${llm}`} onClick={() => setOpen('llm')} title="Local LLM assistant (LM Studio / Ollama)">
