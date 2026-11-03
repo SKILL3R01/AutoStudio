@@ -1,0 +1,15 @@
+[
+  { "wait": 4000 },
+  { "eval": "localStorage.setItem('engineUrl', 'http://localhost:1236'); location.reload(); 'configured'" },
+  { "wait": 6000 },
+  { "eval": "[...document.querySelectorAll('.header .pill')].map(b => b.textContent).join(' | ')" },
+  { "eval": "import('/src/lib/engine.ts').then(async (e) => { await e.useEngine.getState().check(); const s = e.useEngine.getState(); return s.kind + ' · tools: ' + s.info.tools.join(','); })" },
+  { "eval": "import('/src/lib/engine.ts').then(async (e) => { await e.useEngine.getState().check(); const f = new FormData(); f.append('file', new File([new Uint8Array(100)], 'voiceover.wav')); f.append('language', 'auto'); const logs = []; const j = await e.runJob('transcribe', f, (s) => logs.push(Math.round(s.progress * 100))); return 'transcribe: ' + JSON.stringify(j.data.words) + ' progress ' + logs.join(','); })" },
+  { "eval": "import('/src/lib/engine.ts').then(async (e) => { await e.useEngine.getState().check(); const f = new FormData(); f.append('text', 'Hello there.'); f.append('language', 'en'); try { await e.runJob('tts', f, () => {}); return 'tts without voice: NO ERROR'; } catch (err) { return 'tts without voice → ' + err.message; } })" },
+  { "eval": "import('/src/lib/engine.ts').then(async (e) => { await e.useEngine.getState().check(); const f = new FormData(); f.append('text', 'Hello there.'); f.append('language', 'en'); f.append('voice', new File([new Uint8Array(100)], 'me.wav')); const j = await e.runJob('tts', f, () => {}); const b = await e.fetchResult(j.files[0].url); return 'tts: ' + j.files[0].name + ' ' + b.size + ' bytes ' + b.type; })" },
+  { "eval": "import('/src/lib/engine.ts').then(async (e) => { await e.useEngine.getState().check(); const f = new FormData(); f.append('file', new File([new Uint8Array(10)], 'pic.png')); f.append('scale', '4'); const j = await e.runJob('upscale', f, () => {}); const b = await e.fetchResult(j.files[0].url); return 'upscale: ' + j.files[0].name + ' ' + b.size + ' bytes'; })" },
+  { "eval": "import('/src/lib/engine.ts').then(async (e) => { await e.useEngine.getState().check(); try { await e.runJob('imagegen', new FormData(), () => {}); return 'NO ERROR'; } catch (err) { return 'imagegen → ' + err.message; } })" },
+  { "eval": "[...document.querySelectorAll('.header .pill')].find(b => b.textContent.includes('TryAI')).click(); 'dialog'" },
+  { "wait": 800 },
+  { "shot": "dialog" }
+]

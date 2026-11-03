@@ -10,10 +10,11 @@ import { ImageGen } from './tools/ImageGen';
 import { Upscale } from './tools/Upscale';
 import { AutoVideo } from './tools/AutoVideo';
 import { FlowBridge } from './tools/FlowBridge';
+import { PromptStudio } from './tools/PromptStudio';
 import { useEngine } from './lib/engine';
 import { useLlm } from './lib/llm';
 
-export type ToolId = 'voiceover' | 'transcript' | 'images' | 'upscale' | 'auto' | 'flow';
+export type ToolId = 'voiceover' | 'transcript' | 'images' | 'upscale' | 'auto' | 'flow' | 'prompts';
 export type Route = { page: 'home' } | { page: 'projects' } | { page: 'editor'; id: string } | { page: 'tool'; tool: ToolId };
 
 const parse = (): Route => {
@@ -29,7 +30,7 @@ export const navigate = (r: Route) => {
 };
 
 const TOOL_PAGES: Record<ToolId, () => React.JSX.Element> = {
-  voiceover: Voiceover, transcript: Transcript, images: ImageGen, upscale: Upscale, auto: AutoVideo, flow: FlowBridge,
+  voiceover: Voiceover, transcript: Transcript, images: ImageGen, upscale: Upscale, auto: AutoVideo, flow: FlowBridge, prompts: PromptStudio,
 };
 
 export function App() {

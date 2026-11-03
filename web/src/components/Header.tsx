@@ -9,6 +9,7 @@ import type { Route } from '../App';
 
 export function Header({ route }: { route: Route }) {
   const status = useEngine((s) => s.status);
+  const kind = useEngine((s) => s.kind);
   const llm = useLlm((s) => s.status);
   const [open, setOpen] = useState<'engine' | 'llm' | 'settings' | null>(null);
   return (
@@ -23,7 +24,7 @@ export function Header({ route }: { route: Route }) {
         <i /> {llm === 'ready' ? 'AI assistant' : 'Connect LLM'}
       </button>
       <button className={`pill ${status}`} onClick={() => setOpen('engine')}>
-        <i /> {status === 'ready' ? 'Engine ready' : status === 'checking' ? 'Checking…' : 'Connect engine'}
+        <i /> {status === 'ready' ? (kind === 'tryai' ? 'TryAIToday engine' : 'Engine ready') : status === 'checking' ? 'Checking…' : 'Connect engine'}
       </button>
       <button className="icon-btn" onClick={() => setOpen('settings')} title="Settings (performance, layout, version)"><Icon name="settings" /></button>
       {open === 'engine' && <EngineDialog onClose={() => setOpen(null)} />}

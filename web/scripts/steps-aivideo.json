@@ -1,0 +1,19 @@
+[
+  { "wait": 4000 },
+  { "eval": "localStorage.setItem('engineUrl', 'http://localhost:1237'); location.hash = ''; location.reload(); 'configured'" },
+  { "wait": 4000 },
+  { "eval": "(async () => { const c = document.createElement('canvas'); c.width = 320; c.height = 180; const g = c.getContext('2d'); const rec = new MediaRecorder(c.captureStream(25), { mimeType: 'video/webm' }); const parts = []; rec.ondataavailable = (e) => parts.push(e.data); rec.start(); const t0 = performance.now(); await new Promise((r) => { const tick = () => { const t = (performance.now() - t0) / 1000; g.fillStyle = `hsl(${t * 200}, 70%, 50%)`; g.fillRect(0, 0, 320, 180); g.fillStyle = '#fff'; g.fillRect(40 + t * 150, 70, 40, 40); if (t < 1.5) requestAnimationFrame(tick); else r(); }; tick(); }); rec.stop(); await new Promise((r) => (rec.onstop = r)); const b = new Blob(parts, { type: 'video/webm' }); const res = await fetch('http://localhost:1237/__seed', { method: 'POST', headers: { 'Content-Type': 'video/webm' }, body: b }); return 'seeded ' + (await res.json()).bytes + ' bytes'; })()" },
+  { "eval": "location.hash = '#demo'; location.reload(); 'demo'" },
+  { "wait": 6000 },
+  { "eval": "[...document.querySelectorAll('.header .pill')].map(b => b.textContent).join(' | ')" },
+  { "eval": "(() => { const c = document.querySelectorAll('.t-video .clip')[0]; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); window.dispatchEvent(new PointerEvent('pointerup')); return 'clip 1 selected'; })()" },
+  { "wait": 800 },
+  { "eval": "(() => { const sec = [...document.querySelectorAll('.inspector .section')].find(s => s.textContent.includes('Animate with AI')); if (!sec) return 'no AI video section'; sec.scrollIntoView(); const ta = sec.querySelector('textarea'); const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; set.call(ta, 'city lights flicker, slow push-in'); ta.dispatchEvent(new Event('input', { bubbles: true })); return 'prompt set'; })()" },
+  { "wait": 400 },
+  { "shot": "section" },
+  { "eval": "(() => { const b = [...document.querySelectorAll('.inspector button')].find(b => b.textContent.includes('Generate AI video')); if (!b || b.disabled) return 'GENERATE DISABLED'; b.click(); return 'generate clicked'; })()" },
+  { "wait": 6000 },
+  { "eval": "[...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | ') || 'no toast'" },
+  { "eval": "(() => { const c = document.querySelectorAll('.t-video .clip')[0]; return 'clip 1: ' + c.className + ' · ' + (c.querySelector('.vid')?.textContent ?? ''); })()" },
+  { "shot": "after" }
+]

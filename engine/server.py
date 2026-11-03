@@ -1,6 +1,6 @@
 """AutoStudio GPU engine — FastAPI server run from the Colab notebook.
 
-Tools: tts (Chatterbox, via subprocess venv), transcribe (faster-whisper), imagegen (SDXL-Lightning / SDXL-Turbo),
+Tools: tts (Chatterbox, via subprocess venv), transcribe (faster-whisper), imagegen (SDXL-Lightning / SDXL-Turbo), videogen (Wan 2.1 VACE 1.3B),
 prompts + script (Qwen2.5 Instruct), upscale + video_upscale (Real-ESRGAN via spandrel).
 Jobs run one at a time on a single worker thread so models never fight over VRAM.
 """
@@ -369,8 +369,137 @@ def tool_video_upscale(job):
     add_file(job, out)
 
 
+# ───────────────────────────── AI video (Wan 2.1 VACE 1.3B) ─────────────────────────────
+# Apache-2.0, ~8 GB VRAM. Text → video, or animate a still (the image becomes the first frame). 16 fps, ≤ 5 s.
+WAN_ID = "Wan-AI/Wan2.1-VACE-1.3B-diffusers"
+WAN_FPS = 16
+WAN_SIZES = {"16:9": (832, 480), "9:16": (480, 832), "1:1": (624, 624), "4:5": (544, 672)}
+WAN_NEG = ("Bright tones, overexposed, static, blurred details, subtitles, text, watermark, logo, worst quality, low quality, JPEG artifacts, "
+           "ugly, deformed, disfigured, extra fingers, poorly drawn hands, poorly drawn faces, still picture, messy background, walking backwards")
+WAN_MAX_TOKENS = 226
+
+
+def wan_dtype():
+    # T4 (compute 7.5) has no fast bfloat16 — use float16 there.
+    return torch.bfloat16 if torch.cuda.is_available() and torch.cuda.get_device_capability(0)[0] >= 8 else torch.float16
+
+
+@torch.inference_mode()
+def wan_encode(job, prompts, negative):
+    """Run Wan's UMT5-XXL text encoder alone (loaded straight onto the GPU), then free it.
+
+    The encoder is ~11 GB in half precision, so it never shares the GPU with the video model and never sits in
+    Colab's 12 GB of RAM. Mirrors diffusers' Wan `_get_t5_prompt_embeds` (226 tokens, zero-padded)."""
+    from transformers import AutoTokenizer, UMT5EncoderModel
+
+    if models.name == "wan":
+        models.obj.to("cpu")  # park the 1.3B video model in RAM while the encoder uses the GPU
+    else:
+        models.free()
+    dt = wan_dtype()
+    log(job, "Loading the text encoder (first run downloads ~11 GB)…")
+    tok = AutoTokenizer.from_pretrained(WAN_ID, subfolder="tokenizer")
+    te = UMT5EncoderModel.from_pretrained(WAN_ID, subfolder="text_encoder", torch_dtype=dt, device_map="cuda").eval()
+
+    def enc(text):
+        t = tok([re.sub(r"\s+", " ", text).strip()], padding="max_length", max_length=WAN_MAX_TOKENS, truncation=True,
+                add_special_tokens=True, return_attention_mask=True, return_tensors="pt")
+        n = int(t.attention_mask.gt(0).sum())
+        h = te(t.input_ids.to("cuda"), t.attention_mask.to("cuda")).last_hidden_state.to(dt)[0, :n]
+        return torch.cat([h, h.new_zeros(WAN_MAX_TOKENS - n, h.size(1))]).unsqueeze(0).cpu()
+
+    out = [(enc(p), enc(negative)) for p in prompts]
+    del te
+    gc.collect()
+    torch.cuda.empty_cache()
+    return out
+
+
+def load_wan():
+    from diffusers import AutoencoderKLWan, WanVACEPipeline
+    from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
+
+    vae = AutoencoderKLWan.from_pretrained(WAN_ID, subfolder="vae", torch_dtype=torch.float32)
+    pipe = WanVACEPipeline.from_pretrained(WAN_ID, vae=vae, text_encoder=None, tokenizer=None, torch_dtype=wan_dtype())
+    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config, flow_shift=3.0)  # 3.0 for 480p
+    pipe.set_progress_bar_config(disable=True)
+    try:
+        pipe.vae.enable_tiling()
+    except Exception:
+        pass
+    return pipe
+
+
+def fit_image(img, w, h):
+    """Centre-crop to the target aspect, then resize."""
+    from PIL import Image
+
+    img = img.convert("RGB")
+    sw, sh = img.size
+    scale = max(w / sw, h / sh)
+    nw, nh = round(sw * scale), round(sh * scale)
+    img = img.resize((nw, nh), Image.LANCZOS)
+    left, top = (nw - w) // 2, (nh - h) // 2
+    return img.crop((left, top, left + w, top + h))
+
+
+def tool_videogen(job):
+    import numpy as np
+    from PIL import Image
+
+    p = job["params"]
+    w, h = WAN_SIZES.get(p.get("aspect", "16:9"), WAN_SIZES["16:9"])
+    seconds = min(5.0, max(1.0, float(p.get("seconds", "3"))))
+    frames = int(round(seconds * WAN_FPS / 4)) * 4 + 1  # Wan needs 4k+1 frames
+    steps = min(50, max(8, int(p.get("steps", "20"))))
+    seed = int(p.get("seed", "0")) or random.randint(1, 2**31 - 1)
+    prompt = p.get("prompt", "").strip() or "Cinematic slow camera move, natural motion, high detail"
+    first = job["inputs"].get("image")
+    log(job, f"{'Animating a still' if first else 'Text to video'} · {w}×{h} · {frames} frames ({frames / WAN_FPS:.1f}s) · {steps} steps")
+
+    [(pe, ne)] = wan_encode(job, [prompt], p.get("negative", "").strip() or WAN_NEG)
+    job["progress"] = 0.1
+    check(job)
+    log(job, "Loading Wan 2.1 VACE 1.3B…")
+    pipe = models.get("wan", load_wan)
+    pipe.to("cuda")
+    dt = wan_dtype()
+    kwargs = {}
+    if first:
+        img = fit_image(Image.open(first), w, h)
+        grey = Image.new("RGB", (w, h), (128, 128, 128))
+        kwargs["video"] = [img] + [grey] * (frames - 1)
+        kwargs["mask"] = [Image.new("L", (w, h), 0)] + [Image.new("L", (w, h), 255)] * (frames - 1)  # black = keep
+
+    def on_step(pipe_, i, _t, kw):
+        job["progress"] = 0.1 + 0.8 * (i + 1) / steps
+        if (i + 1) % 5 == 0:
+            log(job, f"step {i + 1}/{steps}")
+        if job["cancel"]:
+            pipe_._interrupt = True
+        return kw
+
+    t0 = time.time()
+    out = pipe(prompt_embeds=pe.to("cuda", dt), negative_prompt_embeds=ne.to("cuda", dt), height=h, width=w, num_frames=frames,
+               num_inference_steps=steps, guidance_scale=5.0, generator=torch.Generator("cuda").manual_seed(seed),
+               output_type="np", callback_on_step_end=on_step, **kwargs).frames[0]
+    check(job)
+    log(job, f"Generated in {time.time() - t0:.0f}s — encoding MP4…")
+    tmp = job["dir"] / "frames"
+    tmp.mkdir(exist_ok=True)
+    for i, f in enumerate(out):
+        Image.fromarray((np.clip(f, 0, 1) * 255).round().astype("uint8")).save(tmp / f"{i:05d}.png")
+    name = re.sub(r"[^\w.\-]", "_", Path(p.get("name", "ai_video")).stem) or "ai_video"
+    dest = job["dir"] / f"{name}_ai.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", str(WAN_FPS), "-i", str(tmp / "%05d.png"), "-c:v", "libx264", "-crf", "17",
+                    "-preset", "medium", "-pix_fmt", "yuv420p", str(dest)], check=True)
+    shutil.rmtree(tmp)
+    job["data"] = {"seed": seed, "fps": WAN_FPS, "frames": frames, "width": w, "height": h}
+    add_file(job, dest)
+
+
 TOOLS = {"tts": tool_tts, "transcribe": tool_transcribe, "imagegen": tool_imagegen, "prompts": tool_prompts, "script": tool_script, "chat": tool_chat,
-         "upscale": tool_upscale, "video_upscale": tool_video_upscale}
+         "upscale": tool_upscale, "video_upscale": tool_video_upscale, "videogen": tool_videogen}
 
 
 # ───────────────────────────── HTTP API ─────────────────────────────

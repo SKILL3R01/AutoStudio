@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ToolPage, Activity, useJob } from './common';
 import { FilePick, Select, Slider, useObjectUrl } from '../components/ui';
-import { fetchResult } from '../lib/engine';
+import { fetchResult, useEngine } from '../lib/engine';
 import { download } from '../lib/util';
 import { createProject } from '../lib/scenes';
 import { navigate } from '../App';
@@ -38,6 +38,7 @@ export function ttsForm(text: string, voice: File | null, o: TtsOptions) {
 }
 
 export function TtsSettings({ o, set }: { o: TtsOptions; set: (o: TtsOptions) => void }) {
+  const engineKind = useEngine((s) => s.kind);
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -46,6 +47,7 @@ export function TtsSettings({ o, set }: { o: TtsOptions; set: (o: TtsOptions) =>
         <Select label="Model" value={o.model} options={[['auto', 'Auto'], ['english', 'Chatterbox (English, expressive)'], ['turbo', 'Turbo (English, fast, [laugh] tags)'], ['multilingual', 'Multilingual V3 (23 langs)']] as [TtsOptions['model'], string][]} onChange={(v) => set({ ...o, model: v })} />
       </div>
       {o.model === 'turbo' && <p className="hint">Turbo needs a reference voice and supports tags like [laugh], [chuckle], [cough] in the script.</p>}
+      {engineKind === 'tryai' && <p className="warn">Connected to the TryAIToday engine: English only, and a reference voice sample is required (it clones that voice).</p>}
       <button className="btn ghost sm" onClick={() => setOpen(!open)}>⚙ Advanced settings</button>
       {open && (
         <>

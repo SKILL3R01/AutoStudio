@@ -50,7 +50,9 @@ If you edit `engine/server.py` or `engine/tts_worker.py`, rebuild the notebook w
 | Start & end | Intro before the narration (drag the voice lane), outro after it (drag the ◀▶ end handle), blank / colour sections, master audio fade in/out |
 | Timeline transitions | Every cut shows its transition; click to change it |
 | **Timeline tools** | Split at the playhead (clips, music, text, narration), trim both edges of music/text, ripple delete (close the gap), copy / paste / duplicate, video clip speed (0.25–4×) and sound fades, detach audio to the music lane, snapping (magnet, `N`), narration parts: split the voice, select a part, cut it out (everything after moves with it) |
-| Engine setup | One-click **Open in Colab**; the notebook's **Open desktop app & connect** button connects AutoStudio automatically |
+| Engine setup | Works with **two Colab notebooks**: the AutoStudio engine (one-click **Open in Colab**; its **Open desktop app & connect** button connects automatically) or the **TryAIToday Studio** notebook from the reference site (English voiceover with cloning, Whisper captions, upscaling) — detected automatically from the URL |
+| **AI video** | **Animate with AI** on any image clip: Wan 2.1 VACE 1.3B on your Colab turns the still into a 1–5 s video that starts on the same image (or text → video). Free, no watermark; several minutes per clip on a free T4 |
+| **Prompt Studio** | 9 expert prompts (script, hook, Flow scene images, Veo video prompts, character sheet, thumbnails, SEO, Shorts, channel plan) filled with your project's transcript/scenes, editable, plus your own templates — sent to Claude / ChatGPT (pre-filled) or Gemini / Google Flow (copied) |
 | **Keyword captions** (legacy) | Keywords only / subtitles / both. Auto-pick or AI-pick keywords; font combinations, colour palettes, placement (safe zones / random / grid), 9 animations (pop, slam, typewriter, slide, rotate, glow, draw, split, marker), 🎲 randomize, drag on the preview, lock, per-keyword editing, K lane on the timeline |
 | Overlays | Titles, lower thirds, call-to-action, logo/watermark images; drag on the preview |
 | Audio | Voiceover, **remove silences** (detect → listen → approve → cut; everything stays in sync, Undo restores), music with fades, **ducking from the voice itself** (dips while speaking, rises in pauses; level / dip / release controls) and loop-to-fill, 14 synthesized SFX + your own, video clip sound with trim in/out and loop |
@@ -59,8 +61,8 @@ If you edit `engine/server.py` or `engine/tts_worker.py`, rebuild the notebook w
 | AI assistant | Auto-edit (motion/transition/SFX per scene), proofread captions, titles/description/hashtags, keyword picking, Flow/image prompt writing |
 | Export | Presets (YouTube, Shorts/TikTok/Reels, Instagram, Square, Draft), 1080p/720p/480p, 24–60 fps, explicit bitrates (8/5/2.5 Mbps), MP4 or WebM, audio-only WAV, SRT |
 | Google Flow bridge | Scenes from your transcript → prompts (optionally LLM-written) → `flow_prompts.txt` in the extension's format + `scenes.json` → run the extension → drop its `001_v1…` downloads back and they land on their scenes |
-| Colab engine | Chatterbox (English / Turbo / Multilingual V3) + voice cloning, faster-whisper, SDXL-Lightning / SDXL-Turbo, Qwen2.5 (script / prompts / chat), Real-ESRGAN image & video |
+| Colab engine | Chatterbox (English / Turbo / Multilingual V3) + voice cloning, faster-whisper, SDXL-Lightning / SDXL-Turbo, Wan 2.1 VACE 1.3B (AI video), Qwen2.5 (script / prompts / chat), Real-ESRGAN image & video |
 
 About Google Flow: AutoStudio does not log into Google, automate Flow's private API, or remove watermarks. Generation happens in your own browser through the extension; the bridge only prepares prompts and maps the downloaded files.
 
-Licence notes for personal use: SDXL-Turbo is non-commercial. SDXL-Lightning, Chatterbox, Whisper, Qwen2.5, Depth Anything V2 small, SlimSAM and Real-ESRGAN are permissive.
+Licence notes for personal use: SDXL-Turbo is non-commercial. SDXL-Lightning, Chatterbox, Whisper, Wan 2.1, Qwen2.5, Depth Anything V2 small, SlimSAM and Real-ESRGAN are permissive.

@@ -7,6 +7,7 @@ const TOOLS: { id: ToolId | 'editor'; icon: string; title: string; desc: string;
   { id: 'voiceover', icon: 'mic', title: 'AI Voiceover', desc: 'Turn a script into narration, with optional voice cloning, from your Colab.', tag: 'Colab' },
   { id: 'transcript', icon: 'list', title: 'AI Transcript', desc: 'Timecoded lines (control the interval) or word-level captions.', tag: 'Colab' },
   { id: 'images', icon: 'image', title: 'AI Images', desc: 'Storyboard images from prompts with SDXL — named by timestamp, ready for the editor.', tag: 'Colab' },
+  { id: 'prompts', icon: 'wand', title: 'Prompt Studio', desc: 'Expert prompts filled with your project — scripts, scene images, thumbnails, SEO — sent to Claude, ChatGPT, Gemini or Flow.', tag: 'Free' },
   { id: 'flow', icon: 'flow', title: 'Google Flow bridge', desc: 'Send scene prompts to the Flow Automator extension and map its downloads back to the timeline.', tag: 'Extension' },
   { id: 'upscale', icon: 'upscale', title: 'Upscaler', desc: 'Upscale images and video clips ×2 / ×4 with Real-ESRGAN.', tag: 'Colab' },
 ];

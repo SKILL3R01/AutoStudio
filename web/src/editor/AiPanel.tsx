@@ -6,6 +6,7 @@ import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { useVision } from '../ai/vision';
 import { makeDepthAsset } from '../ai/jobs';
+import { navigate } from '../App';
 import { confirmHeavyAi } from '../lib/perf';
 import { chat, chatJson, useLlm } from '../lib/llm';
 import { MOTIONS, TRANSITIONS, type Motion, type Transition } from '../types';
@@ -138,6 +139,9 @@ export function AiPanel() {
         {busy && <p className="hint">{busy}</p>}
         {meta && <textarea rows={12} value={meta} onChange={(e) => setMeta(e.target.value)} />}
         <p className="hint">Keyword picking and scene prompts use the assistant too (Keywords panel, AI Images, Flow bridge).</p>
+      </Section>
+      <Section title="Prompt Studio" hint="For bigger jobs, send a ready-made prompt (filled with this project) to Claude, ChatGPT, Gemini or Google Flow.">
+        <button className="btn" onClick={() => (localStorage.setItem('promptProject', p.id), navigate({ page: 'tool', tool: 'prompts' }))}><Icon name="wand" /> Open Prompt Studio for this project</button>
       </Section>
     </>
   );

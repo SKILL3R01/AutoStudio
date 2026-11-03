@@ -17,7 +17,8 @@ INTRO = """
 # AutoStudio — Colab GPU engine
 
 Free AI backend for the AutoStudio editor: **Chatterbox** voiceover + voice cloning, **faster-whisper** word-level captions,
-**SDXL-Lightning / SDXL-Turbo** image generation, **Qwen2.5** script & prompt writing, and **Real-ESRGAN** image/video upscaling.
+**SDXL-Lightning / SDXL-Turbo** image generation, **Wan 2.1 VACE 1.3B** AI video (text → video, or animate a still; the first video job
+downloads ~18 GB and takes several minutes per 3-second clip on a free T4), **Qwen2.5** script & prompt writing, and **Real-ESRGAN** image/video upscaling.
 
 1. **Runtime → Change runtime type → T4 GPU**
 2. **Runtime → Run all** (first run installs everything, ~5 min)
@@ -41,7 +42,7 @@ os.makedirs("/content/autostudio/weights", exist_ok=True)
 
 INSTALL = """
 #@title 2 · Install (first run ≈ 5 min)
-!pip -q install fastapi "uvicorn[standard]" python-multipart faster-whisper spandrel diffusers accelerate huggingface_hub safetensors
+!pip -q install fastapi "uvicorn[standard]" python-multipart faster-whisper spandrel diffusers accelerate huggingface_hub safetensors ftfy
 !which uv >/dev/null || pip -q install uv
 # Chatterbox pins its own torch/transformers, so it lives in an isolated Python 3.11 venv.
 ![ -x /content/tts_env/bin/python ] || uv venv -q /content/tts_env --python 3.11
@@ -148,7 +149,7 @@ PUBLIC_REPO = "https://github.com/SKILL3R01/autostudio-engine.git"
 PUBLIC_README = """# AutoStudio engine (Google Colab)
 
 Free GPU backend for the AutoStudio video editor: voiceover + voice cloning (Chatterbox), word-level captions
-(faster-whisper), image generation (SDXL), LLM (Qwen2.5) and upscaling (Real-ESRGAN).
+(faster-whisper), image generation (SDXL), AI video (Wan 2.1 VACE 1.3B), LLM (Qwen2.5) and upscaling (Real-ESRGAN).
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SKILL3R01/autostudio-engine/blob/main/AutoStudio_Engine.ipynb)
 

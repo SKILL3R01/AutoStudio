@@ -13,6 +13,7 @@ import { fetchResult, runJob, useEngine } from '../lib/engine';
 import { media } from '../render/media';
 import { deleteVoiceSegment, detachSelectedAudio, splitAtPlayhead, splitVoiceAtPlayhead } from './actions';
 import { removeVoiceSplit, voiceSegments } from './edit';
+import { AiVideoSection } from './AiVideo';
 import { deleteSelection } from './shortcuts';
 import { CAPTION_FONTS } from '../render/captions';
 import { makeDepthAsset } from '../ai/jobs';
@@ -148,6 +149,7 @@ function ClipInspector({ id }: { id: string }) {
           <p className="hint">The clip's own sound is mixed under the narration and follows the speed; motion (zoom/pan) applies to videos too.</p>
         </Section>
       )}
+      {asset.kind === 'image' && <AiVideoSection clip={clip} i={i} asset={asset} />}
       <Section title="Depth & animated details" hint="Make the image come alive: 3D depth motion, and effects on a part of the image you click.">
         <div className="row">
           {depthThumb && <img className="depth-thumb" src={depthThumb} alt="depth" />}

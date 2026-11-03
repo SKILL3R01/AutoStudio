@@ -430,3 +430,14 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .voice-seg { position: absolute; top: 2px; bottom: 2px; border-left: 2px solid rgba(255, 200, 80, 0.85); pointer-events: none; }
 .voice-seg:first-of-type { border-left-color: transparent; }
 .voice-seg.sel { background: rgba(255, 200, 80, 0.18); outline: 1px solid rgba(255, 200, 80, 0.9); }
+.engine-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.card.pick { text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--line2); background: var(--panel2); color: var(--text); }
+.card.pick.on { border-color: var(--accent); background: var(--accent-bg); }
+.log.mini { min-height: 0; max-height: 90px; font-size: 10px; }
+.prompt-list { display: flex; flex-direction: column; gap: 6px; }
+.prompt-list h4 { margin: 10px 0 4px; }
+.prompt-item { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 8px 10px; border-radius: var(--r-sm); border: 1px solid transparent; background: transparent; color: var(--text); cursor: pointer; width: 100%; }
+.prompt-item:hover { background: var(--panel2); }
+.prompt-item.on { border-color: var(--accent); background: var(--accent-bg); }
+.var-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+textarea.mono { font: 12px/1.5 ui-monospace, Consolas, monospace; }

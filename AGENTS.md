@@ -14,7 +14,11 @@
 - Export: `src/export/exporter.ts` (mediabunny CanvasSource + AudioBufferSource → MP4/WebM, plus WAV).
 - In-browser AI: `src/ai/worker.ts` (transformers.js: Depth Anything V2 small and SlimSAM) behind `src/ai/vision.ts`. If WebGPU fails, the worker is restarted in WASM (CPU) mode, and inputs are downscaled to 1024 px.
 - LLM client: `src/lib/llm.ts`, an OpenAI-compatible client with LM Studio / Ollama / Colab / custom presets. Gemma models get the system prompt folded into the first user message.
-- Engine client: `src/lib/engine.ts`. API: `POST /jobs/{tool}` (multipart) → `GET /jobs/{id}` → `GET /files/{id}/{name}`. Tools: `tts`, `transcribe`, `imagegen`, `prompts`, `script`, `chat`, `upscale`, `video_upscale`.
+- Engine client: `src/lib/engine.ts`. API: `POST /jobs/{tool}` (multipart) → `GET /jobs/{id}` → `GET /files/{id}/{name}`. Tools: `tts`, `transcribe`, `imagegen`, `videogen`, `prompts`, `script`, `chat`, `upscale`, `video_upscale`.
+  - `check()` detects the engine kind: our `/health`, or the TryAIToday notebook's `/api/health`.
+  - `src/lib/tryai.ts` adapts `tts` / `transcribe` / `upscale` / `video_upscale` to their API: `/chatterbox|whisper|upscaler|vupscaler/start`, WebSocket `/ws/{id}`, `/file/{id}/{key}`. Their TTS is English-only and always needs a reference voice.
+  - `videogen` = Wan 2.1 VACE 1.3B (`engine/server.py` `tool_videogen`). The UMT5 text encoder runs alone and is freed before the video model loads, so it fits a free T4. The UI is `editor/AiVideo.tsx`.
+- Prompt Studio: templates and fill logic in `src/lib/prompts.ts`, page in `src/tools/PromptStudio.tsx`. Claude and ChatGPT take `?q=`; Gemini and Flow get the clipboard.
 - Import review: `src/lib/timecode.ts` (`detectTime`) + `src/editor/review.ts` (bulk ops) + `ReviewTable.tsx`.
 - Flow bridge: `src/tools/FlowBridge.tsx`. The prompt file is blank-line separated, the extension names downloads `NNN_vK`, and `project.flowScenes` maps sequence → time.
 - `engine/server.py` + `engine/tts_worker.py` are the source of truth. `engine/AutoStudio_Engine.ipynb` is generated from them by `python engine/build_notebook.py`.
@@ -68,6 +72,9 @@
   - `scripts/steps-phaseA.json`: settings, collapsed panels, effect ranges, typography animation + handles
   - `scripts/steps-silence.json`: synthetic voice with pauses → Remove silences → length shrinks
   - `scripts/steps-phaseB.json`: duplicate, ripple delete, snapping toggle, split voice → cut a part → undo
+  - `scripts/steps-tryai.json`: TryAIToday adapter against `node scripts/fake-tryai.mjs` (port 1236)
+  - `scripts/steps-aivideo.json`: Animate with AI against `node scripts/fake-engine.mjs` (port 1237)
+  - `scripts/steps-prompts.json`: Prompt Studio fill + hand-off
   - `scripts/steps-ai.json`: all AI-assistant actions against `node scripts/fake-llm.mjs` (port 1235; mimics LM Studio + Gemma, with messy JSON replies)
   - `scripts/steps-region.json`: object selection. The first run downloads models, and headless WebGPU is flaky, so the CPU fallback can take ~2 min.
 

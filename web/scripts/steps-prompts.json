@@ -1,0 +1,17 @@
+[
+  { "wait": 6000 },
+  { "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.includes('AI')).click(); 'ai'" },
+  { "wait": 600 },
+  { "eval": "[...document.querySelectorAll('.panels button')].find(b => b.textContent.includes('Prompt Studio')).click(); 'open studio'" },
+  { "wait": 2500 },
+  { "eval": "[...document.querySelectorAll('.prompt-item')].find(b => b.textContent.includes('Scene image prompts')).click(); 'flow template'" },
+  { "wait": 800 },
+  { "eval": "(() => { const v = [...document.querySelectorAll('.var-grid input')]; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; const style = v.find(i => i.closest('label').textContent.includes('Visual style')); set.call(style, 'cinematic photo, golden hour'); style.dispatchEvent(new Event('input', { bubbles: true })); return v.length + ' fields'; })()" },
+  { "wait": 500 },
+  { "eval": "document.querySelectorAll('.tool textarea')[0].value.slice(0, 260)" },
+  { "shot": "studio" },
+  { "eval": "window.__opened = []; window.open = (u) => (window.__opened.push(u), null); [...document.querySelectorAll('.tool button')].find(b => b.textContent.includes('Claude')).click(); 'claude clicked'" },
+  { "wait": 500 },
+  { "eval": "(window.__opened[0] ?? 'nothing').slice(0, 90) + ' … ' + (window.__opened[0]?.length ?? 0) + ' chars'" },
+  { "eval": "[...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | ')" }
+]
