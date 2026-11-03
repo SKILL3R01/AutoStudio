@@ -1,0 +1,19 @@
+[
+  { "wait": 6000 },
+  { "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.includes('Colour')).click(); 'colour panel'" },
+  { "wait": 800 },
+  { "eval": "(() => { const t = [...document.querySelectorAll('.panels .look')].find(b => b.textContent.includes('Teal')); t.click(); return 'teal applied'; })()" },
+  { "wait": 400 },
+  { "eval": "(() => { const o = document.querySelector('.item.overlay'); o.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); window.dispatchEvent(new PointerEvent('pointerup')); return 'overlay selected'; })()" },
+  { "wait": 600 },
+  { "eval": "(() => { const f = [...document.querySelectorAll('.inspector .field')].find(x => x.textContent.startsWith('Hand-drawn')); const s = f.querySelector('select'); const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; set.call(s, 'pen'); s.dispatchEvent(new Event('change', { bubbles: true })); return 'pen on'; })()" },
+  { "wait": 400 },
+  { "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.end-handle').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 1.0 * z })); window.dispatchEvent(new PointerEvent('pointerup')); return 'seek 1.0s'; })()" },
+  { "wait": 1500 },
+  { "shot": "pen-mid" },
+  { "eval": "[...document.querySelectorAll('.ed-top button')].find(b => b.textContent.includes('Export')).click(); 'dialog'" },
+  { "wait": 800 },
+  { "eval": "window.__blobs = []; const o = URL.createObjectURL; URL.createObjectURL = (b) => (window.__blobs.push(b.size + ' ' + b.type), o(b)); [...document.querySelectorAll('.modal button')].find(b => b.textContent.includes('Export video')).click(); 'export started'" },
+  { "wait": 40000 },
+  { "eval": "JSON.stringify({ blobs: window.__blobs.filter(b => b.includes('video')), progress: document.querySelector('.modal .progress span')?.textContent, error: document.querySelector('.modal .error')?.textContent })" }
+]

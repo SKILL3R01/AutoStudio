@@ -1,5 +1,6 @@
 import type { TypoBlock, TypoRole } from '../types';
 import { FONT_PAIRS, TYPO_PALETTES } from '../lib/typography';
+import { drawOutlineWrite, drawPenWrite, penDuration } from './handdrawn';
 import { clamp, easeInOut, easeOutBack, isRtl } from '../lib/util';
 
 interface Item {
@@ -277,7 +278,9 @@ function drawBlock(ctx: CanvasRenderingContext2D, b: TypoBlock, t: number, W: nu
       const n = Math.max(1, w.text.length);
       reveal = Math.ceil(a * n) / n;
       al = 1;
-    }
+    } else if (anim === 'outline' || anim === 'pen') al = 1;
+    // Hand-drawn words take as long as a pen would need for the word.
+    const written = clamp(((t - ws) * speed) / penDuration(it.text), 0, 1);
     ctx.save();
     ctx.globalAlpha = alpha * al;
     ctx.translate(it.x, it.y);
@@ -304,7 +307,11 @@ function drawBlock(ctx: CanvasRenderingContext2D, b: TypoBlock, t: number, W: nu
       ctx.fillRect(-it.w / 2, it.size * 0.36, it.w * easeInOut(clamp((t - w.start - 0.15) / 0.3, 0, 1)), it.size * 0.11);
       ctx.restore();
     }
-    if (it.outline) {
+    if (anim === 'pen') {
+      drawPenWrite(ctx, it.text, 0, 0, written, it.color, it.size, b.penFont ?? (it.role === 'script' || it.role === 'accent' ? 'allure' : 'readability'), it.w * 1.15);
+    } else if (anim === 'outline') {
+      drawOutlineWrite(ctx, it.text, 0, 0, written, it.color, it.size);
+    } else if (it.outline) {
       ctx.strokeStyle = it.color;
       ctx.lineWidth = Math.max(2, it.size * 0.035);
       ctx.strokeText(it.text, 0, 0);

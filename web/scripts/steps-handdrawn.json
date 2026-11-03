@@ -1,0 +1,16 @@
+[
+  { "wait": 5000 },
+  { "eval": "Promise.all([import('/src/render/handdrawn.ts'), import('/src/render/strokefont.ts'), document.fonts.load('900 60px \"League Spartan\"'), document.fonts.load('400 60px \"Lalezar\"')]).then(([h, s]) => { const c = document.createElement('canvas'); c.width = 1500; c.height = 900; c.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#14161d'; document.body.appendChild(c); const g = c.getContext('2d'); g.fillStyle = '#14161d'; g.fillRect(0, 0, 1500, 900); g.textAlign = 'center'; g.textBaseline = 'middle'; const fonts = Object.keys(s.PEN_FONTS); fonts.forEach((f, r) => { [0.35, 0.7, 1].forEach((p, k) => { h.drawPenWrite(g, 'Let us create', 260 + k * 490, 90 + r * 140, p, ['#ffd84a', '#fff', '#7fe0ff', '#ff9bd2'][r], 64, f, 460); }); g.fillStyle = '#8b93a7'; g.font = '16px sans-serif'; g.fillText(s.PEN_FONTS[f], 70, 40 + r * 140); }); [0.3, 0.6, 1].forEach((p, k) => { g.font = '900 64px \"League Spartan\"'; h.drawOutlineWrite(g, 'KINETIC', 260 + k * 490, 690, p, '#ffffff', 64); g.font = '400 64px \"Lalezar\"'; h.drawOutlineWrite(g, 'مرحبا بكم', 260 + k * 490, 800, p, '#ffd84a', 64); }); return 'drawn'; })" },
+  { "wait": 800 },
+  { "shot": "gallery" },
+  { "eval": "document.querySelector('canvas[style*=\"99999\"]').remove(); location.hash = '#demo'; 'demo'" },
+  { "wait": 6000 },
+  { "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.includes('Motion')).click(); 'motion panel'" },
+  { "wait": 800 },
+  { "eval": "(() => { const l = [...document.querySelectorAll('.panels .look')]; const t = l.find(b => b.textContent.includes('Teal')); t.scrollIntoView(); t.click(); return l.length + ' looks, applied Teal & orange'; })()" },
+  { "wait": 600 },
+  { "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 7 * parseFloat(document.querySelector('.end-handle').style.left) / 18 })); window.dispatchEvent(new PointerEvent('pointerup')); return 'seek 7s'; })()" },
+  { "wait": 1500 },
+  { "eval": "document.querySelectorAll('.panels .look img').length + ' thumbnails'" },
+  { "shot": "look" }
+]

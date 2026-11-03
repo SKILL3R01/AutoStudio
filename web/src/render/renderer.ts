@@ -7,6 +7,8 @@ import { animateRegions } from './regions';
 import { renderParallax } from './parallax';
 import { drawCaptions, roundRect } from './captions';
 import { drawEffect } from './effects';
+import { combineGrades, cssFilter, drawVignette, gradeDrawable, needsGpu } from './grade';
+import { drawOutlineWrite, drawPenWrite, penDuration } from './handdrawn';
 
 export type Drawable = ImageBitmap | HTMLVideoElement | HTMLCanvasElement | OffscreenCanvas;
 
@@ -119,12 +121,17 @@ function drawClip(g: CanvasRenderingContext2D, m: RenderModel, i: number, t: num
     else motion = 'zoomIn';
   }
   const x = clipMotionXform(clip, motion, local / span, local, p.motionDepth, i);
-  const c = clip.color ?? { brightness: 1, contrast: 1, saturation: 1 };
-  const color = `brightness(${p.color.brightness * c.brightness}) contrast(${p.color.contrast * c.contrast}) saturate(${p.color.saturation * c.saturation})`;
+  const grade = combineGrades(p.color, clip.color);
+  // Full grades (white balance, curves, LUT…) run on the GPU; simple ones keep the cheap canvas filter.
+  let color = cssFilter(grade);
+  if (needsGpu(grade)) {
+    const graded = gradeDrawable(d, w, h, grade, p.luts ?? []);
+    if (graded) (d = graded), (color = 'none');
+  }
   const cover = Math.max(W / w, H / h), contain = Math.min(W / w, H / h);
   g.save();
   if (clip.fit === 'contain' && p.export.background === 'blur') {
-    g.filter = `blur(${Math.round(W / 40)}px) ${color} brightness(0.6)`;
+    g.filter = `blur(${Math.round(W / 40)}px) ${color === 'none' ? '' : color} brightness(0.6)`;
     g.drawImage(d, (W - w * cover * 1.1) / 2, (H - h * cover * 1.1) / 2, w * cover * 1.1, h * cover * 1.1);
   }
   const s = clip.fit === 'contain' ? contain : cover;
@@ -133,6 +140,7 @@ function drawClip(g: CanvasRenderingContext2D, m: RenderModel, i: number, t: num
   g.scale(x.scale, x.scale);
   g.drawImage(d, (-w * s) / 2, (-h * s) / 2, w * s, h * s);
   g.restore();
+  drawVignette(g, W, H, grade.vignette ?? 0);
 }
 
 function composite(ctx: CanvasRenderingContext2D, kind: Transition, a: HTMLCanvasElement, b: HTMLCanvasElement, pr: number, W: number, H: number, seed: number) {
@@ -264,7 +272,24 @@ function drawOverlay(ctx: CanvasRenderingContext2D, o: Overlay, t: number, src: 
       ctx.restore();
     }
     ctx.fillStyle = o.color;
-    rows.forEach((r, k) => ctx.fillText(r, 0, (k - (rows.length - 1) / 2) * lh));
+    const write = o.write ?? 'none';
+    if (write === 'none') rows.forEach((r, k) => ctx.fillText(r, 0, (k - (rows.length - 1) / 2) * lh));
+    else {
+      // Rows are written one after another, each taking its share of the time by length.
+      const total = o.writeTime ?? penDuration(o.text);
+      const chars = rows.map((r) => Math.max(1, r.replace(/\s/g, '').length));
+      const sum = chars.reduce((a, b) => a + b, 0);
+      let before = 0;
+      rows.forEach((r, k) => {
+        const share = chars[k] / sum;
+        const pr = clamp((local / total - before) / share, 0, 1);
+        before += share;
+        const y = (k - (rows.length - 1) / 2) * lh;
+        if (pr <= 0) return;
+        if (write === 'pen') drawPenWrite(ctx, r, 0, y, pr, o.color, fs, o.penFont ?? 'allure', W * 0.92);
+        else drawOutlineWrite(ctx, r, 0, y, pr, o.color, fs);
+      });
+    }
   }
   ctx.restore();
 }

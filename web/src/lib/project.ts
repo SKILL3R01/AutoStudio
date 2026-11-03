@@ -47,6 +47,7 @@ export function newProject(name = 'Untitled project'): Project {
     sfx: [],
     effects: [],
     color: { brightness: 1, contrast: 1, saturation: 1 },
+    luts: [],
     export: { aspect: '16:9', fps: 30, resolution: 'full', quality: 'high', background: 'blur', format: 'mp4' },
   };
 }

@@ -49,6 +49,13 @@
   - Pure operations live in `editor/edit.ts`: split, ripple delete, copy/paste, `detachAudio`, `applyCuts` / `applyTimeMap`, voice segments (`voiceover.splits`), and `snapPoints` / `snapTime`.
   - UI actions (clipboard, toasts, async voice cuts) live in `editor/actions.ts`, and shortcuts in `editor/shortcuts.tsx`.
   - Clip `speed` is applied in `clipSourceTime`, the mix (`playbackRate`) and the preview `<video>.playbackRate`. MusicItem `rate` keeps detached audio at the clip's speed.
+- Colour grading: `render/grade.ts`.
+  - `combineGrades` merges the project and clip grades. `needsGpu` decides between the WebGL2 pass (`gradeDrawable`, with a 3D LUT texture) and plain `ctx.filter`.
+  - `parseCube` reads `.cube` files; LUTs are stored in `project.luts` as 8-bit RGB, base64.
+  - The UI is `editor/GradeEditor.tsx`: looks, copy/paste via localStorage `gradeClipboard`, saved looks in `looks`.
+- Hand-drawn text: `render/handdrawn.ts` (`drawOutlineWrite`, `drawPenWrite`).
+  - Single-line fonts are parsed in `render/strokefont.ts` from the SVG fonts in `src/assets/strokefonts/` (EMS fonts, SIL OFL; see the LICENSE there).
+  - Settings: `Overlay.write` / `penFont` / `writeTime`, and the typography enter animations `outline` / `pen`.
 - Effects can be scoped (`EffectLayer.scope`: all / range / clips, plus fades); `effectAmount()` in `renderer.ts`.
 - Per-clip motion overrides (`motionDepth`, `motionReverse`, `motionEasing`, `motionCustom` for the `custom` motion) go through `clipMotionXform()` in `render/motion.ts`.
 - Performance profiles: `src/lib/perf.ts`.
@@ -81,6 +88,8 @@
   - `scripts/steps-aivideo.json`: Animate with AI against `node scripts/fake-engine.mjs` (port 1237)
   - `scripts/steps-prompts.json`: Prompt Studio fill + hand-off
   - `scripts/steps-growth.json`: every Growth tab against `node scripts/fake-youtube.mjs` (port 1238; sign-in stubbed)
+  - `scripts/steps-handdrawn.json`: pen-font + outline gallery, looks grid
+  - `scripts/steps-phaseE.json`: GPU look + pen title → MP4 export
   - `scripts/steps-ai.json`: all AI-assistant actions against `node scripts/fake-llm.mjs` (port 1235; mimics LM Studio + Gemma, with messy JSON replies)
   - `scripts/steps-region.json`: object selection. The first run downloads models, and headless WebGPU is flaky, so the CPU fallback can take ~2 min.
 

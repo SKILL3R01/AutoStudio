@@ -9,6 +9,7 @@ import { KeywordsPanel } from './KeywordsPanel';
 import { MediaPanel } from './MediaPanel';
 import { AiPanel } from './AiPanel';
 import { SilenceDialog } from './SilenceDialog';
+import { GradeEditor } from './GradeEditor';
 import { EFFECT_LABELS } from '../render/effects';
 import { SFX, sfxBuffer } from '../audio/sfx';
 import { blankClip, importAudio, probe, setVoiceStart } from '../lib/project';
@@ -16,7 +17,7 @@ import { uid } from '../lib/util';
 
 export const TABS = [
   ['media', 'Media', 'media'], ['motion', 'Motion', 'motion'], ['transitions', 'Transitions', 'transition'], ['captions', 'Captions', 'captions'],
-  ['keywords', 'Typography', 'keywords'], ['text', 'Text', 'text'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['ai', 'AI', 'wand'],
+  ['keywords', 'Typography', 'keywords'], ['text', 'Text', 'text'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['color', 'Colour', 'image'], ['ai', 'AI', 'wand'],
 ] as const;
 export type Tab = (typeof TABS)[number][0];
 
@@ -56,6 +57,7 @@ export function Sidebar() {
           {tab === 'music' && <MusicPanel />}
           {tab === 'sfx' && <SfxPanel />}
           {tab === 'effects' && <EffectsPanel />}
+          {tab === 'color' && <ColorPanel />}
           {tab === 'ai' && <AiPanel />}
         </div>
       </aside>
@@ -100,12 +102,7 @@ function MotionPanel() {
         <Slider label="Fade in" value={p.sceneFades.fadeIn} min={0} max={3} onChange={(v) => update((d) => void (d.sceneFades.fadeIn = v), 'fi')} suffix="s" />
         <Slider label="Fade out" value={p.sceneFades.fadeOut} min={0} max={5} onChange={(v) => update((d) => void (d.sceneFades.fadeOut = v), 'fo')} suffix="s" />
       </Section>
-      <Section title="Color grade (whole video)">
-        <Slider label="Brightness" value={p.color.brightness} min={0.5} max={1.5} onChange={(v) => update((d) => void (d.color.brightness = v), 'cb')} />
-        <Slider label="Contrast" value={p.color.contrast} min={0.5} max={1.6} onChange={(v) => update((d) => void (d.color.contrast = v), 'cc')} />
-        <Slider label="Saturation" value={p.color.saturation} min={0} max={2} onChange={(v) => update((d) => void (d.color.saturation = v), 'cs')} />
-        <button className="btn sm ghost" onClick={() => update((d) => void (d.color = { brightness: 1, contrast: 1, saturation: 1 }))}>Reset</button>
-      </Section>
+
     </>
   );
 }
@@ -347,4 +344,12 @@ function EffectsPanel() {
       {p.effects.length > 0 && <button className="btn sm ghost" onClick={() => update((d) => void (d.effects = []))}>Clear all</button>}
     </Section>
   );
+}
+
+/** Whole-video colour grade (looks, light, colour, LUTs). Clips can add their own grade in Properties. */
+function ColorPanel() {
+  const p = useProject();
+  const update = useEditor((s) => s.update);
+  const preview = p.clips.find((c) => !c.fill && p.assets.find((a) => a.id === c.assetId)?.kind === 'image')?.assetId;
+  return <GradeEditor value={p.color} scope="project" previewAssetId={preview} onChange={(fn, key) => update((d) => fn(d.color), key)} />;
 }

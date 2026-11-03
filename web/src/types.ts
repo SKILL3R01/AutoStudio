@@ -1,3 +1,4 @@
+import type { PenFont } from './render/strokefont';
 export type AssetKind = 'image' | 'video' | 'audio';
 
 export interface Asset {
@@ -53,6 +54,34 @@ export interface ColorAdjust {
   brightness: number;
   contrast: number;
   saturation: number;
+  /** Exposure in stops (−2..2). */
+  exposure?: number;
+  /** Warm (+) / cool (−), −1..1. */
+  temperature?: number;
+  /** Magenta (+) / green (−), −1..1. */
+  tint?: number;
+  /** Recover (−) or boost (+) the bright / dark tones, −1..1. */
+  highlights?: number;
+  shadows?: number;
+  /** Boosts muted colours more than saturated ones, −1..1. */
+  vibrance?: number;
+  /** Lifted blacks (faded film), 0..1. */
+  fade?: number;
+  /** Split toning: teal shadows + orange highlights (+) or the reverse (−), −1..1. */
+  split?: number;
+  /** Darken the edges of the frame, 0..1. */
+  vignette?: number;
+  /** A `.cube` LUT from `project.luts`, mixed in by `lutAmount` (0..1). */
+  lut?: string;
+  lutAmount?: number;
+}
+
+/** A 3D colour lookup table imported from a `.cube` file (RGB, 8-bit, base64). */
+export interface Lut {
+  id: string;
+  name: string;
+  size: number;
+  data: string;
 }
 
 export interface Clip {
@@ -146,7 +175,7 @@ export type TypoTemplate = (typeof TYPO_TEMPLATES)[number];
 export type TypoRole = 'main' | 'minor' | 'accent' | 'script' | 'side';
 export type TypoBg = 'none' | 'shadow' | 'card' | 'frame';
 
-export const TYPO_ENTERS = ['auto', 'pop', 'slam', 'slide', 'drop', 'zoom', 'fade', 'draw', 'typewriter'] as const;
+export const TYPO_ENTERS = ['auto', 'pop', 'slam', 'slide', 'drop', 'zoom', 'fade', 'draw', 'typewriter', 'outline', 'pen'] as const;
 export type TypoEnter = (typeof TYPO_ENTERS)[number];
 export const TYPO_EXITS = ['auto', 'fade', 'zoomOut', 'slideOut', 'none'] as const;
 export type TypoExit = (typeof TYPO_EXITS)[number];
@@ -186,6 +215,8 @@ export interface TypoBlock {
   speed?: number;
   /** Seconds between word reveals; 0 / missing = each word appears when it is spoken. */
   stagger?: number;
+  /** Single-line font for the `pen` entrance (default: script for script/accent words, handwriting otherwise). */
+  penFont?: PenFont;
 }
 
 export interface TypoSettings {
@@ -253,6 +284,11 @@ export interface Overlay {
   fadeOut: number;
   background: string;
   shadow: boolean;
+  /** Hand-drawn entrance: the outline draws itself then fills, or real pen writing (single-line font). */
+  write?: 'none' | 'outline' | 'pen';
+  penFont?: PenFont;
+  /** Seconds to finish writing (default: natural pen speed for the text). */
+  writeTime?: number;
 }
 
 export interface MusicItem {
@@ -330,5 +366,7 @@ export interface Project {
   sfx: SfxItem[];
   effects: EffectLayer[];
   color: ColorAdjust;
+  /** LUTs used by the project's or clips' colour grades. */
+  luts: Lut[];
   export: ExportSettings;
 }
