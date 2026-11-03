@@ -1,4 +1,5 @@
 import type { PenFont } from './render/strokefont';
+import type { Credit } from './lib/freemedia';
 export type AssetKind = 'image' | 'video' | 'audio';
 
 export interface Asset {
@@ -368,5 +369,9 @@ export interface Project {
   color: ColorAdjust;
   /** LUTs used by the project's or clips' colour grades. */
   luts: Lut[];
+  /** Media-search vectors (CLIP, base64 Float32) per asset id. */
+  embeddings?: Record<string, string>;
+  /** Where free media came from (licence + credit line). */
+  credits?: Credit[];
   export: ExportSettings;
 }

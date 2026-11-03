@@ -1,0 +1,12 @@
+[
+  { "wait": 6000 },
+  { "eval": "[...document.querySelectorAll('.rail button')].map(b => b.textContent).join(',')" },
+  { "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.trim() === 'Media').click(); document.querySelector('.panel-title').textContent" },
+  { "wait": 600 },
+  { "eval": "window.confirm = () => true; (() => { const i = document.querySelector('.panels input'); if (!i) return 'no input'; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, 'dark night sky'); i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 'describe search: ' + i.placeholder.slice(0, 30); })()" },
+  { "wait": 20000 },
+  { "eval": "[...document.querySelectorAll('.panels .hint')].map(h => h.textContent).join(' || ')" },
+  { "wait": 60000 },
+  { "eval": "[...document.querySelectorAll('.panels .hint')].map(h => h.textContent).join(' || ') + ' ## ' + [...document.querySelectorAll('.media-item')].slice(0, 6).map(m => m.title + ' ' + (m.querySelector('.badge.match')?.textContent ?? '')).join(' | ')" },
+  { "shot": "describe" }
+]

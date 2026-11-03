@@ -1,13 +1,17 @@
 /// <reference lib="webworker" />
-import { AutoProcessor, RawImage, SamModel, pipeline } from '@huggingface/transformers';
+import { AutoProcessor, AutoTokenizer, CLIPTextModelWithProjection, CLIPVisionModelWithProjection, RawImage, SamModel, pipeline } from '@huggingface/transformers';
 
 const DEPTH_MODEL = 'onnx-community/depth-anything-v2-small';
 const SAM_MODEL = 'Xenova/slimsam-77-uniform';
+/** CLIP ViT-B/32 (8-bit, ~150 MB once) — image and text in one space, for "find a clip by describing it". */
+const CLIP_MODEL = 'Xenova/clip-vit-base-patch32';
 
 type Req =
   | { id: number; type: 'depth'; image: Blob }
   | { id: number; type: 'embed'; key: string; image: Blob }
-  | { id: number; type: 'mask'; key: string; points: [number, number][]; labels: number[] };
+  | { id: number; type: 'mask'; key: string; points: [number, number][]; labels: number[] }
+  | { id: number; type: 'clipImages'; images: Blob[] }
+  | { id: number; type: 'clipText'; texts: string[] };
 
 type Device = 'webgpu' | 'wasm';
 const post = (m: unknown) => (self as unknown as Worker).postMessage(m);
@@ -87,9 +91,46 @@ async function mask(key: string, points: [number, number][], labels: number[]) {
   return { blob: await c.convertToBlob({ type: 'image/png' }), score: scores[best] };
 }
 
+// CLIP runs on the CPU (WASM): 8-bit models are fast enough there and avoid WebGPU quirks on integrated GPUs.
+let clipVision: Promise<{ model: any; processor: any }> | undefined;
+let clipText: Promise<{ model: any; tokenizer: any }> | undefined;
+const unit = (v: ArrayLike<number>) => {
+  let n = 0;
+  for (let i = 0; i < v.length; i++) n += v[i] * v[i];
+  n = Math.sqrt(n) || 1;
+  return Float32Array.from(v, (x) => x / n);
+};
+
+async function clipImages(images: Blob[]) {
+  clipVision ??= (async () => ({
+    model: await CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL, { device: 'wasm', dtype: 'q8', progress_callback: progress('Media search model') }),
+    processor: await AutoProcessor.from_pretrained(CLIP_MODEL),
+  }))();
+  const { model, processor } = await clipVision;
+  const vectors: Float32Array[] = [];
+  for (const b of images) {
+    const { image_embeds } = await model(await processor(await RawImage.fromBlob(b)));
+    vectors.push(unit(image_embeds.data));
+  }
+  return { vectors };
+}
+
+async function clipTexts(texts: string[]) {
+  clipText ??= (async () => ({
+    model: await CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL, { device: 'wasm', dtype: 'q8', progress_callback: progress('Media search model') }),
+    tokenizer: await AutoTokenizer.from_pretrained(CLIP_MODEL),
+  }))();
+  const { model, tokenizer } = await clipText;
+  const { text_embeds } = await model(tokenizer(texts, { padding: true, truncation: true }));
+  const dim = text_embeds.dims[1];
+  return { vectors: texts.map((_, i) => unit(text_embeds.data.slice(i * dim, (i + 1) * dim))) };
+}
+
 async function handle(r: Req) {
   if (r.type === 'depth') return depth(r.image);
   if (r.type === 'embed') return embed(r.key, r.image);
+  if (r.type === 'clipImages') return clipImages(r.images);
+  if (r.type === 'clipText') return clipTexts(r.texts);
   return mask(r.key, r.points, r.labels);
 }
 
@@ -100,6 +141,7 @@ self.onmessage = async (ev: MessageEvent<Req | { type: 'cpu' }>) => {
   try {
     post({ type: 'result', id: r.id, result: await handle(r) });
   } catch (e) {
-    post({ type: 'error', id: r.id, error: (e as Error).message, gpu: (await deviceFor(r.type === 'depth' ? 'depth' : 'sam')) === 'webgpu' });
+    const clip = r.type === 'clipImages' || r.type === 'clipText';
+    post({ type: 'error', id: r.id, error: (e as Error).message, gpu: !clip && (await deviceFor(r.type === 'depth' ? 'depth' : 'sam')) === 'webgpu' });
   }
 };

@@ -49,6 +49,13 @@
   - Pure operations live in `editor/edit.ts`: split, ripple delete, copy/paste, `detachAudio`, `applyCuts` / `applyTimeMap`, voice segments (`voiceover.splits`), and `snapPoints` / `snapTime`.
   - UI actions (clipboard, toasts, async voice cuts) live in `editor/actions.ts`, and shortcuts in `editor/shortcuts.tsx`.
   - Clip `speed` is applied in `clipSourceTime`, the mix (`playbackRate`) and the preview `<video>.playbackRate`. MusicItem `rate` keeps detached audio at the clip's speed.
+- Media search: CLIP ViT-B/32 (8-bit, WASM) runs in `ai/worker.ts` (`clipImages` / `clipText`).
+  - Vectors are base64 Float32 in `project.embeddings`, handled by `lib/mediasearch.ts` (`indexMedia`, `rank`). The UI is in `editor/MediaPanel.tsx`.
+- Free media: `lib/freemedia.ts`.
+  - Sources: the Wikimedia Commons API (CORS `origin=*`; WebM transcodes for video) and the Openverse API (anonymous, rate-limited).
+  - Results are filtered by licence. Credits go to `project.credits`, which the readiness check uses.
+  - The desktop app downloads blocked hosts through `autostudio.fetchMedia` (main process; https and media types only, capped at 250 MB).
+  - The UI is `editor/FreeMediaPanel.tsx`.
 - Colour grading: `render/grade.ts`.
   - `combineGrades` merges the project and clip grades. `needsGpu` decides between the WebGL2 pass (`gradeDrawable`, with a 3D LUT texture) and plain `ctx.filter`.
   - `parseCube` reads `.cube` files; LUTs are stored in `project.luts` as 8-bit RGB, base64.
@@ -90,6 +97,8 @@
   - `scripts/steps-growth.json`: every Growth tab against `node scripts/fake-youtube.mjs` (port 1238; sign-in stubbed)
   - `scripts/steps-handdrawn.json`: pen-font + outline gallery, looks grid
   - `scripts/steps-phaseE.json`: GPU look + pen title → MP4 export
+  - `scripts/steps-phaseF.json`: free media from Wikimedia (images / video / sound) + insert
+  - `scripts/steps-describe.json`: describe-search on the demo (downloads CLIP on first run)
   - `scripts/steps-ai.json`: all AI-assistant actions against `node scripts/fake-llm.mjs` (port 1235; mimics LM Studio + Gemma, with messy JSON replies)
   - `scripts/steps-region.json`: object selection. The first run downloads models, and headless WebGPU is flaky, so the CPU fallback can take ~2 min.
 

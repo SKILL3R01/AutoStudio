@@ -7,6 +7,7 @@ import { Icon } from '../components/icons';
 import { CaptionsPanel } from './CaptionsPanel';
 import { KeywordsPanel } from './KeywordsPanel';
 import { MediaPanel } from './MediaPanel';
+import { FreeMediaPanel } from './FreeMediaPanel';
 import { AiPanel } from './AiPanel';
 import { SilenceDialog } from './SilenceDialog';
 import { GradeEditor } from './GradeEditor';
@@ -16,7 +17,7 @@ import { blankClip, importAudio, probe, setVoiceStart } from '../lib/project';
 import { uid } from '../lib/util';
 
 export const TABS = [
-  ['media', 'Media', 'media'], ['motion', 'Motion', 'motion'], ['transitions', 'Transitions', 'transition'], ['captions', 'Captions', 'captions'],
+  ['media', 'Media', 'media'], ['stock', 'Free media', 'download'], ['motion', 'Motion', 'motion'], ['transitions', 'Transitions', 'transition'], ['captions', 'Captions', 'captions'],
   ['keywords', 'Typography', 'keywords'], ['text', 'Text', 'text'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['color', 'Colour', 'image'], ['ai', 'AI', 'wand'],
 ] as const;
 export type Tab = (typeof TABS)[number][0];
@@ -49,6 +50,7 @@ export function Sidebar() {
         <div className="panel-title">{label}</div>
         <div className="panel-body">
           {tab === 'media' && <MediaPanel />}
+          {tab === 'stock' && <FreeMediaPanel />}
           {tab === 'motion' && <MotionPanel />}
           {tab === 'transitions' && <TransitionsPanel />}
           {tab === 'captions' && <CaptionsPanel />}

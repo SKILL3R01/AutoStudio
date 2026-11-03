@@ -83,3 +83,14 @@ export async function prepareSegment(key: string, image: Blob) {
 /** Mask PNG for clicks (normalised x/y), label 1 = include, 0 = exclude. */
 export const segmentAt = (key: string, points: [number, number][], labels: number[]) =>
   call<{ blob: Blob; score: number }>({ type: 'mask', key, points, labels });
+
+/** CLIP image vectors (unit length, 512-d) — images are shrunk to 336 px first (the model uses 224). */
+export async function clipEmbedImages(images: Blob[]): Promise<Float32Array[]> {
+  const small = await Promise.all(images.map((b) => shrink(b, 336)));
+  return (await call<{ vectors: Float32Array[] }>({ type: 'clipImages', images: small })).vectors;
+}
+
+/** CLIP text vectors (unit length) in the same space as the image vectors. */
+export async function clipEmbedText(texts: string[]): Promise<Float32Array[]> {
+  return (await call<{ vectors: Float32Array[] }>({ type: 'clipText', texts })).vectors;
+}

@@ -99,9 +99,13 @@ export function readiness(p: Project, others: Project[] = []): ReadinessItem[] {
 
   const clipsVideo = p.clips.filter((c) => p.assets.find((a) => a.id === c.assetId)?.kind === 'video');
   const aiVideo = clipsVideo.filter((c) => /_ai\b|_ai\./i.test(p.assets.find((a) => a.id === c.assetId)?.name ?? ''));
-  if (clipsVideo.length > aiVideo.length) {
-    out.push({ id: 'rights', status: 'warn', title: 'Video footage rights', detail: `${clipsVideo.length - aiVideo.length} video clip(s) from files — only use footage you made, licensed, or that is clearly free to reuse. Movie/TV/other creators' clips cause Content ID claims.` });
+  const licensed = new Set((p.credits ?? []).map((c) => c.assetId));
+  const unknown = clipsVideo.filter((c) => !aiVideo.includes(c) && !licensed.has(c.assetId));
+  if (unknown.length) {
+    out.push({ id: 'rights', status: 'warn', title: 'Video footage rights', detail: `${unknown.length} video clip(s) from files — only use footage you made, licensed, or that is clearly free to reuse. Movie/TV/other creators' clips cause Content ID claims.` });
   }
+  const needCredit = (p.credits ?? []).filter((c) => c.required);
+  if (needCredit.length) out.push({ id: 'credits', status: 'info', title: 'Credits to add', detail: `${needCredit.length} free item(s) are CC BY / BY-SA — paste their credit lines into the description (Free media → Copy credits).` });
   if (p.music.length) out.push({ id: 'music', status: 'warn', title: 'Music licence', detail: 'Use music you have rights to (YouTube Audio Library, or royalty-free with a licence). Popular songs get claimed and lose revenue.' });
 
   out.push({ id: 'ai', status: 'info', title: 'AI disclosure', detail: `${aiVideo.length ? `${aiVideo.length} AI-generated clip(s). ` : ''}If AI imagery or voice could be mistaken for real people, places or events, turn on "Altered or synthetic content" when uploading. Fantasy, animation and clearly-illustrative visuals don't need it.` });

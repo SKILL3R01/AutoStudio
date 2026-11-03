@@ -122,7 +122,23 @@ async function suggest(q, lang) {
   return Array.isArray(j?.[1]) ? j[1].map(String) : [];
 }
 
+/** Media downloads for the free-media search (renderer fetches can be blocked by CORS). */
+async function fetchMedia(url) {
+  const u = new URL(String(url));
+  if (u.protocol !== 'https:') throw new Error('Only https downloads are allowed');
+  const r = await net.fetch(u.toString());
+  if (!r.ok) throw new Error(`Download failed (${r.status})`);
+  const type = r.headers.get('content-type') ?? '';
+  if (!/^(image|video|audio)\//.test(type) && !/ogg|octet-stream/.test(type)) throw new Error(`Not a media file (${type})`);
+  const len = +(r.headers.get('content-length') ?? 0);
+  if (len > 250e6) throw new Error('File too large (> 250 MB)');
+  const data = await r.arrayBuffer();
+  if (data.byteLength > 250e6) throw new Error('File too large (> 250 MB)');
+  return { type, data };
+}
+
 function registerGoogle() {
+  ipcMain.handle('autostudio:fetch-media', (_e, url) => fetchMedia(url));
   ipcMain.handle('autostudio:google-signin', (e, opts) => {
     if (!opts?.clientId || !opts?.clientSecret || !Array.isArray(opts.scopes)) return { ok: false, error: 'Missing client ID / secret.' };
     return signIn(BrowserWindow.fromWebContents(e.sender), opts);
