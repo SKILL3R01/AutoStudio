@@ -1,0 +1,16 @@
+[
+  { "wait": 6000 },
+  { "eval": "[...document.querySelectorAll('.ed-top button')].find(b => b.textContent.includes('Auto-edit')).click(); 'dialog'" },
+  { "wait": 800 },
+  { "eval": "(document.querySelector('.modal')?.innerText ?? 'no modal').split(String.fromCharCode(10)).join(' / ').slice(0, 300)" },
+  { "shot": "setup" },
+  { "eval": "window.confirm = () => true; [...document.querySelectorAll('.modal button')].find(b => b.textContent.includes('Plan scenes')).click(); 'planning'" },
+  { "wait": 100000 },
+  { "eval": "document.querySelectorAll('.scene-row').length + ' scenes · picks: ' + [...document.querySelectorAll('.scene-row')].map(r => r.querySelector('.cand.on span')?.textContent ?? '?').join(',') + ' · ' + (document.querySelector('.modal .hint')?.textContent ?? '')" },
+  { "eval": "[...document.querySelectorAll('.scene-row')].slice(0, 4).map(r => r.querySelector('input').value).join(' | ')" },
+  { "shot": "review" },
+  { "eval": "[...document.querySelectorAll('.modal button')].find(b => b.textContent.includes('Build timeline')).click(); 'build'" },
+  { "wait": 25000 },
+  { "eval": "[...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | ') + ' · clips: ' + document.querySelectorAll('.t-video .clip').length + ' · modal: ' + !!document.querySelector('.autoedit')" },
+  { "shot": "built" }
+]

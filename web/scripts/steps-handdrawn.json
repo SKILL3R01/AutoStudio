@@ -5,7 +5,7 @@
   { "shot": "gallery" },
   { "eval": "document.querySelector('canvas[style*=\"99999\"]').remove(); location.hash = '#demo'; 'demo'" },
   { "wait": 6000 },
-  { "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.includes('Motion')).click(); 'motion panel'" },
+  { "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.includes('Colour')).click(); 'colour panel'" },
   { "wait": 800 },
   { "eval": "(() => { const l = [...document.querySelectorAll('.panels .look')]; const t = l.find(b => b.textContent.includes('Teal')); t.scrollIntoView(); t.click(); return l.length + ' looks, applied Teal & orange'; })()" },
   { "wait": 600 },

@@ -13,6 +13,7 @@ import { ImportScreen, ImportDialog } from '../editor/ImportScreen';
 import { ExportDialog } from '../editor/ExportDialog';
 import { ShortcutsDialog, useShortcuts } from '../editor/shortcuts';
 import { Splitter, usePanelSize } from '../editor/Splitter';
+import { AutoEditDialog } from '../editor/AutoEditDialog';
 import { updateThumbnail } from '../lib/thumbnail';
 import { buildLines } from '../lib/captions';
 import type { Project } from '../types';
@@ -56,7 +57,7 @@ export function Editor({ id }: { id: string }) {
 function Workspace() {
   const p = useEditor((s) => s.project!);
   const { update, undo, redo, past, future } = useEditor();
-  const [dialog, setDialog] = useState<'import' | 'export' | 'keys' | null>(null);
+  const [dialog, setDialog] = useState<'import' | 'export' | 'keys' | 'auto' | null>(null);
   const vo = p.voiceover && findAsset(p, p.voiceover.assetId);
   const left = usePanelSize('layoutLeft', 300, 220, 560);
   const right = usePanelSize('layoutRight', 300, 220, 560);
@@ -76,6 +77,7 @@ function Workspace() {
         {vo && <span className="chip"><Icon name="mic" size={13} /> {vo.name}</span>}
         <span className="chip"><Icon name="film" size={13} /> {p.clips.length} clips</span>
         <button className="icon-btn" onClick={() => setDialog('keys')} title="Keyboard shortcuts (?)"><Icon name="keyboard" /></button>
+        <button className="btn sm" onClick={() => setDialog('auto')} title="Voiceover → scenes → a visual per scene → timeline"><Icon name="wand" /> Auto-edit</button>
         <button className="btn sm" onClick={() => setDialog('import')}><Icon name="upload" /> Add media</button>
         <button className="btn sm primary" onClick={() => setDialog('export')}><Icon name="export" /> Export</button>
       </div>
@@ -93,6 +95,7 @@ function Workspace() {
       {dialog === 'import' && <ImportDialog onClose={() => setDialog(null)} />}
       {dialog === 'export' && <ExportDialog onClose={() => setDialog(null)} />}
       {dialog === 'keys' && <ShortcutsDialog onClose={() => setDialog(null)} />}
+      {dialog === 'auto' && <AutoEditDialog onClose={() => setDialog(null)} />}
     </div>
   );
 }

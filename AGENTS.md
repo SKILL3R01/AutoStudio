@@ -49,6 +49,7 @@
   - Pure operations live in `editor/edit.ts`: split, ripple delete, copy/paste, `detachAudio`, `applyCuts` / `applyTimeMap`, voice segments (`voiceover.splits`), and `snapPoints` / `snapTime`.
   - UI actions (clipboard, toasts, async voice cuts) live in `editor/actions.ts`, and shortcuts in `editor/shortcuts.tsx`.
   - Clip `speed` is applied in `clipSourceTime`, the mix (`playbackRate`) and the preview `<video>.playbackRate`. MusicItem `rate` keeps detached audio at the clip's speed.
+- Auto-edit: planning in `lib/autoedit.ts` (`planScenes`, `assignUnique`, `buildClips`, `applyAutoEdit`). The UI is `editor/AutoEditDialog.tsx`; it combines CLIP matches, free media, Colab imagegen and LLM queries.
 - Media search: CLIP ViT-B/32 (8-bit, WASM) runs in `ai/worker.ts` (`clipImages` / `clipText`).
   - Vectors are base64 Float32 in `project.embeddings`, handled by `lib/mediasearch.ts` (`indexMedia`, `rank`). The UI is in `editor/MediaPanel.tsx`.
 - Free media: `lib/freemedia.ts`.
@@ -83,6 +84,7 @@
 ## Verify
 - `cd web && npx tsc --noEmit && npm test && npm run build`
 - `python -m py_compile engine/server.py engine/tts_worker.py`
+- `bash scripts/run-all.sh` runs every headless suite with the fake back-ends (dev server on :5173 required) and prints only suspicious lines.
 - Headless visual checks need the dev server on :5173. The `#demo` route creates a demo project. Run each with `node scripts/cdp-shot.mjs <url> <out-prefix> <steps.json>`:
   - `scripts/steps-v2.json`: home, editor, keywords, projects
   - `scripts/steps-review.json`: import review table
@@ -99,6 +101,7 @@
   - `scripts/steps-phaseE.json`: GPU look + pen title → MP4 export
   - `scripts/steps-phaseF.json`: free media from Wikimedia (images / video / sound) + insert
   - `scripts/steps-describe.json`: describe-search on the demo (downloads CLIP on first run)
+  - `scripts/steps-autoedit.json`: Auto-edit on the demo (CLIP matching → build)
   - `scripts/steps-ai.json`: all AI-assistant actions against `node scripts/fake-llm.mjs` (port 1235; mimics LM Studio + Gemma, with messy JSON replies)
   - `scripts/steps-region.json`: object selection. The first run downloads models, and headless WebGPU is flaky, so the CPU fallback can take ~2 min.
 

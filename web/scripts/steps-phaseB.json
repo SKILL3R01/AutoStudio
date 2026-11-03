@@ -78,7 +78,7 @@
   "wait": 600
  },
  {
-  "eval": "(document.querySelector('.inspector')?.innerText ?? '').split('\n').join(' / ').slice(0, 220)"
+  "eval": "(document.querySelector('.inspector')?.innerText ?? '').split(String.fromCharCode(10)).join(' / ').slice(0, 220)"
  },
  {
   "shot": "voice-seg"

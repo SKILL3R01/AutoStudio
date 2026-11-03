@@ -24,7 +24,7 @@
   { "wait": 8000 },
   { "eval": "[...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | ') + ' · credits: ' + document.querySelectorAll('.credits li').length" },
   { "shot": "sfx" },
-  { "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.includes('Media') && !b.textContent.includes('Free')).click(); 'media'" },
+  { "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.trim() === 'Media').click(); 'media'" },
   { "wait": 600 },
   { "eval": "window.confirm = () => true; (() => { const i = document.querySelector('.panels input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, 'night sky with stars'); i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 'describe search'; })()" },
   { "wait": 90000 },
