@@ -4,12 +4,14 @@ import { useLlm } from '../lib/llm';
 import { EngineDialog } from './EngineDialog';
 import { LlmDialog } from './LlmDialog';
 import { SettingsDialog } from './SettingsDialog';
+import { useUpdates } from '../lib/updates';
 import { Icon } from './icons';
 import type { Route } from '../App';
 
 export function Header({ route }: { route: Route }) {
   const status = useEngine((s) => s.status);
   const kind = useEngine((s) => s.kind);
+  const update = useUpdates((s) => s.phase);
   const llm = useLlm((s) => s.status);
   const [open, setOpen] = useState<'engine' | 'llm' | 'settings' | null>(null);
   return (
@@ -27,6 +29,7 @@ export function Header({ route }: { route: Route }) {
       <button className={`pill ${status}`} onClick={() => setOpen('engine')}>
         <i /> {status === 'ready' ? (kind === 'tryai' ? 'TryAIToday engine' : 'Engine ready') : status === 'checking' ? 'Checking…' : 'Connect engine'}
       </button>
+      {(update === 'available' || update === 'ready') && <button className="pill ready" onClick={() => setOpen('settings')} title="A new version of AutoStudio is available"><i /> Update</button>}
       <button className="icon-btn" onClick={() => setOpen('settings')} title="Settings (performance, layout, version)"><Icon name="settings" /></button>
       {open === 'engine' && <EngineDialog onClose={() => setOpen(null)} />}
       {open === 'llm' && <LlmDialog onClose={() => setOpen(null)} />}

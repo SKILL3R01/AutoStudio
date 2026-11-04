@@ -3,6 +3,7 @@ import { App } from './App';
 import { ensureTypoFonts } from './render/typography';
 import { mediaLimits } from './render/media';
 import { PROFILE_SETTINGS, usePerf } from './lib/perf';
+import { autoCheckUpdates } from './lib/updates';
 import './styles.css';
 
 // Performance profile → image cache limits (preview size is read by the Preview component).
@@ -14,6 +15,7 @@ const applyProfile = () => {
 applyProfile();
 usePerf.subscribe(applyProfile);
 void usePerf.getState().init();
+autoCheckUpdates();
 
 void ensureTypoFonts();
 createRoot(document.getElementById('root')!).render(<App />);

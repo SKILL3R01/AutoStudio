@@ -15,6 +15,8 @@ The exes are not code-signed. If SmartScreen warns, click **More info → Run an
 
 To publish a new version, bump the tag: `git tag v1.0.1 && git push origin v1.0.1`. GitHub Actions builds both exes and attaches them to a new Release. You can also build locally with `cd web && npm run dist`; the output goes to `web/release/`.
 
+**Updates:** the installed app checks GitHub once a day and shows an **Update** button; Settings → Updates downloads the new version (verified against GitHub's checksum) and restarts into it. The portable exe links to the download page instead.
+
 ## Run the editor from source
 
 ```bash

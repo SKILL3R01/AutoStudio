@@ -11,6 +11,13 @@ interface Window {
     fetchMedia?: (url: string) => Promise<{ type: string; data: ArrayBuffer }>;
     /** Forget cached DNS answers (a new tunnel address may have been cached as "not found"). */
     flushDns?: () => Promise<void>;
+    /** In-app updates from GitHub Releases (installer verified by SHA-256). */
+    updates?: {
+      check: () => Promise<UpdateInfo>;
+      download: () => Promise<{ ok: boolean; version: string }>;
+      install: () => Promise<{ ok: boolean; portable?: boolean }>;
+      onProgress: (cb: (p: { received: number; total: number }) => void) => () => void;
+    };
     /** Google sign-in (loopback OAuth with PKCE; tokens encrypted on disk by the main process). */
     google?: {
       signIn: (o: { clientId: string; clientSecret: string; scopes: string[] }) => Promise<{ ok: boolean; error?: string }>;
@@ -19,4 +26,15 @@ interface Window {
       signOut: () => Promise<void>;
     };
   };
+}
+
+interface UpdateInfo {
+  current: string;
+  latest: string;
+  available: boolean;
+  portable: boolean;
+  notes: string;
+  page: string;
+  size: number;
+  downloaded: boolean;
 }
