@@ -1,0 +1,11 @@
+[
+  { "wait": 3000 },
+  { "eval": "localStorage.setItem('engineUrl', 'http://localhost:1237'); location.reload(); 'configured'" },
+  { "wait": 5000 },
+  { "eval": "[...document.querySelectorAll('.header .pill')].find(b => b.textContent.includes('Engine')).click(); 'dialog'" },
+  { "wait": 600 },
+  { "eval": "[...document.querySelectorAll('.modal button')].find(b => b.textContent.includes('Check engine')).click(); 'check'" },
+  { "wait": 2000 },
+  { "eval": "[...document.querySelectorAll('.diag li')].map(l => l.className + ':' + l.querySelector('b').textContent).join(' | ') + ' · failed jobs: ' + document.querySelectorAll('.diag details').length" },
+  { "shot": "diag" }
+]

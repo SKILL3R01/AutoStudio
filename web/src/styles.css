@@ -534,3 +534,4 @@ pre.meta-out { white-space: pre-wrap; background: var(--panel2); padding: 10px; 
 .cand span { position: absolute; left: 3px; bottom: 3px; font-size: 10px; background: rgba(0, 0, 0, 0.75); color: #fff; padding: 0 4px; border-radius: 3px; }
 .cand.on { border-color: var(--accent); }
 .cand.mine span { background: rgba(139, 108, 255, 0.9); }
+.diag { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow: auto; } .diag details summary { cursor: pointer; font-size: 12px; }

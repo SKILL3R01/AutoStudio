@@ -21,6 +21,16 @@ createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return json(res, 204, {});
   const url = new URL(req.url, 'http://x');
   if (url.pathname === '/health') return json(res, 200, { ok: true, gpu: 'Fake T4', tools: ['tts', 'transcribe', 'imagegen', 'videogen', 'upscale', 'video_upscale', 'prompts', 'script', 'chat'], drive: false });
+  if (url.pathname === '/diagnostics') {
+    return json(res, 200, {
+      checks: [
+        { name: 'GPU', ok: true, detail: 'Tesla T4 · 14800 / 15360 MB free · torch 2.8.0' },
+        { name: 'Voiceover (Chatterbox venv)', ok: false, detail: 'ModuleNotFoundError: No module named chatterbox' },
+        { name: 'Captions (faster-whisper)', ok: true, detail: 'faster-whisper 1.1.1 · ctranslate2 4.6.0 · 1 GPU' },
+      ],
+      jobs: [{ id: 'j1', tool: 'tts', status: 'error', error: 'RuntimeError: Chatterbox failed — see the log above', log: ['Starting Chatterbox subprocess…', 'ModuleNotFoundError: No module named chatterbox'] }],
+    });
+  }
   if (url.pathname === '/__seed' && req.method === 'POST') {
     seed = { type: req.headers['content-type'] ?? 'video/webm', data: await read(req) };
     return json(res, 200, { ok: true, bytes: seed.data.length });

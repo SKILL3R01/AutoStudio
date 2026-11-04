@@ -84,16 +84,36 @@ else:
     print(open(LOG).read()); raise SystemExit("Server failed to start")
 tunnel = subprocess.Popen(["/content/cloudflared", "tunnel", "--no-autoupdate", "--url", "http://127.0.0.1:8000"],
                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-PUBLIC_URL = None
+PUBLIC_URL, registered = None, False
 for line in tunnel.stdout:
     m = re.search(r"https://[a-z0-9-]+\\.trycloudflare\\.com", line)
-    if m:
-        PUBLIC_URL = m.group(0); break
+    if m and not PUBLIC_URL:
+        PUBLIC_URL = m.group(0)
+    if "Registered tunnel connection" in line:
+        registered = True
+    if PUBLIC_URL and registered:
+        break
 threading.Thread(target=lambda: [None for _ in tunnel.stdout], daemon=True).start()  # keep draining the pipe
-time.sleep(4)
+# A brand-new trycloudflare address needs a few seconds before it resolves; asking too early can make
+# computers cache "not found" for minutes. Only announce the URL once it answers from the internet.
+reachable = False
+for _ in range(30):
+    time.sleep(2)
+    try:
+        reachable = requests.get(PUBLIC_URL + "/health", timeout=5).ok
+    except Exception:
+        reachable = False
+    if reachable:
+        break
+diag = requests.get("http://127.0.0.1:8000/diagnostics", timeout=240).json()
 print("=" * 64)
-print("✅ AUTOSTUDIO ENGINE READY")
+print("✅ AUTOSTUDIO ENGINE READY" if reachable else "⚠️ ENGINE RUNNING, but the public URL is not answering yet — wait 30 s, then connect")
 print("🔗 ENGINE URL:", PUBLIC_URL)
+print("-" * 64)
+for c in diag["checks"]:
+    print(("✅" if c["ok"] else "❌"), c["name"], "—", c["detail"])
+if not all(c["ok"] for c in diag["checks"]):
+    print("❌ = that tool will fail. Re-run step 2 (Install) and send its output if it stays red.")
 print("   Click a Connect button below, or paste the URL into AutoStudio → Connect engine")
 print("=" * 64)
 from urllib.parse import quote

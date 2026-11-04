@@ -85,6 +85,12 @@ ipcMain.handle('autostudio:hardware', async () => {
 registerGoogle();
 
 app.whenReady().then(() => {
+  // Resolve names over secure DNS when the OS resolver lags behind (new trycloudflare tunnels appear within seconds).
+  try {
+    app.configureHostResolver({ secureDnsMode: 'automatic', secureDnsServers: ['https://cloudflare-dns.com/dns-query', 'https://dns.google/dns-query'] });
+  } catch {
+    /* older Electron — keep the system resolver */
+  }
   protocol.handle(SCHEME, (req) => {
     const { pathname } = new URL(req.url);
     const file = path.normalize(path.join(DIST, decodeURIComponent(pathname)));

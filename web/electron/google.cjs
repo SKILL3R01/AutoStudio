@@ -1,7 +1,7 @@
 // Google sign-in for the desktop app (OAuth 2.0 for installed apps: loopback redirect + PKCE).
 // The user's own OAuth client ("Desktop app" type) is used; tokens are encrypted with the OS keychain (safeStorage)
 // and never leave the main process except as short-lived access tokens handed to the renderer.
-const { app, BrowserWindow, ipcMain, net, safeStorage, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, net, safeStorage, session, shell } = require('electron');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -139,6 +139,7 @@ async function fetchMedia(url) {
 
 function registerGoogle() {
   ipcMain.handle('autostudio:fetch-media', (_e, url) => fetchMedia(url));
+  ipcMain.handle('autostudio:flush-dns', () => session.defaultSession.clearHostResolverCache());
   ipcMain.handle('autostudio:google-signin', (e, opts) => {
     if (!opts?.clientId || !opts?.clientSecret || !Array.isArray(opts.scopes)) return { ok: false, error: 'Missing client ID / secret.' };
     return signIn(BrowserWindow.fromWebContents(e.sender), opts);

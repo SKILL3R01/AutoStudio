@@ -44,6 +44,24 @@ export const useEngine = create<EngineStore>((set, get) => ({
     const { url } = get();
     if (!url) return set({ status: 'offline' }), false;
     set({ status: 'checking' });
+    // A brand-new trycloudflare address can take a few seconds to resolve; retry instead of failing once
+    // (the desktop app also drops its cached "not found" DNS answer between tries).
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (attempt) {
+        await window.autostudio?.flushDns?.().catch(() => {});
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+      if (await probeOnce()) return true;
+    }
+    set({ status: 'offline', info: undefined });
+    return false;
+  },
+}));
+
+async function probeOnce(): Promise<boolean> {
+  {
+    const { url } = useEngine.getState();
+    const set = useEngine.setState;
     const json = (path: string) => fetch(`${url}${path}`, { signal: AbortSignal.timeout(8000) }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))));
     try {
       const info = await json('/health');
@@ -62,10 +80,25 @@ export const useEngine = create<EngineStore>((set, get) => ({
     } catch {
       /* offline */
     }
-    set({ status: 'offline', info: undefined });
     return false;
-  },
-}));
+  }
+}
+
+export interface Diagnostics {
+  checks: { name: string; ok: boolean; detail: string }[];
+  jobs: { id: string; tool: string; status: string; error: string | null; log: string[] }[];
+}
+
+/** Self-test of the AutoStudio engine (GPU, Chatterbox venv, whisper, diffusers, weights, ffmpeg) + recent job errors. */
+export async function engineDiagnostics(): Promise<Diagnostics> {
+  const { url, kind } = useEngine.getState();
+  if (!url) throw new Error('No engine URL yet');
+  if (kind === 'tryai') throw new Error('The self-check is part of the AutoStudio engine notebook.');
+  const r = await fetch(`${url}/diagnostics`, { signal: AbortSignal.timeout(240000) });
+  if (r.status === 404) throw new Error('This engine is an older notebook without the self-check — open the notebook again from “Open in Colab” and Run all.');
+  if (!r.ok) throw new Error(`Engine error ${r.status}`);
+  return r.json();
+}
 
 /** Can the connected engine run this tool? */
 export const engineHas = (tool: EngineTool) => {

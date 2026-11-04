@@ -509,6 +509,72 @@ def health():
     return {"ok": True, "gpu": gpu, "tools": list(TOOLS), "drive": USE_DRIVE, "queue": work.qsize(), "loaded": models.name}
 
 
+def _check(name, fn):
+    try:
+        return {"name": name, "ok": True, "detail": str(fn())[:300]}
+    except Exception as e:  # report, never raise
+        return {"name": name, "ok": False, "detail": f"{type(e).__name__}: {e}"[:400]}
+
+
+def _gpu():
+    if not torch.cuda.is_available():
+        raise RuntimeError("no CUDA GPU — Runtime → Change runtime type → T4 GPU, then Run all")
+    free, total = torch.cuda.mem_get_info()
+    return f"{torch.cuda.get_device_name(0)} · {free // 2**20} / {total // 2**20} MB free · torch {torch.__version__}"
+
+
+def _tts_env():
+    if not Path(TTS_PY).exists():
+        raise FileNotFoundError(f"{TTS_PY} missing — the Chatterbox install in step 2 failed (re-run step 2 and check its output)")
+    r = subprocess.run([TTS_PY, "-c", "import chatterbox, torch; print('chatterbox ok · torch', torch.__version__, '· cuda', torch.cuda.is_available())"],
+                       capture_output=True, text=True, timeout=180)
+    if r.returncode:
+        raise RuntimeError((r.stderr or r.stdout).strip().splitlines()[-1] if (r.stderr or r.stdout).strip() else f"exit {r.returncode}")
+    return r.stdout.strip()
+
+
+def _whisper():
+    import ctranslate2
+    import faster_whisper
+
+    n = ctranslate2.get_cuda_device_count()
+    if not n:
+        raise RuntimeError("ctranslate2 sees no CUDA device (cuDNN / CUDA libraries not found)")
+    return f"faster-whisper {faster_whisper.__version__} · ctranslate2 {ctranslate2.__version__} · {n} GPU"
+
+
+def _diffusers(cls=None):
+    import diffusers
+
+    if cls and not hasattr(diffusers, cls):
+        raise ImportError(f"diffusers {diffusers.__version__} has no {cls} — upgrade diffusers")
+    return f"diffusers {diffusers.__version__}"
+
+
+def _weights():
+    found = sorted(p.name for p in WEIGHTS.glob("*.pth"))
+    if not found:
+        raise FileNotFoundError("Real-ESRGAN weights missing in /content/autostudio/weights (step 2 download failed)")
+    return ", ".join(found)
+
+
+@app.get("/diagnostics")
+def diagnostics():
+    """Self-test of every tool's dependencies + the last jobs' errors (shown by the app's "Check engine")."""
+    checks = [
+        _check("GPU", _gpu),
+        _check("Voiceover (Chatterbox venv)", _tts_env),
+        _check("Captions (faster-whisper)", _whisper),
+        _check("AI images (diffusers)", _diffusers),
+        _check("AI video (Wan VACE)", lambda: _diffusers("WanVACEPipeline")),
+        _check("Upscaling weights", _weights),
+        _check("ffmpeg", lambda: subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, check=True).stdout.splitlines()[0]),
+        _check("Disk", lambda: f"{shutil.disk_usage('/content' if Path('/content').exists() else '/').free // 2**30} GB free"),
+    ]
+    recent = [{"id": j["id"], "tool": j["tool"], "status": j["status"], "error": j["error"], "log": j["logs"][-15:]} for j in list(jobs.values())[-6:]]
+    return {"checks": checks, "jobs": recent, "loaded": models.name}
+
+
 @app.post("/jobs/{tool}")
 async def submit(tool: str, request: Request):
     if tool not in TOOLS:

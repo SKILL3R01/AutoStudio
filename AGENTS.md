@@ -29,6 +29,10 @@
 - `engine/server.py` + `engine/tts_worker.py` are the source of truth. `engine/AutoStudio_Engine.ipynb` is generated from them by `python engine/build_notebook.py`.
   - `--publish` also pushes the notebook to the public repo `SKILL3R01/autostudio-engine`. The app's "Open in Colab" button opens that repo.
   - The notebook is also bundled into the app (`EngineDialog.tsx`, `?raw` import) as a download fallback.
+- Engine connection robustness:
+  - Step 4 of the notebook waits for cloudflared's "Registered tunnel connection" and for the public `/health` to answer before printing READY. Asking a brand-new trycloudflare host too early can cache NXDOMAIN; `node scripts/tunnel-check.mjs [--gate]` reproduces this.
+  - The app's `useEngine.check()` retries 5 times, calling `autostudio.flushDns()` (Electron `clearHostResolverCache`) between tries. The desktop app also enables secure DNS.
+- Engine self-test: `GET /diagnostics` (server.py) checks the GPU, the Chatterbox venv, ctranslate2 CUDA, diffusers / WanVACEPipeline, ESRGAN weights, ffmpeg and disk, and returns the last jobs' errors. The notebook prints it on start; the app shows it under Connect engine → Check engine (Copy report).
 - Engine auto-connect: the notebook prints two links.
   - `autostudio://engine?url=…`: the Electron protocol handler turns it into `#engine=`.
   - `http://localhost:5173/#engine=…`: for the browser version.

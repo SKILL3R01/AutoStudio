@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { ENGINE_LABELS, useEngine, type EngineKind } from '../lib/engine';
+import { ENGINE_LABELS, engineDiagnostics, useEngine, type Diagnostics, type EngineKind } from '../lib/engine';
+import { toast } from './Toast';
 import { Icon } from './icons';
 import { download } from '../lib/util';
 import notebook from '../../../engine/AutoStudio_Engine.ipynb?raw';
 
+const NL = String.fromCharCode(10);
 export const COLAB_URL = 'https://colab.research.google.com/github/SKILL3R01/autostudio-engine/blob/main/AutoStudio_Engine.ipynb';
 /** The reference site's public notebook — voiceover (English, cloning), Whisper transcripts and upscaling. */
 export const TRYAI_COLAB_URL = 'https://colab.research.google.com/github/codewithsiddique-04/tryaitoday-studio-notebook/blob/main/TryAIToday_Studio.ipynb';
@@ -20,6 +22,20 @@ export function EngineDialog({ onClose }: { onClose: () => void }) {
   const [help, setHelp] = useState(false);
   const kind = useEngine((s) => s.kind);
   const [pick, setPick] = useState<EngineKind>(kind);
+  const [diag, setDiag] = useState<Diagnostics | string | null>(null);
+  const runDiag = async () => {
+    setDiag('Checking every tool on the engine (up to a minute)…');
+    try {
+      setDiag(await engineDiagnostics());
+    } catch (e) {
+      setDiag((e as Error).message);
+    }
+  };
+  const report = (d: Diagnostics) => [
+    'AutoStudio engine report',
+    ...d.checks.map((c) => `${c.ok ? 'OK ' : 'ERR'} ${c.name}: ${c.detail}`),
+    ...d.jobs.map((j) => `job ${j.tool} ${j.status}${j.error ? `: ${j.error}` : ''}${NL}  ${j.log.slice(-6).join(`${NL}  `)}`),
+  ].join(NL);
   const test = async () => {
     setUrl(value);
     setMsg('Testing…');
@@ -71,6 +87,32 @@ export function EngineDialog({ onClose }: { onClose: () => void }) {
           ) : <span>{msg || (status === 'checking' ? 'Checking…' : 'Not connected')}</span>}
         </div>
 
+        {status === 'ready' && kind === 'autostudio' && (
+          <div className="row wrap">
+            <button className="btn sm" onClick={runDiag}><Icon name="check" /> Check engine</button>
+            <span className="hint">Tests the GPU and every AI tool, and shows the last errors.</span>
+          </div>
+        )}
+        {typeof diag === 'string' && <p className="hint">{diag}</p>}
+        {diag && typeof diag === 'object' && (
+          <div className="diag">
+            <ul className="readiness">
+              {diag.checks.map((c) => (
+                <li key={c.name} className={c.ok ? 'ok' : 'warn'}>
+                  <Icon name={c.ok ? 'check' : 'warn'} size={14} />
+                  <div><b>{c.name}</b><span className="hint">{c.detail}</span></div>
+                </li>
+              ))}
+            </ul>
+            {diag.jobs.filter((j) => j.status === 'error').map((j) => (
+              <details key={j.id}>
+                <summary><b>Failed {j.tool}</b> — {j.error}</summary>
+                <pre className="log mini">{j.log.join(NL)}</pre>
+              </details>
+            ))}
+            <button className="btn sm ghost" onClick={() => void navigator.clipboard.writeText(report(diag)).then(() => toast('Report copied — paste it to your assistant', 'ok'))}><Icon name="copy" /> Copy report</button>
+          </div>
+        )}
         <button className="link" onClick={() => setHelp(!help)}>{help ? 'Hide' : 'Show'} troubleshooting</button>
         {help && (
           <ul className="hint steps">
