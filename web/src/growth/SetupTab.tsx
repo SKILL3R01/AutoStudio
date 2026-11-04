@@ -74,7 +74,7 @@ export function SetupTab() {
           </div>
         ) : (
           <ol className="setup">
-            <li><b><a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noreferrer">OAuth consent screen</a></b> (same project): User type <b>External</b>, app name “AutoStudio”, your email. Leave it in <b>Testing</b> and add your own Gmail under <b>Test users</b>.</li>
+            <li><b><a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noreferrer">Google Auth Platform</a></b> (same project): User type <b>External</b>, app name “AutoStudio”, your email. Leave it in <b>Testing</b>, then open <b><a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noreferrer">Audience → Test users</a> → Add users</b> and add the Gmail you will sign in with — otherwise Google shows “Access blocked … Error 403: access_denied”.</li>
             <li><b><a href="https://console.cloud.google.com/apis/credentials/oauthclient" target="_blank" rel="noreferrer">Create OAuth client ID</a> → Application type: Desktop app.</b> Copy the client ID and secret.</li>
             <li>
               <b>Paste them and sign in:</b>
