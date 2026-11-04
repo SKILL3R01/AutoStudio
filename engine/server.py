@@ -266,9 +266,24 @@ def load_sdxl(kind):
         from huggingface_hub import hf_hub_download
         from safetensors.torch import load_file
 
+        from accelerate import init_empty_weights
+
         base = "stabilityai/stable-diffusion-xl-base-1.0"
-        unet = UNet2DConditionModel.from_config(base, subfolder="unet").to("cuda", torch.float16)
-        unet.load_state_dict(load_file(hf_hub_download("ByteDance/SDXL-Lightning", "sdxl_lightning_4step_unet.safetensors"), device="cuda"))
+        # Build the UNet without allocating weights, then take the fp16 Lightning weights straight onto the GPU.
+        # (UNet.from_config() would first build a 2.6B-param fp32 model in RAM — ~10 GB — and Colab's 12 GB RAM
+        # kills the engine without a traceback.)
+        weights = load_file(hf_hub_download("ByteDance/SDXL-Lightning", "sdxl_lightning_4step_unet.safetensors"), device="cuda")
+        weights = {k: v.to(torch.float16) for k, v in weights.items()}
+        try:
+            with init_empty_weights():
+                unet = UNet2DConditionModel.from_config(UNet2DConditionModel.load_config(base, subfolder="unet"))
+            unet.load_state_dict(weights, assign=True)
+            unet = unet.to("cuda", torch.float16)
+        except Exception as e:  # fallback: fp16 base UNet (~5 GB RAM), then overwrite with the Lightning weights
+            print(f"[sdxl] empty-init failed ({e}); loading the fp16 UNet instead", flush=True)
+            unet = UNet2DConditionModel.from_pretrained(base, subfolder="unet", torch_dtype=torch.float16, variant="fp16").to("cuda")
+            unet.load_state_dict(weights)
+        del weights
         pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, vae=vae, torch_dtype=torch.float16, variant="fp16")
         pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
     pipe = pipe.to("cuda")

@@ -121,13 +121,23 @@ export async function runJob(tool: EngineTool, form: FormData, onUpdate: (j: Job
   const r = await fetch(`${url}/jobs/${tool}`, { method: 'POST', body: form, signal });
   if (!r.ok) throw new Error(`Engine error ${r.status}: ${await r.text()}`);
   const { id } = await r.json();
+  let lost = 0;
   for (;;) {
     if (signal?.aborted) {
       void fetch(`${url}/jobs/${id}/cancel`, { method: 'POST' }).catch(() => {});
       throw new DOMException('Cancelled', 'AbortError');
     }
     await new Promise((res) => setTimeout(res, 1200));
-    const s: JobState = await (await fetch(`${url}/jobs/${id}`)).json();
+    let s: JobState;
+    try {
+      s = await (await fetch(`${url}/jobs/${id}`, { signal: AbortSignal.timeout(15000) })).json();
+      lost = 0;
+    } catch {
+      // A few missed polls can be a network blip; many mean the engine process died (usually out of memory).
+      if (++lost < 6) continue;
+      useEngine.setState({ status: 'offline' });
+      throw new Error('Lost the Colab engine while it was working — it most likely ran out of memory or the Colab session stopped. Look at the Colab tab (step 5 says why), re-run step 4, then reconnect.');
+    }
     onUpdate(s);
     if (s.status === 'done') return s;
     if (s.status === 'error') throw new Error(s.error || 'Job failed');

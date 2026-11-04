@@ -145,7 +145,12 @@ try:
             f.seek(pos); new = f.read(); pos = f.tell()
         if new: print(new, end="")
         if server.poll() is not None:
-            print("⚠️ Engine stopped — re-run step 4"); break
+            code = server.poll()
+            oom = code in (-9, 137)
+            print(f"⚠️ Engine stopped (exit code {code})" + (" — the system killed it: out of memory (RAM)." if oom else "."), "Re-run step 4.")
+            if oom:
+                print("   Tip: one heavy model runs at a time; if it keeps happening, use Runtime → Restart session, then Run all.")
+            break
         time.sleep(3)
 except KeyboardInterrupt:
     print("Stopped watching (engine keeps running).")
