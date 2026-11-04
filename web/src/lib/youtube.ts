@@ -116,11 +116,15 @@ async function call<T>(endpoint: string, params: Record<string, string | number 
   }
   const url = `${opts.analytics ? ANALYTICS() : DATA()}/${endpoint}?${q}`;
   const r = await fetch(url, { headers: await authHeaders(!!opts.oauth) });
-  if (!opts.analytics) useYt.getState().spend(QUOTA_COST[endpoint] ?? 1);
+  // Failed requests cost Google ~1 unit, not the full price of the call.
+  if (!opts.analytics) useYt.getState().spend(r.ok ? QUOTA_COST[endpoint] ?? 1 : 1);
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     const reason = j.error?.errors?.[0]?.reason ?? j.error?.status ?? r.status;
-    const msg = reason === 'quotaExceeded' ? 'Daily YouTube quota used up — it resets at midnight Pacific time.'
+    const raw = String(j.error?.message ?? '');
+    const msg = /are blocked|API_KEY_SERVICE_BLOCKED/i.test(raw) || j.error?.details?.some?.((d: { reason?: string }) => d.reason === 'API_KEY_SERVICE_BLOCKED')
+      ? 'This API key is restricted to other APIs. Google Cloud → Credentials → your key → API restrictions → tick "YouTube Data API v3" (or "Don\'t restrict key") → Save, wait 2–5 minutes, then test again.'
+      : reason === 'quotaExceeded' ? 'Daily YouTube quota used up — it resets at midnight Pacific time.'
       : reason === 'keyInvalid' || r.status === 400 && /API key/i.test(j.error?.message ?? '') ? 'The API key is not valid — check it in Growth → Setup.'
       : reason === 'accessNotConfigured' ? 'Enable "YouTube Data API v3" for this key in Google Cloud Console.'
       : j.error?.message ?? `YouTube API error ${r.status}`;
