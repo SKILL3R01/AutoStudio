@@ -29,12 +29,15 @@ The URL changes every session. Models download on first use and are cached for t
 
 SETTINGS = """
 #@title 1 · Settings & GPU check
-USE_DRIVE = True  #@param {type:"boolean"}
+USE_DRIVE = False  #@param {type:"boolean"}
 PRELOAD_MODELS = False  #@param {type:"boolean"}
 import os, subprocess
+print("Runtime connected ✓")
 gpu = subprocess.run(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"], capture_output=True, text=True).stdout.strip()
-print("GPU:", gpu or "⚠️ none — Runtime → Change runtime type → T4 GPU")
+print("GPU:", gpu or "⚠️ none — Runtime → Change runtime type → T4 GPU, then Runtime → Run all")
 if USE_DRIVE:
+    # Optional: also copy results to Google Drive. Colab shows a permission pop-up — this cell waits until you allow it.
+    print("Waiting for you to allow Google Drive access in the pop-up…")
     from google.colab import drive
     drive.mount("/content/drive")
 os.makedirs("/content/autostudio/weights", exist_ok=True)
