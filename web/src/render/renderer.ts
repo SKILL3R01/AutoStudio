@@ -304,8 +304,8 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
     if (k > 0) drawEffect(ctx, fx.kind, fx.intensity * k, t, W, H);
   }
   for (const o of p.overlays) drawOverlay(ctx, o, t, src, W, H);
-  if (p.captions.mode !== 'keywords') drawCaptions(ctx, m.lines, t, p.captions, W, H);
-  if (p.captions.mode !== 'full') drawTypography(ctx, p.typo, t, W, H);
+  if (p.captions.enabled) drawCaptions(ctx, m.lines, t, p.captions, W, H);
+  if (p.captions.typography !== false) drawTypography(ctx, p.typo, t, W, H);
   const { fadeIn, fadeOut } = p.sceneFades;
   const black = Math.max(fadeIn > 0 ? 1 - t / fadeIn : 0, fadeOut > 0 ? 1 - (m.length - t) / fadeOut : 0);
   if (black > 0) {

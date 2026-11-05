@@ -254,8 +254,10 @@ export interface CaptionLine {
 
 export interface CaptionSettings {
   enabled: boolean;
-  /** Full subtitles, artistic keywords only, or both. */
+  /** Legacy (≤ v1.9): which layers showed. Now `enabled` = subtitles and `typography` = typography, independently. */
   mode: 'full' | 'keywords' | 'both';
+  /** Show the kinetic typography layer (independent of the subtitles). */
+  typography?: boolean;
   style: string;
   font: string;
   size: number;

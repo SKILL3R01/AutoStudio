@@ -1,4 +1,4 @@
-import type { Asset, AssetKind, Clip, KeywordSettings, Project, TypoBlock, TypoSettings } from '../types';
+import type { CaptionSettings, Asset, AssetKind, Clip, KeywordSettings, Project, TypoBlock, TypoSettings } from '../types';
 import { saveBlob } from './db';
 import { uid } from './util';
 
@@ -36,7 +36,7 @@ export function newProject(name = 'Untitled project'): Project {
     sceneFades: { fadeIn: 0.5, fadeOut: 0.8 },
     words: [],
     lines: [],
-    captions: { enabled: true, mode: 'full', style: 'neon', font: '', size: 1, position: 82, maxWords: 6, uppercase: false, wordLevel: true },
+    captions: { enabled: true, mode: 'both', typography: true, style: 'neon', font: '', size: 1, position: 82, maxWords: 6, uppercase: false, wordLevel: true },
     keywords: [],
     keywordSettings: defaultKeywordSettings(),
     typo: [],
@@ -52,13 +52,20 @@ export function newProject(name = 'Untitled project'): Project {
   };
 }
 
+/** v1.10: subtitles and typography became two independent switches (was one `mode`). */
+export function migrateCaptions(c: CaptionSettings, saved?: Partial<CaptionSettings>): CaptionSettings {
+  if (saved?.typography !== undefined || !saved) return c;
+  const mode = saved.mode ?? 'full';
+  return { ...c, enabled: mode === 'keywords' ? false : c.enabled, typography: mode !== 'full', mode: 'both' };
+}
+
 /** Fill in fields added in later versions so older saved projects keep working. */
 export function normalizeProject(p: Project): Project {
   const d = newProject(p.name);
   return {
     ...d,
     ...p,
-    captions: { ...d.captions, ...p.captions },
+    captions: migrateCaptions({ ...d.captions, ...p.captions }, p.captions),
     keywordSettings: { ...d.keywordSettings, ...p.keywordSettings },
     keywords: [],
     typo: p.typo ?? migrateKeywords(p),

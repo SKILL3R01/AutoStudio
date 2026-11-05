@@ -62,7 +62,7 @@ function hitBoxes(p: Project, t: number, W: number, H: number): Draggable[] {
       out.push({ kind: 'overlay', id: o.id, x: o.x, y: o.y, w: Math.max(...rows.map((r) => g.measureText(r).width)) / W + 0.02, h: (rows.length * fs * 1.2) / H });
     }
   }
-  if (p.captions.mode !== 'full') {
+  if (p.captions.typography !== false) {
     for (const b of p.typo) {
       if (t < b.start || t > b.end + 0.2) continue;
       out.push({ kind: 'keyword', id: b.id, ...blockBox(b, W, H) });

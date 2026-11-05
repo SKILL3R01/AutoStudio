@@ -358,7 +358,7 @@ export function Timeline() {
               ))}
             </div>
             <div className="track t-kw">
-              {p.captions.mode !== 'full' && p.typo.filter((k) => inView(k.start, k.end)).map((k) => (
+              {p.captions.typography !== false && p.typo.filter((k) => inView(k.start, k.end)).map((k) => (
                 <div key={k.id} className={`item kw ${sel?.id === k.id ? 'sel' : ''}`} style={{ left: k.start * zoom, width: Math.max(10, (k.end - k.start) * zoom) }} onPointerDown={(e) => moveItem('typo', k.id, e)}>
                   {k.words.map((w) => w.text).join(' ')}
                   <div className="resize" onPointerDown={(e) => moveItem('typo', k.id, e, 'resize')} />
@@ -377,7 +377,7 @@ export function Timeline() {
               ) : null))}
             </div>
             <div className="track t-caps">
-              {p.captions.enabled && p.captions.mode !== 'keywords' && lines.filter((l) => inView(l.start, l.end)).map((l, k) => (
+              {p.captions.enabled && lines.filter((l) => inView(l.start, l.end)).map((l, k) => (
                 <div key={`${l.start}-${k}`} className="item cap" style={{ left: l.start * zoom, width: Math.max(2, (l.end - l.start) * zoom) }} onPointerDown={() => useEditor.getState().seek(l.start + 0.001)}>
                   {(l.end - l.start) * zoom > 30 && l.words.map((w) => w.text).join(' ')}
                 </div>

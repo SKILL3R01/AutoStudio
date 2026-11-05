@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../store';
 import { useProject } from './hooks';
-import { Section, Seg, Slider } from '../components/ui';
+import { Section, Seg, Slider, Toggle } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { FONT_PAIRS, TEMPLATE_LABELS, TYPO_PALETTES, aiBlocks, autoBlocks, blockText, makeBlock, restyle } from '../lib/typography';
@@ -50,7 +50,7 @@ export function KeywordsPanel() {
   const s = p.typoSettings;
   const words = useMemo(() => (p.words.length ? p.words : p.lines.flatMap((l) => l.words)), [p.words, p.lines]);
   const setS = (fn: (s: TypoSettings) => void, key?: string) => update((d) => fn(d.typoSettings), key);
-  const enableMode = (d: typeof p) => d.captions.mode === 'full' && (d.captions.mode = 'keywords');
+  const enableMode = (d: typeof p) => void (d.captions.typography = true);
   const used = useMemo(() => {
     const set = new Set<number>();
     p.typo.forEach((b) => words.forEach((w, i) => w.start >= b.words[0].start - 0.01 && w.end <= b.words[b.words.length - 1].end + 0.01 && set.add(i)));
@@ -92,7 +92,8 @@ export function KeywordsPanel() {
   return (
     <>
       <Section title="Caption mode">
-        <Seg options={[['full', 'Subtitles'], ['keywords', 'Typography'], ['both', 'Both']] as const} value={p.captions.mode} onChange={(v) => update((d) => void (d.captions.mode = v))} />
+        <Toggle label="Show typography" value={p.captions.typography !== false} onChange={(v) => update((d) => void (d.captions.typography = v))} />
+        <Toggle label="Show subtitles too (separate layer — set them up in Captions)" value={p.captions.enabled} onChange={(v) => update((d) => void (d.captions.enabled = v))} />
         <p className="hint">Kinetic typography: short phrases from your voiceover appear as artistic compositions — word by word, in sync with the voice.</p>
       </Section>
       <Section title="1 · Choose the phrases">

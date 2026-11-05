@@ -51,6 +51,7 @@ export async function createDemoProject() {
   p.effects.push({ kind: 'grain', intensity: 0.4 }, { kind: 'vignette', intensity: 0.4 });
   p.sfx.push({ id: uid(), sound: 'whoosh', start: 2.6, volume: 0.6 });
   p.captions.mode = 'both';
+  p.captions.typography = true;
   p.typo = autoBlocks(p.words, { ...p.typoSettings, density: 3 });
   await saveProject(p);
   return p;
