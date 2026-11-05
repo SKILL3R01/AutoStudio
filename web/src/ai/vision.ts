@@ -94,3 +94,22 @@ export async function clipEmbedImages(images: Blob[]): Promise<Float32Array[]> {
 export async function clipEmbedText(texts: string[]): Promise<Float32Array[]> {
   return (await call<{ vectors: Float32Array[] }>({ type: 'clipText', texts })).vectors;
 }
+
+/** 16 kHz mono samples for Whisper. */
+async function to16k(blob: Blob): Promise<Float32Array> {
+  const ctx = new AudioContext();
+  const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+  void ctx.close();
+  const off = new OfflineAudioContext(1, Math.ceil(buf.duration * 16000), 16000);
+  const src = off.createBufferSource();
+  src.buffer = buf;
+  src.connect(off.destination);
+  src.start();
+  return (await off.startRendering()).getChannelData(0);
+}
+
+/** Word-level transcript on this PC (Whisper base = fast, small = accurate). No engine needed. */
+export async function transcribeLocal(audio: Blob, model: 'base' | 'small' = 'base', language = 'auto'): Promise<{ words: { text: string; start: number; end: number }[]; text: string }> {
+  const samples = await to16k(audio);
+  return call({ type: 'transcribe', audio: samples, model, language });
+}

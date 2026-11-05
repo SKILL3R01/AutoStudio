@@ -9,6 +9,8 @@ import { media } from '../render/media';
 import { download } from '../lib/util';
 import type { CaptionSettings, Word } from '../types';
 import { toast } from '../components/Toast';
+import { transcribeLocal, useVision } from '../ai/vision';
+import { confirmHeavyAi } from '../lib/perf';
 
 function StylePreview({ st, font }: { st: CaptionStyle; font: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -49,18 +51,28 @@ export function CaptionsPanel() {
   const c = p.captions;
   const set = (fn: (c: CaptionSettings) => void, key?: string) => update((d) => fn(d.captions), key);
 
+  const [where, setWhere] = useState<'base' | 'small' | 'engine'>(engine === 'ready' ? 'engine' : 'base');
+  const vision = useVision();
   const transcribe = async () => {
     if (!p.voiceover) return toast('Add a voiceover first (Audio panel).', 'error');
+    if (where !== 'engine' && !confirmHeavyAi()) return;
     setBusy(true);
-    setLog(['Uploading voiceover…']);
+    setLog([where === 'engine' ? 'Uploading voiceover…' : `Transcribing on this PC (Whisper ${where}) — the model downloads once…`]);
     try {
       const blob = await media.blob(p.voiceover.assetId);
-      const f = new FormData();
-      f.append('file', blob!, 'voiceover.wav');
-      f.append('mode', 'words');
-      f.append('language', lang);
-      const job = await runJob('transcribe', f, (j) => setLog(j.logs));
-      const words: Word[] = job.data.words;
+      let words: Word[];
+      if (where === 'engine') {
+        const f = new FormData();
+        f.append('file', blob!, 'voiceover.wav');
+        f.append('mode', 'words');
+        f.append('language', lang);
+        const job = await runJob('transcribe', f, (j) => setLog(j.logs));
+        words = job.data.words;
+      } else {
+        const t0 = Date.now();
+        words = (await transcribeLocal(blob!, where, lang)).words;
+        setLog((l) => [...l, `Done in ${Math.round((Date.now() - t0) / 1000)} s`]);
+      }
       update((d) => {
         d.words = words;
         d.lines = [];
@@ -94,9 +106,12 @@ export function CaptionsPanel() {
   return (
     <>
       <Section title="Captions source">
-        <button className="btn" disabled={busy || engine !== 'ready'} onClick={transcribe}>✨ Transcribe audio → word-level</button>
+        <Seg options={[['base', 'This PC · Fast'], ['small', 'This PC · Accurate'], ['engine', 'Colab engine']] as const} value={where} onChange={setWhere} />
+        <button className="btn" disabled={busy || (where === 'engine' && engine !== 'ready')} onClick={transcribe}>✨ Transcribe audio → word-level</button>
         <Select label="Language" value={lang} options={[['auto', 'Auto-detect'], 'en', 'ar', 'fr', 'es', 'de', 'it', 'pt', 'tr', 'ur', 'hi', 'ru', 'ja', 'zh']} onChange={setLang} />
-        {engine !== 'ready' && <p className="hint">Connect the Colab engine to transcribe, or upload a script below.</p>}
+        {where === 'engine' && engine !== 'ready' && <p className="hint">Connect the Colab engine, or pick “This PC”.</p>}
+        {where !== 'engine' && <p className="hint">No engine needed. Fast ≈ 80 MB, Accurate ≈ 250 MB (better for Arabic / accents), downloaded once. Runs on your CPU — a 10-minute voiceover takes a few minutes.</p>}
+        {busy && vision.label && <p className="hint">{vision.label} {Math.round(vision.value * 100)}%</p>}
         <p className="hint center">or upload a script</p>
         <FilePick accept=".srt,.vtt,.json,.txt" onFiles={upload} className="btn">⤒ Upload timestamped script</FilePick>
         <p className="hint">An .srt, .vtt, .json (word-level), or timestamped .txt. A word-level file (one word per SRT cue, or our transcript JSON) unlocks the animated styles; a plain transcript uses the basic styles.</p>

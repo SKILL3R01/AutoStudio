@@ -5,7 +5,7 @@ import { media } from '../render/media';
 import { detectBeats } from '../audio/beats';
 import { applyAutoEdit, assignUnique, buildClips, planScenes, type AutoOptions, type AutoScene, type Candidate } from '../lib/autoedit';
 import { indexMedia, matchPercent, decodeVec, dot, searchable, unindexed } from '../lib/mediasearch';
-import { clipEmbedText } from '../ai/vision';
+import { clipEmbedText, transcribeLocal } from '../ai/vision';
 import { downloadFree, keywordsFrom, searchOpenverse, searchWikimedia, type Credit, type FreeSource } from '../lib/freemedia';
 import { chatJson, useLlm } from '../lib/llm';
 import { engineHas, fetchResult, runJob, useEngine } from '../lib/engine';
@@ -50,14 +50,19 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
   const transcribe = async () => {
     const blob = p.voiceover && (await media.blob(p.voiceover.assetId));
     if (!blob) return;
-    setBusy('Transcribing on your Colab engine…');
+    const useEngineAsr = engine === 'ready' && engineHas('transcribe');
+    if (!useEngineAsr && !confirmHeavyAi()) return;
+    setBusy(useEngineAsr ? 'Transcribing on your Colab engine…' : 'Transcribing on this PC (first time downloads ~80 MB)…');
     try {
-      const f = new FormData();
-      f.append('file', blob, 'voiceover.wav');
-      f.append('mode', 'words');
-      f.append('language', 'auto');
-      const job = await runJob('transcribe', f, (j) => setBusy(`Transcribing… ${j.logs[j.logs.length - 1] ?? ''}`));
-      update((d) => void ((d.words = job.data.words), (d.lines = []), (d.captions.enabled = true), (d.captions.wordLevel = true)));
+      let words: Word[];
+      if (useEngineAsr) {
+        const f = new FormData();
+        f.append('file', blob, 'voiceover.wav');
+        f.append('mode', 'words');
+        f.append('language', 'auto');
+        words = (await runJob('transcribe', f, (j) => setBusy(`Transcribing… ${j.logs[j.logs.length - 1] ?? ''}`))).data.words;
+      } else words = (await transcribeLocal(blob, 'base', 'auto')).words;
+      update((d) => void ((d.words = words), (d.lines = []), (d.captions.enabled = true), (d.captions.wordLevel = true)));
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
@@ -239,8 +244,8 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
           <div className="card notice">
             <b>The voiceover needs a transcript</b>
             <p className="hint">Scenes follow the narration's sentences and pauses.</p>
-            <button className="btn primary sm" disabled={engine !== 'ready' || !engineHas('transcribe') || !!busy} onClick={transcribe}><Icon name="captions" /> Transcribe (Colab)</button>
-            {engine !== 'ready' && <span className="hint">Connect an engine (top right), or import captions (SRT / JSON) in the Captions panel.</span>}
+            <button className="btn primary sm" disabled={!!busy} onClick={transcribe}><Icon name="captions" /> Transcribe {engine === 'ready' && engineHas('transcribe') ? '(Colab)' : '(on this PC)'}</button>
+            {busy && <span className="hint">{busy}</span>}
           </div>
         ) : !scenes ? (
           <>

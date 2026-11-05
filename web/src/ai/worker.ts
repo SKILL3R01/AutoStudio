@@ -11,7 +11,8 @@ type Req =
   | { id: number; type: 'embed'; key: string; image: Blob }
   | { id: number; type: 'mask'; key: string; points: [number, number][]; labels: number[] }
   | { id: number; type: 'clipImages'; images: Blob[] }
-  | { id: number; type: 'clipText'; texts: string[] };
+  | { id: number; type: 'clipText'; texts: string[] }
+  | { id: number; type: 'transcribe'; audio: Float32Array; model: 'base' | 'small'; language: string };
 
 type Device = 'webgpu' | 'wasm';
 const post = (m: unknown) => (self as unknown as Worker).postMessage(m);
@@ -126,7 +127,28 @@ async function clipTexts(texts: string[]) {
   return { vectors: texts.map((_, i) => unit(text_embeds.data.slice(i * dim, (i + 1) * dim))) };
 }
 
+// Whisper (word timestamps) on the CPU — captions without any engine.
+const asr = new Map<string, Promise<any>>();
+async function transcribe(audio: Float32Array, model: 'base' | 'small', language: string) {
+  const id = `onnx-community/whisper-${model}_timestamped`;
+  if (!asr.has(id)) asr.set(id, pipeline('automatic-speech-recognition', id, { device: 'wasm', dtype: 'q8', progress_callback: progress(`Speech model (${model})`) }));
+  const run = await asr.get(id)!;
+  const total = Math.max(1, Math.ceil(audio.length / 16000 / 25));
+  let done = 0;
+  const out = await run(audio, {
+    return_timestamps: 'word', chunk_length_s: 30, stride_length_s: 5,
+    ...(language && language !== 'auto' ? { language, task: 'transcribe' } : {}),
+    chunk_callback: () => post({ type: 'progress', label: 'Transcribing', value: Math.min(0.99, ++done / total) }),
+  });
+  const chunks: { text: string; timestamp: [number, number | null] }[] = out.chunks ?? [];
+  const words = chunks
+    .map((c) => ({ text: String(c.text).trim(), start: +c.timestamp[0], end: +(c.timestamp[1] ?? c.timestamp[0] + 0.3) }))
+    .filter((w) => w.text && Number.isFinite(w.start));
+  return { words, text: String(out.text ?? '').trim() };
+}
+
 async function handle(r: Req) {
+  if (r.type === 'transcribe') return transcribe(r.audio, r.model, r.language);
   if (r.type === 'depth') return depth(r.image);
   if (r.type === 'embed') return embed(r.key, r.image);
   if (r.type === 'clipImages') return clipImages(r.images);
@@ -141,7 +163,7 @@ self.onmessage = async (ev: MessageEvent<Req | { type: 'cpu' }>) => {
   try {
     post({ type: 'result', id: r.id, result: await handle(r) });
   } catch (e) {
-    const clip = r.type === 'clipImages' || r.type === 'clipText';
+    const clip = r.type === 'clipImages' || r.type === 'clipText' || r.type === 'transcribe';
     post({ type: 'error', id: r.id, error: (e as Error).message, gpu: !clip && (await deviceFor(r.type === 'depth' ? 'depth' : 'sam')) === 'webgpu' });
   }
 };
