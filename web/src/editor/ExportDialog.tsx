@@ -4,8 +4,9 @@ import { useLines, useProject } from './hooks';
 import { Progress, Select } from '../components/ui';
 import { Icon } from '../components/icons';
 import { outputSize } from '../render/renderer';
-import { exportAudio, exportVideo, videoBitrate } from '../export/exporter';
+import { exportAudio, type AudioFormat, exportVideo, videoBitrate } from '../export/exporter';
 import { beatsFor } from '../audio/beats';
+import type { Stem } from '../audio/mix';
 import { toSrt } from '../lib/captions';
 import { download, fmtTime } from '../lib/util';
 import type { ExportSettings } from '../types';
@@ -19,6 +20,9 @@ const PRESETS: { id: string; name: string; desc: string; s: Partial<ExportSettin
 ];
 
 export function ExportDialog({ onClose }: { onClose: () => void }) {
+  const [audioFmt, setAudioFmt] = useState<AudioFormat>('wav');
+  const [audioWhat, setAudioWhat] = useState('mix');
+  const [audioBusy, setAudioBusy] = useState(false);
   const p = useProject();
   const lines = useLines();
   const update = useEditor((s) => s.update);
@@ -83,7 +87,24 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <div className="row end wrap">
-            <button className="btn ghost" onClick={async () => download(await exportAudio(p), `${name}_audio.wav`)}><Icon name="music" /> Audio only (WAV)</button>
+            <select value={audioFmt} onChange={(ev) => setAudioFmt(ev.target.value as AudioFormat)} title="Audio format">
+              <option value="wav">WAV</option><option value="m4a">M4A (AAC)</option><option value="ogg">OGG (Opus)</option>
+            </select>
+            <select value={audioWhat} onChange={(ev) => setAudioWhat(ev.target.value)} title="What to export">
+              <option value="mix">Full mix</option><option value="voice">Voice only</option><option value="music">Music only</option><option value="sfx">SFX only</option><option value="clips">Clip sound only</option><option value="stems">All stems (zip)</option>
+            </select>
+            <button className="btn ghost" disabled={audioBusy} onClick={async () => {
+              setAudioBusy(true);
+              try {
+                const stems = audioWhat === 'mix' ? undefined : audioWhat === 'stems' ? (['voice', 'music', 'sfx', 'clips'] as Stem[]) : [audioWhat as Stem];
+                const r = await exportAudio(p, { format: audioFmt, stems });
+                download(r.blob, `${name}_${audioWhat}.${r.ext}`);
+              } catch (err) {
+                setError((err as Error).message);
+              } finally {
+                setAudioBusy(false);
+              }
+            }}><Icon name="music" /> {audioBusy ? 'Rendering audio…' : 'Export audio'}</button>
             <button className="btn ghost" disabled={!lines.length} onClick={() => download(new Blob([toSrt(lines)]), `${name}.srt`)}><Icon name="captions" /> Subtitles (SRT)</button>
             <button className="btn primary" disabled={!p.clips.length} onClick={run}><Icon name="export" /> Export video</button>
           </div>

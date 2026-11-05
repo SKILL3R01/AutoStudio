@@ -1,9 +1,10 @@
 import {
-  ALL_FORMATS, AudioBufferSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, Input, Mp4OutputFormat, Output,
+  ALL_FORMATS, AudioBufferSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, Input, Mp4OutputFormat, OggOutputFormat, Output,
   WebMOutputFormat, getFirstEncodableAudioCodec, getFirstEncodableVideoCodec,
 } from 'mediabunny';
 import type { Asset, Clip, Project } from '../types';
-import { renderMix } from '../audio/mix';
+import { renderMix, type Stem } from '../audio/mix';
+import { zipFiles } from '../lib/zip';
 import { encodeWav } from '../audio/silence';
 import { media } from '../render/media';
 import { ensureTypoFonts } from '../render/typography';
@@ -144,7 +145,28 @@ export function videoBitrate(p: Project, W: number, H: number) {
   return Math.round(base * Math.max(0.25, (W * H) / (1920 * 1080)) * Math.max(1, p.export.fps / 30) ** 0.6);
 }
 
-/** Export just the audio mix as a WAV file. */
-export async function exportAudio(p: Project) {
-  return encodeWav(await renderMix(p, 48000));
+export type AudioFormat = 'wav' | 'm4a' | 'ogg';
+export const STEM_LABELS: Record<Stem, string> = { voice: 'voice', music: 'music', sfx: 'sfx', clips: 'clip-sound' };
+
+/** Encode a rendered buffer: WAV (PCM), M4A (AAC) or OGG (Opus) via WebCodecs. */
+export async function encodeAudio(buf: AudioBuffer, format: AudioFormat, bitrate = 192_000): Promise<Blob> {
+  if (format === 'wav') return encodeWav(buf);
+  const target = new BufferTarget();
+  const out = new Output({ format: format === 'm4a' ? new Mp4OutputFormat({ fastStart: 'in-memory' }) : new OggOutputFormat(), target });
+  const src = new AudioBufferSource({ codec: format === 'm4a' ? 'aac' : 'opus', bitrate });
+  out.addAudioTrack(src);
+  await out.start();
+  await src.add(buf);
+  await out.finalize();
+  return new Blob([target.buffer!], { type: format === 'm4a' ? 'audio/mp4' : 'audio/ogg' });
+}
+
+/** Audio-only export: the full mix, or one / several stems (several → a zip of separate files). */
+export async function exportAudio(p: Project, o: { format?: AudioFormat; stems?: Stem[]; bitrate?: number } = {}): Promise<{ blob: Blob; ext: string }> {
+  const format = o.format ?? 'wav';
+  if (!o.stems?.length) return { blob: await encodeAudio(await renderMix(p, 48000), format, o.bitrate), ext: format };
+  if (o.stems.length === 1) return { blob: await encodeAudio(await renderMix(p, 48000, new Set(o.stems)), format, o.bitrate), ext: format };
+  const files = [];
+  for (const st of o.stems) files.push({ name: `${STEM_LABELS[st]}.${format}`, data: await encodeAudio(await renderMix(p, 48000, new Set([st])), format, o.bitrate) });
+  return { blob: await zipFiles(files), ext: 'zip' };
 }

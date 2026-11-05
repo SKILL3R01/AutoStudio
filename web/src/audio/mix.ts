@@ -56,7 +56,11 @@ export function speechRanges(p: Project, bufs?: Buffers): [number, number][] {
  * Build the audio graph for the project on any AudioContext, starting at timeline time `from`, with timeline `from`
  * mapped to context time `at`. Returns the source nodes so playback can be stopped.
  */
-export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from: number, at: number, until = projectLength(p)) {
+export type Stem = 'voice' | 'music' | 'sfx' | 'clips';
+
+/** `only` limits the mix to some stems (audio export); ducking still follows the voice. */
+export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from: number, at: number, until = projectLength(p), only?: Set<Stem>) {
+  const want = (s: Stem) => !only || only.has(s);
   const nodes: AudioScheduledSourceNode[] = [];
   const master = ctx.createGain();
   master.connect(ctx.destination);
@@ -104,7 +108,7 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     }
   };
 
-  if (p.voiceover) {
+  if (p.voiceover && want('voice')) {
     const g = ctx.createGain();
     g.gain.value = p.voiceover.volume;
     g.connect(master);
@@ -112,7 +116,7 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
   }
 
   const speech = speechRanges(p, bufs);
-  for (const m of p.music) {
+  for (const m of want('music') ? p.music : []) {
     const g = ctx.createGain();
     g.connect(master);
     const set = (T: number, v: number) => {
@@ -141,7 +145,7 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     play(bufs.assets.get(m.assetId), m.start, m.duration, m.trimIn, g, undefined, m.rate ?? 1);
   }
 
-  p.clips.forEach((c, i) => {
+  (want('clips') ? p.clips : []).forEach((c, i) => {
     const buf = bufs.assets.get(c.assetId);
     if (!buf || c.volume <= 0) return;
     const g = ctx.createGain();
@@ -155,7 +159,7 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     else play(buf, start, dur, c.trimIn, g, undefined, rate);
   });
 
-  for (const s of p.sfx) {
+  for (const s of want('sfx') ? p.sfx : []) {
     const g = ctx.createGain();
     g.gain.value = s.volume;
     g.connect(master);
@@ -166,10 +170,10 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
 }
 
 /** Offline-render the full mix for export. */
-export async function renderMix(p: Project, sampleRate = 48000) {
+export async function renderMix(p: Project, sampleRate = 48000, only?: Set<Stem>) {
   const len = projectLength(p);
   const bufs = await loadBuffers(p);
   const ctx = new OfflineAudioContext(2, Math.ceil(len * sampleRate), sampleRate);
-  buildMix(ctx, p, bufs, 0, 0, len);
+  buildMix(ctx, p, bufs, 0, 0, len, only);
   return ctx.startRendering();
 }
