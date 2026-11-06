@@ -535,3 +535,13 @@ pre.meta-out { white-space: pre-wrap; background: var(--panel2); padding: 10px; 
 .cand.on { border-color: var(--accent); }
 .cand.mine span { background: rgba(139, 108, 255, 0.9); }
 .diag { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow: auto; } .diag details summary { cursor: pointer; font-size: 12px; }
+/* v1.11: Voice Studio */
+.voice-list { display: flex; flex-direction: column; gap: 4px; }
+.voice-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; background: var(--panel2); border: 1px solid transparent; cursor: pointer; color: var(--text); font: inherit; font-size: 13px; text-align: left; }
+.voice-item.on { border-color: var(--accent); }
+.voice-item .grow { flex: 1; }
+.meter-live { height: 8px; }
+.meter-live i { transition: width 60ms linear; }
+.big-count { font-size: 42px; font-weight: 800; text-align: center; margin: 4px 0; }
+.rec-dot { color: #f05252; font-weight: 700; }
+code.mono { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }

@@ -1,3 +1,4 @@
+import type { VoiceFx } from './audio/enhance';
 import type { PenFont } from './render/strokefont';
 import type { Credit } from './lib/freemedia';
 export type AssetKind = 'image' | 'video' | 'audio';
@@ -340,7 +341,7 @@ export interface Project {
   updatedAt: number;
   assets: Asset[];
   /** `splits` = cut points (seconds into the voice file) that divide the narration into selectable segments. */
-  voiceover?: { assetId: string; volume: number; splits?: number[] };
+  voiceover?: { assetId: string; volume: number; splits?: number[]; fx?: VoiceFx };
   /** Explicit length when there is no voiceover. */
   length: number;
   /** Seconds of visuals before the narration starts (intro). */
@@ -371,6 +372,8 @@ export interface Project {
   color: ColorAdjust;
   /** LUTs used by the project's or clips' colour grades. */
   luts: Lut[];
+  /** Voice Studio script (paragraphs separated by blank lines). */
+  voiceScript?: string;
   /** Media-search vectors (CLIP, base64 Float32) per asset id. */
   embeddings?: Record<string, string>;
   /** Where free media came from (licence + credit line). */

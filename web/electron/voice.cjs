@@ -14,7 +14,8 @@ const UV_URL = `https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/
 const PACKAGES = { torch: ['torch==2.6.0', 'torchaudio==2.6.0'], chatterbox: ['chatterbox-tts==0.1.7'] };
 const NEED_GB = 7; // runtime ~2.2 GB + model ~3 GB + headroom
 
-const dir = () => path.join(app.getPath('userData'), 'voice');
+// Local AppData (never synced by roaming profiles / OneDrive), unless overridden for tests.
+const dir = () => process.env.AUTOSTUDIO_VOICE_DIR || (process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'AutoStudio', 'voice') : path.join(app.getPath('userData'), 'voice'));
 const P = {
   uv: () => path.join(dir(), 'uv', 'uv.exe'),
   env: () => path.join(dir(), 'env'),
@@ -37,7 +38,8 @@ const progress = (stage, pct, line) => send('autostudio:voice-progress', { stage
 
 function freeGB() {
   try {
-    const s = fs.statfsSync(app.getPath('userData'));
+    fs.mkdirSync(dir(), { recursive: true });
+    const s = fs.statfsSync(dir());
     return (s.bavail * s.bsize) / 2 ** 30;
   } catch {
     return Infinity;

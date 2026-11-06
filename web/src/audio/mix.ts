@@ -1,3 +1,4 @@
+import { voiceChain } from './enhance';
 import type { Project } from '../types';
 import { clipEnd, projectLength, voiceEnd } from '../store';
 import { media } from '../render/media';
@@ -112,7 +113,9 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     const g = ctx.createGain();
     g.gain.value = p.voiceover.volume;
     g.connect(master);
-    play(bufs.assets.get(p.voiceover.assetId), p.voiceStart ?? 0, Infinity, 0, g);
+    // Voice enhance (EQ / de-ess / compression / room / loudness) sits between the voice and its volume.
+    const input = voiceChain(ctx, p.voiceover.fx, g);
+    play(bufs.assets.get(p.voiceover.assetId), p.voiceStart ?? 0, Infinity, 0, input);
   }
 
   const speech = speechRanges(p, bufs);

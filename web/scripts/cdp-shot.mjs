@@ -11,7 +11,7 @@ const steps = stepsFile ? JSON.parse(readFileSync(stepsFile, 'utf8')) : [{ wait:
 const browser = process.env.BROWSER ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 const port = 9333;
 const proc = spawn(browser, ['--headless=new', `--remote-debugging-port=${port}`, '--no-first-run', '--window-size=1600,1000',
-  `--user-data-dir=${mkdtempSync(join(tmpdir(), 'cdp-'))}`, '--autoplay-policy=no-user-gesture-required', ...(process.env.EXTRA_ARGS ? process.env.EXTRA_ARGS.split(' ') : ['about:blank'])], { stdio: 'ignore' });
+  `--user-data-dir=${process.env.USER_DATA_DIR ?? mkdtempSync(join(tmpdir(), 'cdp-'))}`, '--autoplay-policy=no-user-gesture-required', ...(process.env.EXTRA_ARGS ? process.env.EXTRA_ARGS.split(' ') : ['about:blank'])], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let targets;

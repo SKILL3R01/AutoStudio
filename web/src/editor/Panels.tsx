@@ -8,6 +8,7 @@ import { CaptionsPanel } from './CaptionsPanel';
 import { KeywordsPanel } from './KeywordsPanel';
 import { MediaPanel } from './MediaPanel';
 import { FreeMediaPanel } from './FreeMediaPanel';
+import { VoicePanel } from '../voice/VoicePanel';
 import { AiPanel } from './AiPanel';
 import { SilenceDialog } from './SilenceDialog';
 import { GradeEditor } from './GradeEditor';
@@ -18,7 +19,7 @@ import { uid } from '../lib/util';
 
 export const TABS = [
   ['media', 'Media', 'media'], ['stock', 'Free media', 'download'], ['motion', 'Motion', 'motion'], ['transitions', 'Transitions', 'transition'], ['captions', 'Captions', 'captions'],
-  ['keywords', 'Typography', 'keywords'], ['text', 'Text', 'text'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['color', 'Colour', 'image'], ['ai', 'AI', 'wand'],
+  ['keywords', 'Typography', 'keywords'], ['text', 'Text', 'text'], ['voice', 'Voice', 'mic'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['color', 'Colour', 'image'], ['ai', 'AI', 'wand'],
 ] as const;
 export type Tab = (typeof TABS)[number][0];
 
@@ -51,6 +52,7 @@ export function Sidebar() {
         <div className="panel-body">
           {tab === 'media' && <MediaPanel />}
           {tab === 'stock' && <FreeMediaPanel />}
+          {tab === 'voice' && <VoicePanel />}
           {tab === 'motion' && <MotionPanel />}
           {tab === 'transitions' && <TransitionsPanel />}
           {tab === 'captions' && <CaptionsPanel />}
