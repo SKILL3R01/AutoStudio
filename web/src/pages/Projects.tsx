@@ -79,8 +79,9 @@ export function Projects() {
     refresh();
     void navigator.storage?.persist?.();
   }, []);
-  const create = async () => {
-    const p = newProject();
+  const create = async (guided = false) => {
+    const p = newProject(guided ? 'My video' : undefined);
+    if (guided) p.wizardStep = 0;
     await saveProject(p);
     navigate({ page: 'editor', id: p.id });
   };
@@ -106,9 +107,14 @@ export function Projects() {
         </div>
       </div>
       <div className="pgrid">
-        <button className="pcard new" onClick={create}>
+        <button className="pcard new guided" onClick={() => create(true)}>
+          <span className="plus"><Icon name="wand" size={22} /></span>
+          <b>New video (guided)</b>
+          <span className="hint">Voice → captions → visuals → look → export</span>
+        </button>
+        <button className="pcard new" onClick={() => create(false)}>
           <span className="plus"><Icon name="plus" size={22} /></span>
-          <b>New project</b>
+          <b>Blank project</b>
         </button>
         {projects?.map((p) => <ProjectCard key={p.id} p={p} refresh={refresh} />)}
       </div>

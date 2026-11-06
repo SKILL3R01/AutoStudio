@@ -14,6 +14,7 @@ import { ExportDialog } from '../editor/ExportDialog';
 import { ShortcutsDialog, useShortcuts } from '../editor/shortcuts';
 import { Splitter, usePanelSize } from '../editor/Splitter';
 import { AutoEditDialog } from '../editor/AutoEditDialog';
+import { Wizard } from '../editor/Wizard';
 import { updateThumbnail } from '../lib/thumbnail';
 import { buildLines } from '../lib/captions';
 import type { Project } from '../types';
@@ -51,13 +52,19 @@ export function Editor({ id }: { id: string }) {
   }, []);
   if (missing) return <main className="page"><h2>Project not found</h2><a href="#projects">Back to projects</a></main>;
   if (!project) return <main className="page"><p className="hint">Loading project…</p></main>;
-  return project.clips.length ? <Workspace /> : <ImportScreen />;
+  // The guided wizard starts in the workspace even before there are clips (voice comes first).
+  return project.clips.length || project.wizardStep !== undefined ? <Workspace /> : <ImportScreen />;
 }
 
 function Workspace() {
   const p = useEditor((s) => s.project!);
   const { update, undo, redo, past, future } = useEditor();
   const [dialog, setDialog] = useState<'import' | 'export' | 'keys' | 'auto' | null>(null);
+  useEffect(() => {
+    const h = (e: Event) => setDialog((e as CustomEvent<'import' | 'export' | 'auto'>).detail);
+    window.addEventListener('autostudio:dialog', h);
+    return () => window.removeEventListener('autostudio:dialog', h);
+  }, []);
   const vo = p.voiceover && findAsset(p, p.voiceover.assetId);
   const left = usePanelSize('layoutLeft', 300, 220, 560);
   const right = usePanelSize('layoutRight', 300, 220, 560);
@@ -96,6 +103,7 @@ function Workspace() {
       {dialog === 'export' && <ExportDialog onClose={() => setDialog(null)} />}
       {dialog === 'keys' && <ShortcutsDialog onClose={() => setDialog(null)} />}
       {dialog === 'auto' && <AutoEditDialog onClose={() => setDialog(null)} />}
+      {p.wizardStep !== undefined && <Wizard />}
     </div>
   );
 }

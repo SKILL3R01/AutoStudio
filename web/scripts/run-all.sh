@@ -12,7 +12,7 @@ trap 'kill $(jobs -p) 2>/dev/null' EXIT
 sleep 2
 run() { # name url steps
   echo "=== $1"
-  node scripts/cdp-shot.mjs "$2" "$OUT/$1" "scripts/$3" >"$OUT/$1.log" 2>&1
+  UI_MODE=${4:-pro} node scripts/cdp-shot.mjs "$2" "$OUT/$1" "scripts/$3" >"$OUT/$1.log" 2>&1
   grep -v '^\[shot\]' "$OUT/$1.log" | grep -iE 'error|disabled|no (toast|modal|button|input|result|blocks|sound)|exception|cannot|undefined' | grep -v 'chrome-extension' | head -5
 }
 run v3 "http://localhost:5173/#demo" steps-v3.json
@@ -29,4 +29,5 @@ run handdrawn "http://localhost:5173/" steps-handdrawn.json
 run phaseE "http://localhost:5173/#demo" steps-phaseE.json
 run phaseF "http://localhost:5173/#demo" steps-phaseF.json
 run describe "http://localhost:5173/#demo" steps-describe.json
+run wizard "http://localhost:5173/" steps-wizard.json simple
 echo "=== done"

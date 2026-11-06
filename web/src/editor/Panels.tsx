@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useEditor, findAsset, projectLength, voiceEnd } from '../store';
 import { useClipTarget, useProject } from './hooks';
 import { MOTIONS, TRANSITIONS, EFFECTS, type Motion, type Transition, type Overlay, type EffectKind, type EffectLayer } from '../types';
@@ -48,6 +48,11 @@ export const TRANSITION_LABELS: Record<Transition, string> = {
 export function Sidebar() {
   const [tab, setTab] = useState<Tab>('motion');
   const mode = useUi((u) => u.mode);
+  useEffect(() => {
+    const h = (e: Event) => setTab((e as CustomEvent<Tab>).detail);
+    window.addEventListener('autostudio:tab', h);
+    return () => window.removeEventListener('autostudio:tab', h);
+  }, []);
   const label = TABS.find((t) => t[0] === tab)![1];
   const group = GROUPS.find((g) => g.tabs.includes(tab))!;
   return (

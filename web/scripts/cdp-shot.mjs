@@ -37,6 +37,8 @@ const send = (method, params = {}) => new Promise((r) => {
 });
 await send('Runtime.enable');
 await send('Page.enable');
+// UI_MODE=pro|simple: set the interface mode before the app's scripts run (regression suites use Pro selectors).
+if (process.env.UI_MODE) await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('uiMode', ${JSON.stringify(process.env.UI_MODE)}); } catch {}` });
 await send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
 await send('Page.navigate', { url });
 for (const s of steps) {

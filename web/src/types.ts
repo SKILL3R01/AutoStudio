@@ -372,6 +372,10 @@ export interface Project {
   color: ColorAdjust;
   /** LUTs used by the project's or clips' colour grades. */
   luts: Lut[];
+  /** Template applied by the guided wizard (Templates). */
+  templateId?: string;
+  /** Guided first-video wizard: current step (undefined = closed). */
+  wizardStep?: number;
   /** Voice Studio script (paragraphs separated by blank lines). */
   voiceScript?: string;
   /** Media-search vectors (CLIP, base64 Float32) per asset id. */

@@ -62,6 +62,15 @@
     - Measured on an i7-8700 CPU: ~25 s load, roughly 3.5–7× real time.
   - **Library** (`voice/library.ts`): "My voices" samples live in IndexedDB (`voice:*`). Paragraph audio is cached by a SHA-256 of text + settings (`tts:*`), so edits only regenerate changed paragraphs. Colab `tts` is the "turbo" backend.
   - **Enhance** (`audio/enhance.ts`): `voiceChain` sits in `buildMix` (preview = export). `measureLufs` uses BS.1770-style gating, and `makeupFor` targets −14 LUFS. Pace / pitch is WSOLA in `audio/pitch.ts`.
+- Simple / Pro interface: `lib/uimode.ts` (`useUi`, localStorage `uiMode`, default Simple).
+  - Simple mode groups the rail with `GROUPS` in `editor/Panels.tsx` and shows sub-tabs.
+  - `Section` (`components/ui.tsx`) is foldable. `ADVANCED_SECTIONS` start folded in Simple mode; state is kept per title in `sec:*`.
+  - The header hides the LLM / engine pills until they're configured. Settings → AI connections opens them via the `autostudio:open` event.
+- Guided wizard: `editor/Wizard.tsx`, shown while `project.wizardStep` is set (Projects → New video (guided)).
+  - It opens panels and dialogs through the `autostudio:tab` / `autostudio:dialog` window events.
+  - Templates are in `lib/templates.ts` (`applyTemplate`: aspect, caption style, typography, colour look).
+  - A project with no clips opens in the workspace (not the import screen) while the wizard is active.
+- Version history: `lib/history.ts`. Snapshots of the project JSON are taken after autosave (≥ 2 min apart, last 30 kept) under `history:<id>`. Restore lives in `pages/HistoryDialog.tsx` (Projects → ⋯).
 - Fast preview (`usePerf().fastPreview`): while playing, the preview runs at ×0.6 resolution and `RenderModel.draft` halves particle effects (`setEffectQuality`). Export never sets `draft`.
 - Auto-edit: planning in `lib/autoedit.ts` (`planScenes`, `assignUnique`, `buildClips`, `applyAutoEdit`). The UI is `editor/AutoEditDialog.tsx`; it combines CLIP matches, free media, Colab imagegen and LLM queries.
 - Media search: CLIP ViT-B/32 (8-bit, WASM) runs in `ai/worker.ts` (`clipImages` / `clipText`).
@@ -123,6 +132,7 @@
   - `scripts/steps-describe.json`: describe-search on the demo (downloads CLIP on first run)
   - `scripts/steps-autoedit.json`: Auto-edit on the demo (CLIP matching → build)
   - `scripts/run-all.sh` needs the dev server (`npx vite --port 5173 --strictPort`); if every suite fails on the first step, the server is down.
+  - `scripts/steps-wizard.json`: guided wizard, templates, Simple/Pro, folded sections
   - `scripts/steps-ai.json`: all AI-assistant actions against `node scripts/fake-llm.mjs` (port 1235; mimics LM Studio + Gemma, with messy JSON replies)
   - `scripts/steps-region.json`: object selection. The first run downloads models, and headless WebGPU is flaky, so the CPU fallback can take ~2 min.
 

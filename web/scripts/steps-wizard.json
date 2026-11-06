@@ -1,0 +1,116 @@
+[
+ {
+  "wait": 3000
+ },
+ {
+  "eval": "localStorage.setItem('uiMode', 'simple'); location.hash = '#projects'; location.reload(); 'fresh'"
+ },
+ {
+  "wait": 3500
+ },
+ {
+  "eval": "[...document.querySelectorAll('.pcard.new')].map(c => c.textContent.trim().slice(0, 40)).join(' | ')"
+ },
+ {
+  "eval": "document.querySelector('.pcard.new.guided').click(); 'guided'"
+ },
+ {
+  "wait": 3000
+ },
+ {
+  "eval": "(() => ({ wizard: !!document.querySelector('.wizard'), steps: [...document.querySelectorAll('.wz-steps li')].map(l => l.textContent).join(','), rail: [...document.querySelectorAll('.rail button')].map(b => b.textContent.trim()).join(','), mode: document.querySelector('.mode-switch .on')?.textContent, pills: [...document.querySelectorAll('.header .pill')].map(p => p.textContent.trim()).join(',') }))()"
+ },
+ {
+  "shot": "step1"
+ },
+ {
+  "eval": "[...document.querySelectorAll('.wizard button')].find(b => b.textContent.includes('Open Voice Studio')).click(); document.querySelector('.panel-tabs')?.textContent"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "[...document.querySelectorAll('.wizard button')].find(b => /Skip|Next/.test(b.textContent)).click(); 'next'"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "[...document.querySelectorAll('.wizard button')].find(b => /Skip|Next/.test(b.textContent)).click(); 'next'"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "[...document.querySelectorAll('.wizard button')].find(b => /Skip|Next/.test(b.textContent)).click(); 'next'"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "document.querySelector('.wz-steps li.on')?.textContent"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "(() => { const t = [...document.querySelectorAll('.wz-tpl')].find(b => b.textContent.includes('Shorts')); t.click(); return document.querySelectorAll('.wz-tpl').length + ' templates; applied Shorts'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => document.querySelector('.wz-steps li.done') ? [...document.querySelectorAll('.wz-steps li')].map(l => l.className + ':' + l.textContent).join(' ') : 'no done')()"
+ },
+ {
+  "shot": "look"
+ },
+ {
+  "eval": "[...document.querySelectorAll('.wizard button')].find(b => /Skip|Next/.test(b.textContent)).click(); 'export step'"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "[...document.querySelectorAll('.wizard button')].find(b => b.textContent.trim().endsWith('Export')).click(); 'open export'"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "(document.querySelector('.modal h3')?.textContent ?? 'no modal') + ' \u00b7 aspect: ' + ([...document.querySelectorAll('.modal select')].map(s => s.value).join(','))"
+ },
+ {
+  "eval": "document.querySelector('.modal-bg')?.click(); [...document.querySelectorAll('.rail button')].find(b => b.textContent.trim() === 'Style').click(); 'style'"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "[...document.querySelectorAll('.panel-tabs button')].map(b => b.textContent).join(',')"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "[...document.querySelectorAll('.panel-tabs button')].find(b => b.textContent === 'Colour').click(); 'colour'"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "[...document.querySelectorAll('.panels .section')].map(s => (s.classList.contains('folded') ? '\u25b8' : '\u25be') + s.querySelector('h4').textContent.trim()).join(' | ')"
+ },
+ {
+  "shot": "simple"
+ },
+ {
+  "eval": "[...document.querySelectorAll('.mode-switch button')].find(b => b.textContent === 'Pro').click(); 'pro'"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "document.querySelectorAll('.rail button').length + ' rail buttons in Pro; pills: ' + [...document.querySelectorAll('.header .pill')].map(p => p.textContent.trim()).join(',')"
+ }
+]

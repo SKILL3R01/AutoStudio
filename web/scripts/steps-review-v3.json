@@ -2,7 +2,7 @@
   { "wait": 2500 },
   { "eval": "location.hash = 'projects'; 'p'" },
   { "wait": 2000 },
-  { "eval": "document.querySelector('.pcard.new').click(); 'new'" },
+  { "eval": "document.querySelector('.pcard.new:not(.guided)').click(); 'new'" },
   { "wait": 2500 },
   { "eval": "(async () => { const mk = (name) => new Promise(r => { const c = document.createElement('canvas'); c.width = 160; c.height = 90; const g = c.getContext('2d'); g.fillStyle = '#346'; g.fillRect(0,0,160,90); c.toBlob(b => r(new File([b], name, { type: 'image/jpeg' }))); }); const names = ['(1)_00-01-23_bridge_76c4b2ac.jpg','(2)_00-02-15_bridge_9f8cfd52.jpg','(3)_00-03-04_bridge_783fa5d8.jpg','(4)_00-03-45_bridge_39cb0bd6.jpg','(6)_00-05-12_bridge_5cf32754.jpg','01-20-11-03_end.jpg','image (16).jpg']; const files = await Promise.all(names.map(mk)); const dt = new DataTransfer(); files.forEach(f => dt.items.add(f)); const drops = document.querySelectorAll('.drop'); drops[drops.length-1].dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt })); return files.length; })()" },
   { "wait": 1500 },
