@@ -45,6 +45,7 @@
       "electron/preload.cjs",
       "electron/google.cjs",
       "electron/updater.cjs",
+      "electron/voice.cjs",
       "electron/icon.png",
       "package.json"
     ],
@@ -84,6 +85,12 @@
     },
     "portable": {
       "artifactName": "AutoStudio-Portable-${version}.exe"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "../engine/tts_worker.py",
+        "to": "tts_worker.py"
+      }
+    ]
   }
 }

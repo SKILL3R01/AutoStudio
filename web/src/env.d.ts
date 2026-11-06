@@ -11,6 +11,17 @@ interface Window {
     fetchMedia?: (url: string) => Promise<{ type: string; data: ArrayBuffer }>;
     /** Forget cached DNS answers (a new tunnel address may have been cached as "not found"). */
     flushDns?: () => Promise<void>;
+    /** Local voice engine (Chatterbox on this PC). */
+    voice?: {
+      status: () => Promise<VoiceEngineStatus>;
+      install: () => Promise<VoiceEngineStatus>;
+      cancelInstall: () => Promise<boolean>;
+      generate: (o: { id?: string; text: string; language?: string; voice?: ArrayBuffer; voiceExt?: string; exaggeration?: number; cfg?: number; temperature?: number; seed?: number; pause?: number }) => Promise<ArrayBuffer>;
+      cancel: () => Promise<boolean>;
+      uninstall: () => Promise<VoiceEngineStatus>;
+      logs: () => Promise<string[]>;
+      onProgress: (cb: (p: { id?: string; stage: string; pct: number; line?: string; chunk?: number; chunks?: number }) => void) => () => void;
+    };
     /** In-app updates from GitHub Releases (installer verified by SHA-256). */
     updates?: {
       check: () => Promise<UpdateInfo>;
@@ -37,4 +48,15 @@ interface UpdateInfo {
   page: string;
   size: number;
   downloaded: boolean;
+}
+
+interface VoiceEngineStatus {
+  supported: boolean;
+  installed: boolean;
+  model: boolean;
+  installing: boolean;
+  running: boolean;
+  freeGB: number;
+  sizeGB: number;
+  needGB: number;
 }

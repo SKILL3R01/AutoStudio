@@ -6,6 +6,20 @@ contextBridge.exposeInMainWorld('autostudio', {
   suggest: (q, lang) => ipcRenderer.invoke('autostudio:suggest', String(q), String(lang ?? '')),
   fetchMedia: (url) => ipcRenderer.invoke('autostudio:fetch-media', String(url)),
   flushDns: () => ipcRenderer.invoke('autostudio:flush-dns'),
+  voice: {
+    status: () => ipcRenderer.invoke('autostudio:voice-status'),
+    install: () => ipcRenderer.invoke('autostudio:voice-install'),
+    cancelInstall: () => ipcRenderer.invoke('autostudio:voice-cancel-install'),
+    generate: (o) => ipcRenderer.invoke('autostudio:voice-generate', o),
+    cancel: () => ipcRenderer.invoke('autostudio:voice-cancel'),
+    uninstall: () => ipcRenderer.invoke('autostudio:voice-uninstall'),
+    logs: () => ipcRenderer.invoke('autostudio:voice-logs'),
+    onProgress: (cb) => {
+      const h = (_e, p) => cb(p);
+      ipcRenderer.on('autostudio:voice-progress', h);
+      return () => ipcRenderer.removeListener('autostudio:voice-progress', h);
+    },
+  },
   updates: {
     check: () => ipcRenderer.invoke('autostudio:update-check'),
     download: () => ipcRenderer.invoke('autostudio:update-download'),

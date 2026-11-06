@@ -1,5 +1,6 @@
-"""Chatterbox TTS worker. Runs inside its own venv (chatterbox pins torch/transformers versions),
-launched as a subprocess by server.py so the GPU is fully released when it exits."""
+"""Chatterbox TTS worker. Runs inside its own venv (chatterbox pins torch/transformers versions).
+- CLI mode: launched per job by server.py (Colab) so the GPU is fully released when it exits.
+- `--serve`: persistent mode used by the desktop app's local voice engine (model stays loaded)."""
 import argparse
 import re
 import sys
@@ -32,7 +33,94 @@ def chunk_text(text, max_chars):
     return [c for c in chunks if c]
 
 
+_models = {}
+
+
+def get_model(kind, device):
+    """Load (once per process) the Chatterbox variant and return (model, generate(text, voice, lang, ex, cfg, temp))."""
+    if kind in _models:
+        return _models[kind]
+    log(f"Loading Chatterbox ({kind}) on {device}…")
+    if kind == "multilingual":
+        from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+        try:
+            model = ChatterboxMultilingualTTS.from_pretrained(device=device, t3_model="v3")
+        except TypeError:
+            model = ChatterboxMultilingualTTS.from_pretrained(device=device)
+        gen = lambda t, v, lang, ex, cfg, temp: model.generate(t, language_id=lang, audio_prompt_path=v, exaggeration=ex, cfg_weight=cfg, temperature=temp)
+    elif kind == "turbo":
+        from chatterbox.tts_turbo import ChatterboxTurboTTS
+        model = ChatterboxTurboTTS.from_pretrained(device=device)
+        gen = lambda t, v, lang, ex, cfg, temp: model.generate(t, audio_prompt_path=v)
+    else:
+        from chatterbox.tts import ChatterboxTTS
+        model = ChatterboxTTS.from_pretrained(device=device)
+        gen = lambda t, v, lang, ex, cfg, temp: model.generate(t, audio_prompt_path=v, exaggeration=ex, cfg_weight=cfg, temperature=temp)
+    _models.clear()  # one model in memory at a time
+    _models[kind] = (model, gen)
+    return _models[kind]
+
+
+def resolve_kind(kind, language, voice):
+    if kind == "auto":
+        kind = "english" if language == "en" else "multilingual"
+    if kind == "turbo" and not voice:
+        log("Turbo needs a reference voice — falling back to the standard English model.")
+        kind = "english"
+    return kind
+
+
+def synth(text, out, voice, language, kind, exaggeration, cfg, temperature, seed, max_chars, pause_s, on_progress):
+    if seed:
+        torch.manual_seed(seed)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model, gen = get_model(resolve_kind(kind, language, voice), device)
+    chunks = chunk_text(text, max_chars)
+    log(f"{len(chunks)} chunks · {len(text)} chars")
+    pause = torch.zeros(1, int(model.sr * pause_s))
+    parts = []
+    for i, c in enumerate(chunks):
+        wav = gen(c, voice, language, exaggeration, cfg, temperature).detach().cpu()
+        if wav.dim() == 1:
+            wav = wav.unsqueeze(0)
+        parts += [wav, pause]
+        on_progress((i + 1) / len(chunks), i + 1, len(chunks))
+    audio = torch.cat(parts[:-1], dim=1) if parts else torch.zeros(1, model.sr)
+    ta.save(out, audio, model.sr)
+    return audio.shape[1] / model.sr
+
+
+def serve():
+    """Persistent mode for the desktop app: one JSON job per stdin line, JSON events on stdout; the model stays loaded."""
+    import json
+
+    def emit(**kw):
+        print(json.dumps(kw, ensure_ascii=False), flush=True)
+
+    emit(ready=True, device="cuda" if torch.cuda.is_available() else "cpu", torch=torch.__version__)
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        job = json.loads(line)
+        jid = job.get("id", "")
+        try:
+            if job.get("warmup"):
+                get_model(resolve_kind(job.get("model", "multilingual"), job.get("language", "en"), None), "cuda" if torch.cuda.is_available() else "cpu")
+                emit(id=jid, done=True, duration=0)
+                continue
+            dur = synth(job["text"], job["out"], job.get("voice") or None, job.get("language", "en"), job.get("model", "multilingual"),
+                        float(job.get("exaggeration", 0.5)), float(job.get("cfg", 0.5)), float(job.get("temperature", 0.8)),
+                        int(job.get("seed", 0)), int(job.get("max_chars", 280)), float(job.get("pause", 0.18)),
+                        lambda f, i, n: emit(id=jid, progress=round(f, 4), chunk=i, chunks=n))
+            emit(id=jid, done=True, duration=round(dur, 3))
+        except Exception as e:  # report and keep serving
+            emit(id=jid, error=f"{type(e).__name__}: {e}")
+
+
 def main():
+    if "--serve" in sys.argv:
+        return serve()
     ap = argparse.ArgumentParser()
     ap.add_argument("--text-file", required=True)
     ap.add_argument("--out", required=True)
@@ -46,51 +134,14 @@ def main():
     ap.add_argument("--max-chars", type=int, default=280)
     ap.add_argument("--pause", type=float, default=0.18)
     a = ap.parse_args()
-
-    if a.seed:
-        torch.manual_seed(a.seed)
     text = open(a.text_file, encoding="utf-8").read()
-    voice = a.voice or None
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    kind = a.model
-    if kind == "auto":
-        kind = "english" if a.language == "en" else "multilingual"
-    if kind == "turbo" and not voice:
-        log("Turbo needs a reference voice — falling back to the standard English model.")
-        kind = "english"
+    def progress(f, i, n):
+        log(f"PROGRESS {f:.4f}")
+        log(f"✅ Chunk {i}/{n} done.")
 
-    log(f"Loading Chatterbox ({kind}) on {device}…")
-    if kind == "multilingual":
-        from chatterbox.mtl_tts import ChatterboxMultilingualTTS
-        try:
-            model = ChatterboxMultilingualTTS.from_pretrained(device=device, t3_model="v3")
-        except TypeError:
-            model = ChatterboxMultilingualTTS.from_pretrained(device=device)
-        gen = lambda t: model.generate(t, language_id=a.language, audio_prompt_path=voice, exaggeration=a.exaggeration, cfg_weight=a.cfg, temperature=a.temperature)
-    elif kind == "turbo":
-        from chatterbox.tts_turbo import ChatterboxTurboTTS
-        model = ChatterboxTurboTTS.from_pretrained(device=device)
-        gen = lambda t: model.generate(t, audio_prompt_path=voice)
-    else:
-        from chatterbox.tts import ChatterboxTTS
-        model = ChatterboxTTS.from_pretrained(device=device)
-        gen = lambda t: model.generate(t, audio_prompt_path=voice, exaggeration=a.exaggeration, cfg_weight=a.cfg, temperature=a.temperature)
-
-    chunks = chunk_text(text, a.max_chars)
-    log(f"{len(chunks)} chunks · {len(text)} chars")
-    pause = torch.zeros(1, int(model.sr * a.pause))
-    parts = []
-    for i, c in enumerate(chunks):
-        wav = gen(c).detach().cpu()
-        if wav.dim() == 1:
-            wav = wav.unsqueeze(0)
-        parts += [wav, pause]
-        log(f"PROGRESS {(i + 1) / len(chunks):.4f}")
-        log(f"✅ Chunk {i + 1}/{len(chunks)} done.")
-    audio = torch.cat(parts[:-1], dim=1) if parts else torch.zeros(1, model.sr)
-    ta.save(a.out, audio, model.sr)
-    log(f"Saved {a.out} ({audio.shape[1] / model.sr:.1f}s)")
+    dur = synth(text, a.out, a.voice or None, a.language, a.model, a.exaggeration, a.cfg, a.temperature, a.seed, a.max_chars, a.pause, progress)
+    log(f"Saved {a.out} ({dur:.1f}s)")
 
 
 if __name__ == "__main__":

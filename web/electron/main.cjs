@@ -4,6 +4,7 @@ const { app, BrowserWindow, Menu, ipcMain, net, protocol, shell, session } = req
 const os = require('node:os');
 const { registerGoogle } = require('./google.cjs');
 const { registerUpdater } = require('./updater.cjs');
+const { registerVoice } = require('./voice.cjs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
@@ -85,6 +86,7 @@ ipcMain.handle('autostudio:hardware', async () => {
 
 registerGoogle();
 registerUpdater();
+registerVoice();
 
 app.whenReady().then(() => {
   // Resolve names over secure DNS when the OS resolver lags behind (new trycloudflare tunnels appear within seconds).
