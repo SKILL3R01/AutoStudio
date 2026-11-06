@@ -62,6 +62,12 @@
     - Measured on an i7-8700 CPU: ~25 s load, roughly 3.5–7× real time.
   - **Library** (`voice/library.ts`): "My voices" samples live in IndexedDB (`voice:*`). Paragraph audio is cached by a SHA-256 of text + settings (`tts:*`), so edits only regenerate changed paragraphs. Colab `tts` is the "turbo" backend.
   - **Enhance** (`audio/enhance.ts`): `voiceChain` sits in `buildMix` (preview = export). `measureLufs` uses BS.1770-style gating, and `makeupFor` targets −14 LUFS. Pace / pitch is WSOLA in `audio/pitch.ts`.
+- Effects v1.13:
+  - `render/shaderfx.ts`: a WebGL2 pass over the frame. Shader bodies define `vec4 effect(vec2 uv, vec4 frame)`, and `SHADER_HEADER` provides the uniforms plus `hash` / `noise` / `fbm` / `frameAt`.
+  - Built-in shaders: fire, fog, godRays, filmBurn, glowPulse. Compile errors are re-numbered to the user's lines; broken shaders are skipped.
+  - `render/particles.ts`: closed-form, deterministic particles (`ParticleSpec`, presets sparks / smoke / confetti / hearts / stars) plus `drawLightning`.
+  - Custom effects live in `project.customEffects` and are applied by `EffectLayer.kind = 'custom'` + `customId`, with `params` → u_p1..u_p4.
+  - UI is `editor/EffectsLab.tsx` (particle designer, code editor, AI writes the shader with one compile-repair round). `EFFECT_COST` labels heavy effects.
 - Simple / Pro interface: `lib/uimode.ts` (`useUi`, localStorage `uiMode`, default Simple).
   - Simple mode groups the rail with `GROUPS` in `editor/Panels.tsx` and shows sub-tabs.
   - `Section` (`components/ui.tsx`) is foldable. `ADVANCED_SECTIONS` start folded in Simple mode; state is kept per title in `sec:*`.

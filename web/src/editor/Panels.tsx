@@ -10,10 +10,11 @@ import { MediaPanel } from './MediaPanel';
 import { FreeMediaPanel } from './FreeMediaPanel';
 import { VoicePanel } from '../voice/VoicePanel';
 import { useUi } from '../lib/uimode';
+import { EffectsLab } from './EffectsLab';
 import { AiPanel } from './AiPanel';
 import { SilenceDialog } from './SilenceDialog';
 import { GradeEditor } from './GradeEditor';
-import { EFFECT_LABELS } from '../render/effects';
+import { EFFECT_COST, EFFECT_LABELS } from '../render/effects';
 import { SFX, sfxBuffer } from '../audio/sfx';
 import { blankClip, importAudio, probe, setVoiceStart } from '../lib/project';
 import { uid } from '../lib/util';
@@ -335,18 +336,22 @@ function EffectsPanel() {
   });
   const setFx = (i: number, fn: (e: EffectLayer) => void, key?: string) => update((d) => fn(d.effects[i]), key);
   return (
+    <>
     <Section title="Effects" hint="Stack as many as you like. Each can cover the whole video, a time range or chosen clips.">
       <div className="grid3">
-        {EFFECTS.filter((e) => e !== 'none').map((k) => (
-          <button key={k} className={`tile fx fx-${k} ${p.effects.some((e) => e.kind === k) ? 'on' : ''}`} onClick={() => toggle(k)}><i />{EFFECT_LABELS[k]}</button>
+        {EFFECTS.filter((e) => e !== 'none' && e !== 'custom').map((k) => (
+          <button key={k} className={`tile fx fx-${k} ${p.effects.some((e) => e.kind === k) ? 'on' : ''}`} onClick={() => toggle(k)} title={`${EFFECT_COST[k]} to render`}><i />{EFFECT_LABELS[k]}{EFFECT_COST[k] === 'heavy' && <em className="cost">heavy</em>}</button>
         ))}
       </div>
       {p.effects.map((e, i) => {
         const sc = e.scope ?? { kind: 'all' as const };
         return (
-          <div key={e.kind} className="card">
-            <div className="row between"><b>{EFFECT_LABELS[e.kind]}</b><button className="icon-btn" onClick={() => update((d) => void d.effects.splice(i, 1))}><Icon name="x" /></button></div>
+          <div key={e.customId ?? e.kind} className="card">
+            <div className="row between"><b>{e.kind === 'custom' ? p.customEffects?.find((c) => c.id === e.customId)?.name ?? 'Custom' : EFFECT_LABELS[e.kind]}</b><button className="icon-btn" onClick={() => update((d) => void d.effects.splice(i, 1))}><Icon name="x" /></button></div>
             <Slider label="Intensity" value={e.intensity} min={0} max={1} onChange={(v) => setFx(i, (x) => void (x.intensity = v), `fx${e.kind}`)} fmt={(v) => `${Math.round(v * 100)}%`} />
+            {(e.kind === 'custom' && p.customEffects?.find((c) => c.id === e.customId)?.kind === 'shader' || e.kind === 'glowPulse') && [0, 1, 2, 3].slice(0, e.kind === 'glowPulse' ? 1 : 4).map((k) => (
+              <Slider key={k} label={e.kind === 'glowPulse' ? 'Pulse speed' : p.customEffects?.find((c) => c.id === e.customId)?.paramNames?.[k] ?? `Param ${k + 1}`} value={e.params?.[k] ?? 0.5} min={0} max={1} onChange={(v) => setFx(i, (x) => void (x.params = Object.assign([0.5, 0.5, 0.5, 0.5], x.params, { [k]: v })), `fxp${k}`)} />
+            ))}
             <Seg options={[['all', 'Whole video'], ['range', 'Time range'], ['clips', 'Chosen clips']] as const} value={sc.kind} onChange={(v) => setFx(i, (x) => {
               if (v === 'all') x.scope = { kind: 'all' };
               else if (v === 'range') x.scope = { kind: 'range', start: time, end: Math.min(len, time + 4) };
@@ -380,6 +385,8 @@ function EffectsPanel() {
       })}
       {p.effects.length > 0 && <button className="btn sm ghost" onClick={() => update((d) => void (d.effects = []))}>Clear all</button>}
     </Section>
+    <EffectsLab />
+    </>
   );
 }
 

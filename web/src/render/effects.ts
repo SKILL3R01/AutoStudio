@@ -1,9 +1,21 @@
 import type { EffectKind } from '../types';
 import { hash } from '../lib/util';
+import { BUILTIN_SHADERS, applyShader } from './shaderfx';
+import { PARTICLE_PRESETS, drawLightning, drawParticles } from './particles';
 
 export const EFFECT_LABELS: Record<EffectKind, string> = {
   none: 'None', grain: 'Film grain', vhs: 'VHS', crt: 'CRT', glitch: 'Glitch', lightLeak: 'Light leak',
   vignette: 'Vignette', snow: 'Snow', dust: 'Dust', rain: 'Rain', embers: 'Embers', bokeh: 'Bokeh', cinematic: 'Cinematic',
+  fire: 'Fire', fog: 'Fog', godRays: 'God rays', filmBurn: 'Film burn', glowPulse: 'Glow pulse', sparks: 'Sparks', smoke: 'Smoke',
+  confetti: 'Confetti', hearts: 'Hearts', stars: 'Star burst', lightning: 'Lightning', custom: 'Custom',
+};
+
+/** How heavy each effect is to render (shown in the panel; heavy ones are thinned in fast preview). */
+export const EFFECT_COST: Record<EffectKind, 'light' | 'medium' | 'heavy'> = {
+  none: 'light', grain: 'light', vhs: 'medium', crt: 'medium', glitch: 'medium', lightLeak: 'light', vignette: 'light', snow: 'medium',
+  dust: 'light', rain: 'medium', embers: 'medium', bokeh: 'medium', cinematic: 'light', fire: 'medium', fog: 'medium', godRays: 'heavy',
+  filmBurn: 'medium', glowPulse: 'heavy', sparks: 'medium', smoke: 'medium', confetti: 'medium', hearts: 'light', stars: 'medium',
+  lightning: 'light', custom: 'medium',
 };
 
 let noiseTiles: HTMLCanvasElement[] | undefined;
@@ -81,13 +93,17 @@ type Particle = (i: number) => void;
 let quality = 1;
 /** 1 = full (paused / export), 0.5 = fast preview while playing. */
 export const setEffectQuality = (q: number) => void (quality = q);
+export const effectQuality = () => quality;
 
 function particles(n: number, draw: Particle) {
   const count = Math.max(1, Math.ceil(n * quality));
   for (let i = 0; i < count; i++) draw(i);
 }
 
-export function drawEffect(ctx: CanvasRenderingContext2D, kind: EffectKind, k: number, t: number, W: number, H: number) {
+export function drawEffect(ctx: CanvasRenderingContext2D, kind: EffectKind, k: number, t: number, W: number, H: number, params?: number[]) {
+  if (kind in BUILTIN_SHADERS) return void applyShader(ctx, BUILTIN_SHADERS[kind], k, t, params);
+  if (kind in PARTICLE_PRESETS) return drawParticles(ctx, PARTICLE_PRESETS[kind].spec, k, t, W, H, quality, kind.length);
+  if (kind === 'lightning') return drawLightning(ctx, k, t, W, H);
   const u = Math.min(W, H) / 1080;
   switch (kind) {
     case 'grain': return grain(ctx, t, W, H, k);

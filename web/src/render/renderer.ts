@@ -6,7 +6,9 @@ import { drawTypography } from './typography';
 import { animateRegions } from './regions';
 import { renderParallax } from './parallax';
 import { drawCaptions, roundRect } from './captions';
-import { drawEffect, setEffectQuality } from './effects';
+import { drawEffect, effectQuality, setEffectQuality } from './effects';
+import { applyShader } from './shaderfx';
+import { drawParticles } from './particles';
 import { combineGrades, cssFilter, drawVignette, gradeDrawable, needsGpu } from './grade';
 import { drawOutlineWrite, drawPenWrite, penDuration } from './handdrawn';
 
@@ -304,7 +306,12 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
   for (const fx of p.effects) {
     if (fx.kind === 'none') continue;
     const k = effectAmount(fx, t, p.clips, m.length);
-    if (k > 0) drawEffect(ctx, fx.kind, fx.intensity * k, t, W, H);
+    if (k <= 0) continue;
+    if (fx.kind === 'custom') {
+      const c = p.customEffects?.find((e) => e.id === fx.customId);
+      if (c?.kind === 'shader' && c.code) applyShader(ctx, c.code, fx.intensity * k, t, fx.params);
+      else if (c?.kind === 'particles' && c.particles) drawParticles(ctx, c.particles, fx.intensity * k, t, W, H, effectQuality());
+    } else drawEffect(ctx, fx.kind, fx.intensity * k, t, W, H, fx.params);
   }
   for (const o of p.overlays) drawOverlay(ctx, o, t, src, W, H);
   if (p.captions.enabled) drawCaptions(ctx, m.lines, t, p.captions, W, H);

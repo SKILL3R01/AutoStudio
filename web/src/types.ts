@@ -1,3 +1,4 @@
+import type { ParticleSpec } from './render/particles';
 import type { VoiceFx } from './audio/enhance';
 import type { PenFont } from './render/strokefont';
 import type { Credit } from './lib/freemedia';
@@ -37,6 +38,7 @@ export type Transition = (typeof TRANSITIONS)[number];
 export const EFFECTS = [
   'none', 'grain', 'vhs', 'crt', 'glitch', 'lightLeak', 'vignette', 'snow', 'dust', 'rain',
   'embers', 'bokeh', 'cinematic',
+  'fire', 'fog', 'godRays', 'filmBurn', 'glowPulse', 'sparks', 'smoke', 'confetti', 'hearts', 'stars', 'lightning', 'custom',
 ] as const;
 export type EffectKind = (typeof EFFECTS)[number];
 
@@ -50,6 +52,21 @@ export interface EffectLayer {
   /** Seconds the effect fades in / out at the edges of its range. */
   fadeIn?: number;
   fadeOut?: number;
+  /** kind 'custom': which entry of `project.customEffects`. */
+  customId?: string;
+  /** Up to four effect parameters (0..1), passed to shaders as u_p1..u_p4. */
+  params?: number[];
+}
+
+/** A user / AI-made effect: a GLSL shader body, or a particle system. */
+export interface CustomEffect {
+  id: string;
+  name: string;
+  kind: 'shader' | 'particles';
+  code?: string;
+  particles?: ParticleSpec;
+  /** Names for the u_p1..u_p4 sliders (shader effects). */
+  paramNames?: string[];
 }
 
 export interface ColorAdjust {
@@ -369,6 +386,8 @@ export interface Project {
   music: MusicItem[];
   sfx: SfxItem[];
   effects: EffectLayer[];
+  /** Custom effects made in the Effects lab. */
+  customEffects?: CustomEffect[];
   color: ColorAdjust;
   /** LUTs used by the project's or clips' colour grades. */
   luts: Lut[];

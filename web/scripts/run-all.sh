@@ -16,7 +16,7 @@ run() { # name url steps
   grep -v '^\[shot\]' "$OUT/$1.log" | grep -iE 'error|disabled|no (toast|modal|button|input|result|blocks|sound)|exception|cannot|undefined' | grep -v 'chrome-extension' | head -5
 }
 run v3 "http://localhost:5173/#demo" steps-v3.json
-run review "http://localhost:5173/#demo" steps-review-v3.json
+run review "http://localhost:5173/#projects" steps-review-v3.json
 run phaseA "http://localhost:5173/#demo" steps-phaseA.json
 run silence "http://localhost:5173/#demo" steps-silence.json
 run phaseB "http://localhost:5173/#demo" steps-phaseB.json
