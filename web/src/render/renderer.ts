@@ -6,7 +6,7 @@ import { drawTypography } from './typography';
 import { animateRegions } from './regions';
 import { renderParallax } from './parallax';
 import { drawCaptions, roundRect } from './captions';
-import { drawEffect } from './effects';
+import { drawEffect, setEffectQuality } from './effects';
 import { combineGrades, cssFilter, drawVignette, gradeDrawable, needsGpu } from './grade';
 import { drawOutlineWrite, drawPenWrite, penDuration } from './handdrawn';
 
@@ -25,6 +25,8 @@ export interface RenderModel {
   assets: Map<string, Asset>;
   /** Onset times detected in the audio, used by region effects set to trigger "on the beat". */
   beats: number[];
+  /** Fast preview while playing: lighter effects (never set for export). */
+  draft?: boolean;
 }
 
 export const makeModel = (project: Project, lines: CaptionLine[], beats: number[] = []): RenderModel => ({
@@ -296,6 +298,7 @@ function drawOverlay(ctx: CanvasRenderingContext2D, o: Overlay, t: number, src: 
 
 export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: number, src: FrameSource, W: number, H: number) {
   const p = m.project;
+  setEffectQuality(m.draft ? 0.5 : 1);
   ctx.save();
   drawVisuals(ctx, m, t, src, W, H);
   for (const fx of p.effects) {

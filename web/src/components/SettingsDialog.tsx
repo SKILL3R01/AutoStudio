@@ -9,6 +9,8 @@ export const RELEASES_URL = 'https://github.com/SKILL3R01/AutoStudio/releases';
 export const LAYOUT_KEYS = ['layoutLeft', 'layoutRight', 'layoutLeftCollapsed', 'layoutRightCollapsed', 'tlHeight'];
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
+  const fastPreview = usePerf((s) => s.fastPreview);
+  const setFastPreview = usePerf((s) => s.setFastPreview);
   const { hw, detected, override, profile, setOverride, init } = usePerf();
   useEffect(() => void (!hw && init()), []);
   const s = PROFILE_SETTINGS[profile];
@@ -42,6 +44,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           window.dispatchEvent(new Event('layout-reset'));
           toast('Layout reset', 'ok');
         }}><Icon name="fit" /> Reset panel sizes</button>
+
+        <Toggle label="Fast preview while playing (lighter effects and resolution; paused frames and export stay full quality)" value={fastPreview} onChange={setFastPreview} />
 
         <h4>Updates</h4>
         <UpdatesSection />

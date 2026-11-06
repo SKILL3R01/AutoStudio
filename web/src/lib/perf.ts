@@ -54,11 +54,17 @@ interface PerfState {
   profile: Profile;
   init: () => Promise<void>;
   setOverride: (p: Profile | null) => void;
+  /** Lighter rendering while playing (lower resolution, fewer particles). Paused frames and export stay full quality. */
+  fastPreview: boolean;
+  setFastPreview: (v: boolean) => void;
 }
 
 const savedOverride = (globalThis.localStorage?.getItem('perfProfile') as Profile | null) ?? null;
 
 export const usePerf = create<PerfState>((set, get) => ({
+  fastPreview: globalThis.localStorage?.getItem('fastPreview') !== '0',
+  setFastPreview: (v) => (localStorage.setItem('fastPreview', v ? '1' : '0'), set({ fastPreview: v })),
+
   detected: 'medium',
   override: savedOverride,
   profile: savedOverride ?? 'medium',

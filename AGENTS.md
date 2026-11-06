@@ -53,6 +53,16 @@
   - Pure operations live in `editor/edit.ts`: split, ripple delete, copy/paste, `detachAudio`, `applyCuts` / `applyTimeMap`, voice segments (`voiceover.splits`), and `snapPoints` / `snapTime`.
   - UI actions (clipboard, toasts, async voice cuts) live in `editor/actions.ts`, and shortcuts in `editor/shortcuts.tsx`.
   - Clip `speed` is applied in `clipSourceTime`, the mix (`playbackRate`) and the preview `<video>.playbackRate`. MusicItem `rate` keeps detached audio at the clip's speed.
+- Voice Studio (left-rail **Voice**, `src/voice/*`):
+  - **Local engine** (`electron/voice.cjs`, desktop only):
+    - Installs pinned uv 0.13.6 (sha256-checked), a Python 3.12 venv, CPU torch 2.6 and chatterbox-tts 0.1.7 into `%LOCALAPPDATA%\AutoStudio\voice` (override with `AUTOSTUDIO_VOICE_DIR`). Never in roaming or OneDrive folders.
+    - The model goes to `voice\hf` (~3 GB).
+    - `engine/tts_worker.py --serve` keeps the model loaded and takes JSON jobs on stdin. It's shipped via `build.extraResources`.
+    - A native crash restarts the worker once.
+    - Measured on an i7-8700 CPU: ~25 s load, roughly 3.5–7× real time.
+  - **Library** (`voice/library.ts`): "My voices" samples live in IndexedDB (`voice:*`). Paragraph audio is cached by a SHA-256 of text + settings (`tts:*`), so edits only regenerate changed paragraphs. Colab `tts` is the "turbo" backend.
+  - **Enhance** (`audio/enhance.ts`): `voiceChain` sits in `buildMix` (preview = export). `measureLufs` uses BS.1770-style gating, and `makeupFor` targets −14 LUFS. Pace / pitch is WSOLA in `audio/pitch.ts`.
+- Fast preview (`usePerf().fastPreview`): while playing, the preview runs at ×0.6 resolution and `RenderModel.draft` halves particle effects (`setEffectQuality`). Export never sets `draft`.
 - Auto-edit: planning in `lib/autoedit.ts` (`planScenes`, `assignUnique`, `buildClips`, `applyAutoEdit`). The UI is `editor/AutoEditDialog.tsx`; it combines CLIP matches, free media, Colab imagegen and LLM queries.
 - Media search: CLIP ViT-B/32 (8-bit, WASM) runs in `ai/worker.ts` (`clipImages` / `clipText`).
   - Vectors are base64 Float32 in `project.embeddings`, handled by `lib/mediasearch.ts` (`indexMedia`, `rank`). The UI is in `editor/MediaPanel.tsx`.
@@ -112,6 +122,7 @@
   - `scripts/steps-phaseF.json`: free media from Wikimedia (images / video / sound) + insert
   - `scripts/steps-describe.json`: describe-search on the demo (downloads CLIP on first run)
   - `scripts/steps-autoedit.json`: Auto-edit on the demo (CLIP matching → build)
+  - `scripts/run-all.sh` needs the dev server (`npx vite --port 5173 --strictPort`); if every suite fails on the first step, the server is down.
   - `scripts/steps-ai.json`: all AI-assistant actions against `node scripts/fake-llm.mjs` (port 1235; mimics LM Studio + Gemma, with messy JSON replies)
   - `scripts/steps-region.json`: object selection. The first run downloads models, and headless WebGPU is flaky, so the CPU fallback can take ~2 min.
 

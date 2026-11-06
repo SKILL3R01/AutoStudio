@@ -249,7 +249,7 @@ export function VoicePanel() {
 
   return (
     <>
-      <Section title="AI voice engine">
+      <Section title="AI voice engine (beta)">
         <LocalEngine onReady={setLocalReady} />
         {window.autostudio?.voice && colab && <Seg options={[['local', 'This PC'], ['colab', 'Colab (turbo)']] as const} value={backend} onChange={setBackend} />}
       </Section>

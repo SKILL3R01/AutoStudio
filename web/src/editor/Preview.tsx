@@ -84,8 +84,21 @@ export function Preview() {
   const [guides, setGuides] = useState(false);
   const modelRef = useRef(m);
   modelRef.current = m;
-  const previewLong = PROFILE_SETTINGS[usePerf((s) => s.profile)].preview;
+  const baseLong = PROFILE_SETTINGS[usePerf((s) => s.profile)].preview;
+  const fast = usePerf((s) => s.fastPreview) && playing;
+  const previewLong = fast ? Math.round(baseLong * 0.6) : baseLong;
   const { W, H } = outputSize(m.project, previewLong);
+  const frames = useRef<number[]>([]);
+  const [fps, setFps] = useState(0);
+  useEffect(() => {
+    if (!playing) return setFps(0);
+    const id = setInterval(() => {
+      const now = performance.now();
+      frames.current = frames.current.filter((x) => now - x < 1000);
+      setFps(frames.current.length);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [playing]);
   const aKey = useMemo(() => audioKey(m.project), [m.project]);
   const stageRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -120,8 +133,9 @@ export function Preview() {
     const c = canvas.current;
     if (!c) return;
     syncVideos(m, time, playing);
-    renderFrame(c.getContext('2d')!, m, time, source, W, H);
-  }, [m, time, tick, W, H, playing]);
+    renderFrame(c.getContext('2d')!, fast ? { ...m, draft: true } : m, time, source, W, H);
+    if (playing) frames.current.push(performance.now());
+  }, [m, time, tick, W, H, playing, fast]);
 
   // Playback clock driven by the Web Audio mix.
   useEffect(() => {
@@ -257,6 +271,7 @@ export function Preview() {
         <button className="play" onClick={() => useEditor.getState().setPlaying(!playing)} title="Play / pause (Space)"><Icon name={playing ? 'pause' : 'play'} size={18} /></button>
         <span className="tc">{fmtTime(time)} <i>/ {fmtTime(m.length)}</i></span>
         <div className="grow" />
+        {playing && fps > 0 && <span className={`chip ${fps < 20 ? 'warn' : ''}`} title={fast ? 'Fast preview on (lighter while playing; export is full quality)' : 'Full-quality preview'}>{fps} fps{fast ? ' · fast' : ''}</span>}
         <span className="chip">Clip {clips.length ? ci + 1 : 0} / {clips.length}</span>
         <button className={`icon-btn ${guides ? 'on' : ''}`} onClick={() => setGuides(!guides)} title="Safe-area guides"><Icon name="fit" /></button>
         <button className="icon-btn" onClick={() => setFull(!full)} title="Theatre mode"><Icon name={full ? 'x' : 'full'} /></button>

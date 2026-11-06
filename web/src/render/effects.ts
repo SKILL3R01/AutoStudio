@@ -78,8 +78,13 @@ function chroma(ctx: CanvasRenderingContext2D, W: number, H: number, px: number,
 }
 
 type Particle = (i: number) => void;
+let quality = 1;
+/** 1 = full (paused / export), 0.5 = fast preview while playing. */
+export const setEffectQuality = (q: number) => void (quality = q);
+
 function particles(n: number, draw: Particle) {
-  for (let i = 0; i < n; i++) draw(i);
+  const count = Math.max(1, Math.ceil(n * quality));
+  for (let i = 0; i < count; i++) draw(i);
 }
 
 export function drawEffect(ctx: CanvasRenderingContext2D, kind: EffectKind, k: number, t: number, W: number, H: number) {
