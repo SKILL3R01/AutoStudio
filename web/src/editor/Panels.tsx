@@ -9,6 +9,7 @@ import { KeywordsPanel } from './KeywordsPanel';
 import { MediaPanel } from './MediaPanel';
 import { FreeMediaPanel } from './FreeMediaPanel';
 import { VoicePanel } from '../voice/VoicePanel';
+import { useUi } from '../lib/uimode';
 import { AiPanel } from './AiPanel';
 import { SilenceDialog } from './SilenceDialog';
 import { GradeEditor } from './GradeEditor';
@@ -23,6 +24,16 @@ export const TABS = [
 ] as const;
 export type Tab = (typeof TABS)[number][0];
 
+/** Simple mode: five areas instead of twelve panels. */
+const GROUPS: { id: string; name: string; icon: string; hint: string; tabs: Tab[] }[] = [
+  { id: 'media', name: 'Media', icon: 'media', hint: 'Your media and free media', tabs: ['media', 'stock'] },
+  { id: 'voice', name: 'Voice', icon: 'mic', hint: 'Voiceover, music and sound effects', tabs: ['voice', 'music', 'sfx'] },
+  { id: 'text', name: 'Text', icon: 'captions', hint: 'Captions, typography and titles', tabs: ['captions', 'keywords', 'text'] },
+  { id: 'style', name: 'Style', icon: 'effects', hint: 'Motion, transitions, colour and effects', tabs: ['motion', 'transitions', 'color', 'effects'] },
+  { id: 'ai', name: 'AI', icon: 'wand', hint: 'AI assistant, depth maps and prompts', tabs: ['ai'] },
+];
+const lastInGroup = new Map<string, Tab>();
+
 export const MOTION_LABELS: Record<Motion, string> = {
   none: 'None', zoomIn: 'Zoom in', zoomOut: 'Zoom out', panLeft: 'Pan left', panRight: 'Pan right', tiltUp: 'Tilt up',
   tiltDown: 'Tilt down', diagonal: 'Diagonal', drift: 'Drift', breathe: 'Breathe', alternate: 'Alternate zoom', random: 'Random mix', custom: 'Custom framing',
@@ -36,19 +47,36 @@ export const TRANSITION_LABELS: Record<Transition, string> = {
 
 export function Sidebar() {
   const [tab, setTab] = useState<Tab>('motion');
+  const mode = useUi((u) => u.mode);
   const label = TABS.find((t) => t[0] === tab)![1];
+  const group = GROUPS.find((g) => g.tabs.includes(tab))!;
   return (
     <>
-      <nav className="rail">
-        {TABS.map(([id, name, icon]) => (
-          <button key={id} className={id === tab ? 'on' : ''} onClick={() => setTab(id)} title={name}>
-            <Icon name={icon} size={18} />
-            <span>{name}</span>
-          </button>
-        ))}
+      <nav className={`rail ${mode}`}>
+        {mode === 'pro'
+          ? TABS.map(([id, name, icon]) => (
+              <button key={id} className={id === tab ? 'on' : ''} onClick={() => setTab(id)} title={name}>
+                <Icon name={icon} size={18} />
+                <span>{name}</span>
+              </button>
+            ))
+          : GROUPS.map((g) => (
+              <button key={g.id} className={g === group ? 'on' : ''} onClick={() => setTab(lastInGroup.get(g.id) ?? g.tabs[0])} title={g.hint}>
+                <Icon name={g.icon} size={20} />
+                <span>{g.name}</span>
+              </button>
+            ))}
       </nav>
       <aside className="panels">
-        <div className="panel-title">{label}</div>
+        {mode === 'simple' && group.tabs.length > 1 ? (
+          <div className="panel-tabs">
+            {group.tabs.map((t) => (
+              <button key={t} className={t === tab ? 'on' : ''} onClick={() => (lastInGroup.set(group.id, t), setTab(t))}>{TABS.find((x) => x[0] === t)![1]}</button>
+            ))}
+          </div>
+        ) : (
+          <div className="panel-title">{label}</div>
+        )}
         <div className="panel-body">
           {tab === 'media' && <MediaPanel />}
           {tab === 'stock' && <FreeMediaPanel />}

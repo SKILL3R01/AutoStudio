@@ -47,6 +47,13 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
         <Toggle label="Fast preview while playing (lighter effects and resolution; paused frames and export stay full quality)" value={fastPreview} onChange={setFastPreview} />
 
+        <h4>AI connections (optional)</h4>
+        <p className="hint">Everything core works on this PC. These add extras: a local LLM (LM Studio / Ollama) for AI writing, and the Colab GPU engine for fast AI images / video / voices.</p>
+        <div className="row wrap">
+          <button className="btn sm" onClick={() => (onClose(), window.dispatchEvent(new CustomEvent('autostudio:open', { detail: 'llm' })))}><Icon name="wand" /> AI assistant (LLM)…</button>
+          <button className="btn sm" onClick={() => (onClose(), window.dispatchEvent(new CustomEvent('autostudio:open', { detail: 'engine' })))}><Icon name="bolt" /> Colab GPU engine…</button>
+        </div>
+
         <h4>Updates</h4>
         <UpdatesSection />
 
