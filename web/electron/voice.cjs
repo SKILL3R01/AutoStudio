@@ -114,11 +114,12 @@ async function install() {
     await run(P.uv(), ['pip', 'install', '--python', P.py(), ...PACKAGES.torch, '--index-url', 'https://download.pytorch.org/whl/cpu'], 'Installing PyTorch (CPU, ~1 GB)', 0.2, uvEnv());
     await run(P.uv(), ['pip', 'install', '--python', P.py(), ...PACKAGES.chatterbox], 'Installing Chatterbox', 0.45, uvEnv());
     progress('Downloading the voice model (~3 GB, first time only)', 0.6);
-    await ensureWorker();
-    await job({ warmup: true, model: 'multilingual', language: 'en' });
+    // The first load straight after the download can crash natively on Windows; a fresh process loads fine.
+    await withRetry(() => job({ warmup: true, model: 'multilingual', language: 'en' }));
     fs.writeFileSync(P.marker(), JSON.stringify({ at: new Date().toISOString(), uv: UV_VERSION, packages: PACKAGES }));
     await run(P.uv(), ['cache', 'clean'], 'Cleaning up', 0.98, uvEnv()).catch(() => {});
     progress('Ready', 1);
+    installing = null;
     return status();
   } finally {
     installing = null;
@@ -178,6 +179,18 @@ function stopWorker() {
   worker = null;
 }
 
+/** Run a worker job; if the Python process crashed (not cancelled), restart it once and retry. */
+async function withRetry(fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    if (!/Voice engine exited/.test(String(e?.message))) throw e;
+    note(`[voice] worker crashed (${e.message}); restarting once`);
+    stopWorker();
+    return fn();
+  }
+}
+
 let seq = 0;
 async function job(payload) {
   await ensureWorker();
@@ -199,7 +212,7 @@ async function generate(o) {
     fs.writeFileSync(ref, Buffer.from(o.voice));
   }
   try {
-    await job({ id, text: String(o.text ?? ''), out, voice: ref, language: o.language || 'en', model: 'multilingual', exaggeration: o.exaggeration ?? 0.5, cfg: o.cfg ?? 0.5, temperature: o.temperature ?? 0.8, seed: o.seed ?? 0, pause: o.pause ?? 0.18 });
+    await withRetry(() => job({ id, text: String(o.text ?? ''), out, voice: ref, language: o.language || 'en', model: 'multilingual', exaggeration: o.exaggeration ?? 0.5, cfg: o.cfg ?? 0.5, temperature: o.temperature ?? 0.8, seed: o.seed ?? 0, pause: o.pause ?? 0.18 }));
     const data = fs.readFileSync(out);
     return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
   } finally {
