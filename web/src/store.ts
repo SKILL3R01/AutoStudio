@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Project } from './types';
 import { saveProject } from './lib/db';
+import { snapshot } from './lib/history';
 
 /** `voice` selections use the segment index as id. */
 export type Selection = { kind: 'clip' | 'overlay' | 'music' | 'sfx' | 'keyword' | 'voice'; id: string } | null;
@@ -40,7 +41,7 @@ let lastCoalesceAt = 0;
 
 const persist = (p: Project) => {
   clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => saveProject(p), 400);
+  saveTimer = window.setTimeout(() => void saveProject(p).then(() => snapshot(p)), 400);
 };
 
 export const useEditor = create<EditorState>((set, get) => ({

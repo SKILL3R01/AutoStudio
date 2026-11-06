@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { navigate } from '../App';
+import { HistoryDialog } from './HistoryDialog';
 import { deleteProject, duplicateProject, exportProjectFile, importProjectFile, listProjects, renameProject, saveProject, type ProjectMeta } from '../lib/db';
 import { newProject } from '../lib/project';
 import { download, fmtTime, uid } from '../lib/util';
@@ -20,6 +21,7 @@ const ago = (t: number) => {
 function ProjectCard({ p, refresh }: { p: ProjectMeta; refresh: () => void }) {
   const url = useObjectUrl(p.thumb);
   const [menu, setMenu] = useState(false);
+  const [history, setHistory] = useState(false);
   return (
     <div className="pcard" onClick={() => navigate({ page: 'editor', id: p.id })}>
       <div className="pthumb">
@@ -47,6 +49,7 @@ function ProjectCard({ p, refresh }: { p: ProjectMeta; refresh: () => void }) {
             const b = await exportProjectFile(p.id);
             if (b) download(b, `${p.name.replace(/[^\w\- ]+/g, '') || 'project'}.autostudio`);
           }}>Back up (.autostudio)</button>
+          <button onClick={() => (setMenu(false), setHistory(true))}>Version history…</button>
           <button onClick={async () => {
             await duplicateProject(p.id, 'p_' + uid());
             setMenu(false);
@@ -60,6 +63,7 @@ function ProjectCard({ p, refresh }: { p: ProjectMeta; refresh: () => void }) {
           }}>Delete</button>
         </div>
       )}
+      {history && <div onClick={(e) => e.stopPropagation()}><HistoryDialog id={p.id} name={p.name} onClose={() => setHistory(false)} onRestored={refresh} /></div>}
     </div>
   );
 }

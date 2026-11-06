@@ -545,3 +545,5 @@ pre.meta-out { white-space: pre-wrap; background: var(--panel2); padding: 10px; 
 .big-count { font-size: 42px; font-weight: 800; text-align: center; margin: 4px 0; }
 .rec-dot { color: #f05252; font-weight: 700; }
 code.mono { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+.history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow: auto; }
+.history li { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--panel2); padding: 8px 10px; border-radius: 6px; }

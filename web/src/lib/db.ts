@@ -35,6 +35,7 @@ export async function listProjects(): Promise<ProjectMeta[]> {
 }
 
 export async function deleteProject(id: string) {
+  await set(`history:${id}`, undefined);
   const p = await loadProject(id);
   if (p) await Promise.all(p.assets.map((a) => del(`asset:${a.id}`)));
   await del(`project:${id}`);
