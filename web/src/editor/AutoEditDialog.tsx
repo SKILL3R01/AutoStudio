@@ -6,7 +6,7 @@ import { detectBeats } from '../audio/beats';
 import { applyAutoEdit, assignUnique, buildClips, planScenes, type AutoOptions, type AutoScene, type Candidate } from '../lib/autoedit';
 import { indexMedia, matchPercent, decodeVec, dot, searchable, unindexed } from '../lib/mediasearch';
 import { clipEmbedText, transcribeLocal } from '../ai/vision';
-import { downloadFree, keywordsFrom, searchOpenverse, searchWikimedia, type Credit, type FreeSource } from '../lib/freemedia';
+import { downloadFree, keywordsFrom, searchAll, type Credit, type FreeSource } from '../lib/freemedia';
 import { chatJson, useLlm } from '../lib/llm';
 import { engineHas, fetchResult, runJob, useEngine } from '../lib/engine';
 import { STYLE_PRESETS, buildPrompt, stampName } from '../lib/scenes';
@@ -89,9 +89,12 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
   };
 
   const freeCandidates = async (q: string, n = 3): Promise<Candidate[]> => {
-    const list = freeSource === 'openverse' && freeKind === 'image' ? await searchOpenverse(q, 'image', allowCredit) : await searchWikimedia(q, freeKind, allowCredit);
+    // All sources at once; then the other media type (images <-> video); searchAll itself retries simpler words.
+    const sources: FreeSource[] = freeSource === 'openverse' ? ['openverse', 'wikimedia', 'nasa'] : ['wikimedia', 'openverse', 'nasa', 'usgs'];
+    let list = (await searchAll(q, freeKind, allowCredit, sources)).items;
+    if (!list.length) list = (await searchAll(q, freeKind === 'image' ? 'video' : 'image', allowCredit, sources)).items;
     return list.slice(0, n).map((f) => ({ key: f.id, source: 'free', label: `${f.title.slice(0, 40)} · ${f.license}`, thumb: f.thumb, free: f }));
-  };
+  };;
 
   const plan = async () => {
     try {
@@ -201,6 +204,8 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
 
   const build = async () => {
     if (!scenes) return;
+    const empty = scenes.filter((x) => x.pick === 'blank').length;
+    if (empty && !confirm(`${empty} of ${scenes.length} scenes have no visual yet and will be black placeholders. Build anyway? (You can fill them later — right-click a clip → Replace, or use AI images.)`)) return;
     if (p.clips.length && !confirm(`Replace your ${p.clips.length} clips with ${scenes.length} auto-edited scenes? (Undo brings them back)`)) return;
     const assetFor: (string | undefined)[] = [];
     const credits: Credit[] = [];
@@ -273,7 +278,7 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
         ) : (
           <>
             <div className="row wrap between">
-              <span className="hint">{scenes.length} scenes · {picked} with a visual · click a thumbnail to choose, edit a search and press ↻ to find more.</span>
+              <span className="hint">{scenes.length} scenes · {picked} with a visual{scenes.length - picked ? <b className="warn"> · {scenes.length - picked} empty</b> : null} · click a thumbnail to choose, edit a search and press ↻ to find more.</span>
               <div className="row wrap">
                 <select value={style} onChange={(e) => setStyle(e.target.value)} title="Style for AI images">{STYLE_PRESETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
                 <button className="btn sm" disabled={!!busy || engine !== 'ready' || !engineHas('imagegen')} onClick={() => aiImages(false)} title={engineHas('imagegen') ? '' : 'Needs the AutoStudio engine'}><Icon name="image" /> AI images for empty scenes</button>
