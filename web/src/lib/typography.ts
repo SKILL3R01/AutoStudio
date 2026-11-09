@@ -128,22 +128,39 @@ export function restyle(blocks: TypoBlock[], s: TypoSettings): TypoBlock[] {
   });
 }
 
+export interface AiPick { from: number; to: number; main: number[]; template?: string }
+
+/** Make an LLM answer usable: unwrap {phrases: [...]}, numbers given as text, `main` as one number / text / list. */
+export function cleanPicks(raw: unknown, wordCount: number): AiPick[] {
+  const list = Array.isArray(raw) ? raw : raw && typeof raw === 'object' ? (Object.values(raw).find(Array.isArray) ?? []) : [];
+  const num = (v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN);
+  return (list as Record<string, unknown>[]).flatMap((r) => {
+    if (!r || typeof r !== 'object') return [];
+    const from = num(r.from), to = num(r.to);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from || to >= wordCount || to - from >= 8) return [];
+    const m = r.main;
+    const main = (Array.isArray(m) ? m : typeof m === 'string' ? m.split(/[\s,]+/) : m === undefined || m === null ? [] : [m]).map(num).filter(Number.isInteger);
+    return [{ from, to, main, template: typeof r.template === 'string' ? r.template : undefined }];
+  });
+}
+
 /** Ask the LLM for impactful phrases + their emphasis word and a template. */
 export async function aiBlocks(words: Word[], s: TypoSettings): Promise<TypoBlock[]> {
   const target = Math.max(2, Math.round(((words[words.length - 1].end - words[0].start) / 10) * s.density));
   const indexed = words.map((w, i) => `${i}:${w.text}`).join(' ');
-  const res = await chatJson<{ from: number; to: number; main?: number[]; template?: string }[]>(
+  const raw = await chatJson<unknown>(
     `You design kinetic typography for faceless videos. From a voiceover transcript pick short, punchy phrases (1-${s.maxWords} consecutive words) that deserve to appear as big animated typography. Spread them across the whole video, avoid filler. For each, give the word indexes to emphasise and a template from [stack, stackSide, mixed, scriptCaps, punch].`,
     `Transcript (index:word): ${indexed}\n\nPick about ${target} phrases. Return JSON: [{"from": 12, "to": 14, "main": [13], "template": "stack"}]`,
     3000,
   );
   const valid = ['stack', 'stackSide', 'mixed', 'scriptCaps', 'punch'];
+  const res = cleanPicks(raw, words.length);
+  if (!res.length) throw new Error('The AI answer had no usable phrases — try again, or use Auto pick.');
   const blocks = res
-    .filter((r) => Number.isInteger(r.from) && Number.isInteger(r.to) && r.from >= 0 && r.to >= r.from && r.to < words.length && r.to - r.from < 8)
     .sort((a, b) => a.from - b.from)
     .map((r, k) => {
       const slice = words.slice(r.from, r.to + 1);
-      const scores = slice.map((_, i) => (r.main?.includes(r.from + i) ? 5 : 1));
+      const scores = slice.map((_, i) => (r.main.includes(r.from + i) ? 5 : 1));
       const tpl = valid.includes(r.template ?? '') ? (r.template as Exclude<TypoTemplate, 'random'>) : s.template;
       return makeBlock(slice, { ...s, template: tpl }, s.seed * 17 + k, scores);
     });
