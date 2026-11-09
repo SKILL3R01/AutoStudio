@@ -215,3 +215,23 @@ export function resolveOverlap(p: Project, id: string): string {
   c.trackId = near ? near.id : addTrack(p, kind, undefined, c.trackId);
   return p.audioTracks.find((t) => t.id === c.trackId)!.name;
 }
+
+/** Keep sound linked to a video clip in step with it (start, length, trim, speed); sound of a deleted clip goes too. */
+export function syncLinkedAudio(p: Project) {
+  if (!p.audio.some((c) => c.linkClipId)) return;
+  const idx = new Map(p.clips.map((c, i) => [c.id, i]));
+  p.audio = p.audio.filter((c) => !c.linkClipId || idx.has(c.linkClipId));
+  for (const c of p.audio) {
+    if (!c.linkClipId) continue;
+    const i = idx.get(c.linkClipId)!;
+    const clip = p.clips[i];
+    const start = i === 0 ? 0 : clip.start;
+    const end = i + 1 < p.clips.length ? p.clips[i + 1].start : Math.max(p.length, start + 0.1);
+    const rate = clip.speed ?? 1;
+    const src = p.assets.find((x) => x.id === c.assetId)?.duration ?? Infinity;
+    c.start = start;
+    c.trimIn = clip.trimIn;
+    c.rate = rate === 1 ? undefined : rate;
+    c.duration = Math.max(0.05, Math.min(end - start, (Math.min(clip.trimOut ?? Infinity, src) - clip.trimIn) / rate));
+  }
+}

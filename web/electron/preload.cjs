@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('autostudio', {
     install: () => ipcRenderer.invoke('autostudio:voice-install'),
     cancelInstall: () => ipcRenderer.invoke('autostudio:voice-cancel-install'),
     generate: (o) => ipcRenderer.invoke('autostudio:voice-generate', o),
+    convert: (o) => ipcRenderer.invoke('autostudio:voice-convert', o),
+    separate: (o) => ipcRenderer.invoke('autostudio:voice-separate', o),
     cancel: () => ipcRenderer.invoke('autostudio:voice-cancel'),
     uninstall: () => ipcRenderer.invoke('autostudio:voice-uninstall'),
     logs: () => ipcRenderer.invoke('autostudio:voice-logs'),

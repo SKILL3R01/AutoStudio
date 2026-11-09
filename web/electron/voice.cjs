@@ -14,7 +14,7 @@ const UV_URL = `https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/
 // Mirror: the same uv build published on PyPI (a wheel is a zip; uv.exe sits under uv-<ver>.data/scripts/).
 const UV_PYPI_URL = 'https://files.pythonhosted.org/packages/7c/9d/714523188aea3054644d8e69ae8089aac70325a3cee2d3d05509d4f23398/uv-0.13.6-py3-none-win_amd64.whl';
 const UV_PYPI_SHA256 = '7c9bc35ccb65932d8dc10a0669f9c805eaa3c9827ce18ecbecb1bd67944b2cdf';
-const PACKAGES = { torch: ['torch==2.6.0', 'torchaudio==2.6.0'], chatterbox: ['chatterbox-tts==0.1.7'] };
+const PACKAGES = { torch: ['torch==2.6.0', 'torchaudio==2.6.0'], chatterbox: ['chatterbox-tts==0.1.7'], demucs: ['demucs==4.1.0'] };
 const NEED_GB = 7; // runtime ~2.2 GB + model ~3 GB + headroom
 
 // Local AppData (never synced by roaming profiles / OneDrive), unless overridden for tests.
@@ -297,6 +297,52 @@ async function generate(o) {
   }
 }
 
+/** Write bytes to a temp file and return its path. */
+function tmpFile(name, bytes) {
+  fs.mkdirSync(P.tmp(), { recursive: true });
+  const f = path.join(P.tmp(), name);
+  fs.writeFileSync(f, Buffer.from(bytes));
+  return f;
+}
+const readOut = (f) => {
+  const d = fs.readFileSync(f);
+  return d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength);
+};
+
+/** Re-voice: same words and timing, another voice. `audio` and `voice` are WAV bytes. Returns WAV bytes. */
+async function convert(o) {
+  const id = `vc${Date.now()}`;
+  const audio = tmpFile(`${id}-in.wav`, o.audio), voice = tmpFile(`${id}-ref.${o.voiceExt || 'wav'}`, o.voice), out = path.join(P.tmp(), `${id}.wav`);
+  try {
+    await withRetry(() => job({ id, type: 'vc', audio, voice, out }));
+    return readOut(out);
+  } finally {
+    for (const f of [audio, voice, out]) fs.rmSync(f, { force: true });
+  }
+}
+
+/** Install the voice / background separator (Demucs, ~100 MB + model on first use) into the voice runtime. */
+async function ensureDemucs() {
+  const mark = path.join(dir(), 'demucs.ok');
+  if (fs.existsSync(mark)) return;
+  await run(P.uv(), ['pip', 'install', '--python', P.py(), ...PACKAGES.demucs], 'Installing the voice / music separator (first time only)', 0.1, uvEnv());
+  stopWorker();
+  fs.writeFileSync(mark, new Date().toISOString());
+}
+
+/** Split a recording into voice and background. Returns { vocals, background } WAV bytes. */
+async function separate(o) {
+  await ensureDemucs();
+  const id = `sep${Date.now()}`;
+  const audio = tmpFile(`${id}-in.wav`, o.audio), vocals = path.join(P.tmp(), `${id}-v.wav`), background = path.join(P.tmp(), `${id}-b.wav`);
+  try {
+    await withRetry(() => job({ id, type: 'separate', audio, vocals, background }));
+    return { vocals: readOut(vocals), background: readOut(background) };
+  } finally {
+    for (const f of [audio, vocals, background]) fs.rmSync(f, { force: true });
+  }
+}
+
 /** Stop a running generation (the worker restarts — the model reloads in ~25 s on the next job). */
 function cancel() {
   stopWorker();
@@ -315,6 +361,8 @@ function registerVoice() {
   ipcMain.handle('autostudio:voice-install', () => install());
   ipcMain.handle('autostudio:voice-cancel-install', () => cancelInstall());
   ipcMain.handle('autostudio:voice-generate', (_e, o) => generate(o));
+  ipcMain.handle('autostudio:voice-convert', (_e, o) => convert(o));
+  ipcMain.handle('autostudio:voice-separate', (_e, o) => separate(o));
   ipcMain.handle('autostudio:voice-cancel', () => cancel());
   ipcMain.handle('autostudio:voice-uninstall', () => uninstall());
   ipcMain.handle('autostudio:voice-logs', () => logs.slice(-60));

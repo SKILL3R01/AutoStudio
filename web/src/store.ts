@@ -1,4 +1,4 @@
-import { clipEndOf, narrationEnd } from './lib/audiotracks';
+import { clipEndOf, narrationEnd, syncLinkedAudio } from './lib/audiotracks';
 import { create } from 'zustand';
 import type { Project } from './types';
 import { saveProject } from './lib/db';
@@ -62,6 +62,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     if (!cur) return;
     const draft = structuredClone(cur);
     fn(draft);
+    syncLinkedAudio(draft);
     draft.updatedAt = Date.now();
     const now = Date.now();
     const merge = coalesce && coalesce === lastCoalesce && now - lastCoalesceAt < 800;

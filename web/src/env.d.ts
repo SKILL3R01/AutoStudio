@@ -17,6 +17,8 @@ interface Window {
       install: () => Promise<VoiceEngineStatus>;
       cancelInstall: () => Promise<boolean>;
       generate: (o: { id?: string; text: string; language?: string; voice?: ArrayBuffer; voiceExt?: string; exaggeration?: number; cfg?: number; temperature?: number; seed?: number; pause?: number }) => Promise<ArrayBuffer>;
+      convert?: (o: { audio: ArrayBuffer; voice: ArrayBuffer; voiceExt?: string }) => Promise<ArrayBuffer>;
+      separate?: (o: { audio: ArrayBuffer }) => Promise<{ vocals: ArrayBuffer; background: ArrayBuffer }>;
       cancel: () => Promise<boolean>;
       uninstall: () => Promise<VoiceEngineStatus>;
       logs: () => Promise<string[]>;

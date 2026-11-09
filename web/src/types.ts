@@ -414,6 +414,8 @@ export interface AudioClip {
   duckRelease?: number;
   /** Volume curve over the timeline: points (seconds, 0..2 multiplier). */
   curve?: { t: number; v: number }[];
+  /** Sound separated from this main-track video clip: it follows the clip's position, length, trim and speed. */
+  linkClipId?: string;
 }
 
 /** @deprecated v3.0 — kept for migration only. */

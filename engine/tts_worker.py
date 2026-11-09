@@ -95,6 +95,59 @@ def synth(text, out, voice, language, kind, exaggeration, cfg, temperature, seed
     return audio.shape[1] / model.sr
 
 
+_vc = None
+
+
+def convert_voice(audio, voice, out):
+    """Re-voice: same words and timing as `audio`, in the voice of the `voice` sample (Chatterbox VC)."""
+    global _vc
+    import torchaudio as ta
+    from chatterbox.vc import ChatterboxVC
+    if _vc is None:
+        _vc = ChatterboxVC.from_pretrained("cuda" if torch.cuda.is_available() else "cpu")
+    wav = _vc.generate(audio=audio, target_voice_path=voice)
+    ta.save(out, wav, _vc.sr)
+    return wav.shape[-1] / _vc.sr
+
+
+_sep = None
+
+
+def separate(audio, vocals_out, background_out, on_progress, segment=20.0):
+    """Split a recording into voice and background (music, ambience) with Demucs htdemucs, segment by segment."""
+    global _sep
+    import torchaudio as ta
+    from demucs.apply import apply_model
+    from demucs.pretrained import get_model
+    if _sep is None:
+        _sep = get_model("htdemucs")
+        _sep.eval()
+    m = _sep
+    wav, sr = ta.load(audio)
+    if sr != m.samplerate:
+        wav = ta.functional.resample(wav, sr, m.samplerate)
+    if wav.shape[0] == 1:
+        wav = wav.repeat(2, 1)
+    wav = wav[:2]
+    ref = wav.mean(0)
+    mean, std = ref.mean(), ref.std() + 1e-8
+    x = (wav - mean) / std
+    n = x.shape[1]
+    seg = int(segment * m.samplerate)
+    vi = m.sources.index("vocals")
+    voc, bg = torch.zeros_like(x), torch.zeros_like(x)
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    with torch.no_grad():
+        for i in range(0, n, seg):
+            part = x[:, i:i + seg]
+            src = apply_model(m, part[None], device=dev, split=True, overlap=0.25, progress=False)[0]
+            voc[:, i:i + seg] = src[vi]
+            bg[:, i:i + seg] = src.sum(0) - src[vi]
+            on_progress(min(1.0, (i + seg) / n))
+    ta.save(vocals_out, voc * std + mean, m.samplerate)
+    ta.save(background_out, bg * std + mean, m.samplerate)
+
+
 def serve():
     """Persistent mode for the desktop app: one JSON job per stdin line, JSON events on stdout; the model stays loaded."""
     import json
@@ -110,6 +163,14 @@ def serve():
         job = json.loads(line)
         jid = job.get("id", "")
         try:
+            if job.get("type") == "vc":
+                dur = convert_voice(job["audio"], job["voice"], job["out"])
+                emit(id=jid, done=True, duration=round(dur, 3))
+                continue
+            if job.get("type") == "separate":
+                separate(job["audio"], job["vocals"], job["background"], lambda f: emit(id=jid, progress=round(f, 4), chunk=0, chunks=0))
+                emit(id=jid, done=True, duration=0)
+                continue
             if job.get("warmup"):
                 get_model(resolve_kind(job.get("model", "multilingual"), job.get("language", "en"), None), "cuda" if torch.cuda.is_available() else "cpu")
                 emit(id=jid, done=True, duration=0)

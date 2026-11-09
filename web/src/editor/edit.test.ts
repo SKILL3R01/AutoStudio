@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addVoiceTake, newProject, normalizeProject } from '../lib/project';
 import { clipEnd, projectLength } from '../store';
-import { TRACK_IDS, captionDrift, moveAudioClip, narrationClips, newAudioClip, resolveOverlap, resyncCaptions, splitAudioClip } from '../lib/audiotracks';
+import { TRACK_IDS, syncLinkedAudio, captionDrift, moveAudioClip, narrationClips, newAudioClip, resolveOverlap, resyncCaptions, splitAudioClip } from '../lib/audiotracks';
 import type { Asset, Clip, Project } from '../types';
 import {
   applyCuts, clipboardEnd, copyItems, detachAudio, insertClips, pasteItems, rippleDeleteClips, splitAudio, splitClipAt, splitOverlay,
@@ -156,5 +156,22 @@ describe('copy / paste / duplicate / detach', () => {
     expect([m.start, m.duration, m.trimIn, m.duck]).toEqual([3, 3, 1, false]);
     expect(p.clips[1].volume).toBe(0);
     expect(detachAudio(p, 'a')).toBeNull();
+  });
+});
+
+describe('linked video sound', () => {
+  it('separated sound follows its clip (move / trim / speed) and goes when the clip is deleted', () => {
+    const p = fixture();
+    p.clips[1].assetId = 'vid';
+    const id = detachAudio(p, 'b', true)!;
+    const a = () => p.audio.find((x) => x.id === id);
+    p.clips[1].start = 4;
+    p.clips[1].trimIn = 2;
+    p.clips[1].speed = 2;
+    syncLinkedAudio(p);
+    expect([a()!.start, a()!.duration, a()!.trimIn, a()!.rate]).toEqual([4, 2, 2, 2]);
+    p.clips.splice(1, 1);
+    syncLinkedAudio(p);
+    expect(a()).toBeUndefined();
   });
 });

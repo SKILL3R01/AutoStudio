@@ -1,6 +1,6 @@
 /** Timeline actions used by the toolbar, keyboard shortcuts and the Properties panel. */
 import { addVideoTrack, newPip, splitPip } from '../lib/pip';
-import { newAudioClip, resolveOverlap } from '../lib/audiotracks';
+import { addTrack, newAudioClip, resolveOverlap } from '../lib/audiotracks';
 import { insertAssetAt } from './MediaPanel';
 import { useEditor, findAsset } from '../store';
 import { media } from '../render/media';
@@ -109,14 +109,61 @@ export function detachSelectedAudio() {
   const { selection, update, select } = useEditor.getState();
   if (selection?.kind !== 'clip') return;
   let id: string | null = null;
-  update((d) => void (id = detachAudio(d, selection.id)));
+  update((d) => void (id = detachAudio(d, selection.id, true)));
   if (id) {
     select({ kind: 'audio', id });
-    toast('Sound moved to an audio track — trim, fade or delete it there', 'ok');
+    toast('Sound separated onto its own track, linked to the video (it follows the clip). Unlink it in Properties to move it freely.', 'ok');
   } else toast('Only video clips with sound can be detached', 'info');
 }
 
 export const ASSET_MIME = 'application/x-asset';
+
+/** After "Remove music / keep voice": the clip plays the voice; the background goes to a muted track right under it. */
+export async function splitVoiceBackground(clipId: string, vocals: Blob, background: Blob) {
+  const p = useEditor.getState().project!;
+  const c = p.audio.find((x) => x.id === clipId)!;
+  const base = (findAsset(p, c.assetId)?.name ?? 'audio').replace(/\.[^.]+$/, '');
+  const va = await probe(vocals, `${base}_voice.wav`, 'audio');
+  const ba = await probe(background, `${base}_background.wav`, 'audio');
+  useEditor.getState().update((d) => {
+    d.assets.push(va, ba);
+    const x = d.audio.find((y) => y.id === clipId)!;
+    const tid = addTrack(d, 'other', 'Background', x.trackId);
+    d.audioTracks.find((t) => t.id === tid)!.muted = true;
+    d.audio.push({ ...newAudioClip(tid, ba.id, x.start, x.duration, 'other'), trimIn: 0, volume: x.volume, duck: false });
+    Object.assign(x, { assetId: va.id, trimIn: 0, rate: undefined });
+  });
+  toast('Voice kept on this clip; the background (music / ambience) is on a muted “Background” track under it.', 'ok');
+}
+
+/** The part of a clip's file that is heard on the timeline, as WAV bytes. */
+export async function clipAudioWav(clipId: string): Promise<ArrayBuffer | null> {
+  const p = useEditor.getState().project!;
+  const c = p.audio.find((x) => x.id === clipId);
+  const buf = c && (await media.audioBuffer(c.assetId));
+  if (!c || !buf) return null;
+  const sr = buf.sampleRate, a = Math.floor(c.trimIn * sr), n = Math.min(buf.length - a, Math.ceil(c.duration * (c.rate ?? 1) * sr));
+  const out = new AudioBuffer({ length: Math.max(1, n), numberOfChannels: buf.numberOfChannels, sampleRate: sr });
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) out.copyToChannel(buf.getChannelData(ch).subarray(a, a + n), ch);
+  return encodeWav(out).arrayBuffer();
+}
+
+/** Put a new rendering of a clip (re-voice / re-generate) on a new track right under it; the original is kept silent. */
+export async function addReplacementTake(clipId: string, wav: Blob, name: string) {
+  const asset = await probe(wav, name, 'audio');
+  let tname = '';
+  useEditor.getState().update((d) => {
+    d.assets.push(asset);
+    const src = d.audio.find((x) => x.id === clipId)!;
+    const kind = d.audioTracks.find((t) => t.id === src.trackId)?.kind ?? 'voice';
+    const tid = addTrack(d, kind, undefined, src.trackId);
+    d.audio.push(newAudioClip(tid, asset.id, src.start, asset.duration ?? src.duration, kind));
+    if (d.narrationTrackId === src.trackId && !d.audio.some((o) => o.trackId === src.trackId && o.id !== src.id)) d.narrationTrackId = tid;
+    src.volume = 0;
+    tname = d.audioTracks.find((t) => t.id === tid)!.name;
+  });
+  toast(`New version added on “${tname}” — the original is kept (volume 0). Check captions with “Fix” if they drift.`, 'ok');
+}
 
 /** Replace the audio of one clip with a processed copy of its file (the original file stays; Undo restores). */
 export async function processClipAudio(clipId: string, label: string, fn: (b: AudioBuffer) => Promise<AudioBuffer>) {

@@ -1,13 +1,15 @@
 import { FramingSection } from './Framing';
 import { denoise } from '../audio/denoise';
-import { processClipAudio } from './actions';
+import { addReplacementTake, clipAudioWav, processClipAudio, splitVoiceBackground } from './actions';
+import { detectLanguage, joinParagraphs, listVoices, paragraphsOf, speakParagraph, voiceBlob, type VoiceSample } from '../voice/library';
+import { KOKORO_VOICES, transcribeLocal } from '../ai/vision';
 import { SilenceDialog } from './SilenceDialog';
 import { VoiceEnhance } from '../voice/VoicePanel';
 import { PIP_PRESETS } from '../lib/pip';
 import { mainVoiceAsset, moveAudioClip, voiceStartOf } from '../lib/audiotracks';
 import type { Motion } from '../types';
 import { fmtClock, parseClock, setClipStart } from '../lib/timeline';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useEditor, clipEnd, findAsset, projectLength, voiceEnd } from '../store';
 
@@ -674,6 +676,68 @@ function KeywordInspector({ id }: { id: string }) {
 
 
 
+/** Change voice: re-voice keeping timing (local engine) or re-generate the words in another voice. */
+function ChangeVoiceSection({ clipId }: { clipId: string }) {
+  const p = useProject();
+  const [voices, setVoices] = useState<VoiceSample[]>([]);
+  const [target, setTarget] = useState('');
+  const [draft, setDraft] = useState('af_heart');
+  const [busy, setBusy] = useState('');
+  const [local, setLocal] = useState(false);
+  useEffect(() => void listVoices().then((v) => (setVoices(v), setTarget((t) => t || v[0]?.id || ''))), []);
+  useEffect(() => void window.autostudio?.voice?.status().then((s) => setLocal(!!s?.installed)).catch(() => {}), []);
+  const c = p.audio.find((x) => x.id === clipId);
+  if (!c) return null;
+  const words = (p.words.length ? p.words : p.lines.flatMap((l) => l.words)).filter((w) => w.start >= c.start - 0.05 && w.end <= c.start + c.duration + 0.05);
+  const run = async (label: string, fn: () => Promise<void>) => {
+    setBusy(label);
+    try {
+      await fn();
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setBusy('');
+    }
+  };
+  const revoice = () => run('Re-voicing on this PC (about 3–7× the clip length)…', async () => {
+    const audio = await clipAudioWav(clipId);
+    const v = await voiceBlob(target);
+    if (!audio || !v) throw new Error('Pick a saved voice profile first');
+    const out = await window.autostudio!.voice!.convert!({ audio, voice: await v.arrayBuffer(), voiceExt: v.type.includes('webm') ? 'webm' : 'wav' });
+    await addReplacementTake(clipId, new Blob([out], { type: 'audio/wav' }), `revoice_${voices.find((x) => x.id === target)?.name ?? 'voice'}.wav`);
+  });
+  const regenerate = (useDraft: boolean) => run('Re-generating the words…', async () => {
+    let text = words.map((w) => w.text).join(' ');
+    if (!text) {
+      setBusy('Transcribing this clip on this PC…');
+      const wav = await clipAudioWav(clipId);
+      text = wav ? (await transcribeLocal(new Blob([wav], { type: 'audio/wav' }), 'base', 'auto')).words.map((w) => w.text).join(' ') : '';
+    }
+    if (!text.trim()) throw new Error('No words found in this clip');
+    setBusy('Speaking the words in the new voice…');
+    const st = voices.find((x) => x.id === target)?.settings;
+    const settings = { voiceId: useDraft ? undefined : target, language: st?.language && st.language !== 'auto' ? st.language : detectLanguage(text), exaggeration: st?.exaggeration ?? 0.5, cfg: st?.cfg ?? 0.5, seed: 0, draftVoice: draft };
+    const parts = [];
+    for (const para of paragraphsOf(text)) parts.push(await speakParagraph(para, settings, useDraft ? 'draft' : local ? 'local' : 'colab'));
+    await addReplacementTake(clipId, await joinParagraphs(parts), `regen_${useDraft ? draft : voices.find((x) => x.id === target)?.name ?? 'voice'}.wav`);
+  });
+  return (
+    <Section title="Change voice" hint="The original stays (volume 0) — compare and keep the one you like.">
+      {voices.length > 0 && <Select label="Voice profile" value={target} options={voices.map((v) => [v.id, v.name] as [string, string])} onChange={setTarget} />}
+      <div className="row wrap">
+        <button className="btn sm" disabled={!!busy || !local || !target || !window.autostudio?.voice?.convert} onClick={revoice} title="Same words, pauses and timing — another voice (local voice engine)"><Icon name="mic" /> Re-voice (keep timing)</button>
+        <button className="btn sm" disabled={!!busy || !target} onClick={() => regenerate(false)} title="Speak the same words again with this profile (timing changes slightly)"><Icon name="wand" /> Re-generate with profile</button>
+      </div>
+      {!local && <p className="hint">Re-voice needs the local voice engine (desktop app → Voice → Install).</p>}
+      <div className="row">
+        <Select label="…or a draft voice" value={draft} options={KOKORO_VOICES} onChange={setDraft} />
+        <button className="btn sm ghost" disabled={!!busy} onClick={() => regenerate(true)}>Re-generate</button>
+      </div>
+      {busy && <p className="hint">{busy}</p>}
+    </Section>
+  );
+}
+
 /** Clean up & enhance for one audio clip: noise reduction, silences, voice enhance, pace / pitch. */
 function CleanUpSection({ clipId, trackId, voice }: { clipId: string; trackId: string; voice: boolean }) {
   const [busy, setBusy] = useState('');
@@ -695,6 +759,12 @@ function CleanUpSection({ clipId, trackId, voice }: { clipId: string; trackId: s
       {silence && <SilenceDialog clipId={clipId} onClose={() => setSilence(false)} />}
       <Slider label="Noise reduction strength" value={strength} min={0.3} max={1} onChange={setStrength} fmt={(v) => `${Math.round(v * 100)}%`} />
       <div className="row wrap">
+        <button className="btn sm" disabled={!!busy || !window.autostudio?.voice?.separate} title="Split into voice and background (music, ambience) — the background goes to its own muted track. Desktop app with the local voice engine." onClick={() => run('Separating voice and background on this PC (about 1.5× the clip length)…', async () => {
+          const wav = await clipAudioWav(clipId);
+          if (!wav) throw new Error('Could not read this audio');
+          const r = await window.autostudio!.voice!.separate!({ audio: wav });
+          await splitVoiceBackground(clipId, new Blob([r.vocals], { type: 'audio/wav' }), new Blob([r.background], { type: 'audio/wav' }));
+        })}><Icon name="music" /> Remove music / keep voice</button>
         <button className="btn sm" disabled={!!busy} onClick={() => run('Reducing background noise…', () => processClipAudio(clipId, 'clean', (b) => denoise(b, strength, (f) => setBusy(`Reducing background noise… ${Math.round(f * 100)}%`))))}><Icon name="wand" /> Reduce background noise</button>
         <button className="btn sm" disabled={!!busy} onClick={() => setSilence(true)}><Icon name="scissors" /> Remove silences…</button>
       </div>
@@ -703,7 +773,6 @@ function CleanUpSection({ clipId, trackId, voice }: { clipId: string; trackId: s
         <>
           <h4>Voice enhance (whole track)</h4>
           <VoiceEnhance trackId={trackId} clipId={clipId} />
-          <p className="hint">Change voice (re-voice or re-generate in another voice) is coming in v3.4.</p>
         </>
       )}
     </Section>
@@ -743,7 +812,14 @@ function AudioClipInspector({ id }: { id: string }) {
           <button className="btn sm ghost danger" onClick={deleteSelection}><Icon name="trash" /> Remove</button>
         </div>
       </Section>
+      {m.linkClipId && (
+        <Section title="Linked to its video">
+          <p className="hint">This sound follows its video clip (position, length, trim, speed).</p>
+          <button className="btn sm" onClick={() => set((x) => void (x.linkClipId = undefined))}><Icon name="unlink" /> Unlink — move it freely</button>
+        </Section>
+      )}
       <CleanUpSection clipId={m.id} trackId={m.trackId} voice={t?.kind === 'voice'} />
+      {(t?.kind === 'voice' || isNarr) && <ChangeVoiceSection clipId={m.id} />}
       {!isNarr && (
         <Section title="Under the narration">
           <Toggle label="Duck under the narration (dips while it speaks, rises in the pauses)" value={!!m.duck} onChange={(v) => set((x) => void (x.duck = v))} />

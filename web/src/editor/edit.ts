@@ -222,8 +222,8 @@ export function clipboardEnd(p: Project, data: ClipboardData): number {
 
 // ---------- detach audio ----------
 
-/** Move a video clip's sound onto the music lane (same timing and speed) and mute the clip. */
-export function detachAudio(p: Project, clipId: string): string | null {
+/** Move a video clip's sound onto an audio track (same timing and speed) and mute the clip; `linked` keeps it in step. */
+export function detachAudio(p: Project, clipId: string, linked = false): string | null {
   const i = p.clips.findIndex((c) => c.id === clipId);
   const c = p.clips[i];
   if (!c || !isVideo(p, c) || c.volume <= 0) return null;
@@ -232,7 +232,7 @@ export function detachAudio(p: Project, clipId: string): string | null {
   const speed = c.speed ?? 1;
   const srcLen = (Math.min(c.trimOut ?? Infinity, asset.duration ?? Infinity) - c.trimIn) / speed;
   const m = placeAudio(p, c.assetId, 'other', start, Math.max(0.2, Math.min(clipEnd(p, i) - start, srcLen)));
-  Object.assign(m, { trimIn: c.trimIn, volume: c.volume, fadeIn: c.fadeIn ?? 0, fadeOut: c.fadeOut ?? 0, duck: false, rate: speed === 1 ? undefined : speed });
+  Object.assign(m, { trimIn: c.trimIn, volume: c.volume, fadeIn: c.fadeIn ?? 0, fadeOut: c.fadeOut ?? 0, duck: false, rate: speed === 1 ? undefined : speed, linkClipId: linked ? c.id : undefined });
   c.volume = 0;
   return m.id;
 }
