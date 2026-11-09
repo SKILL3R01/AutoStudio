@@ -121,7 +121,19 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
   const speech = speechRanges(p, bufs);
   for (const m of want('music') ? p.music : []) {
     const g = ctx.createGain();
-    g.connect(master);
+    // Volume curve (points drawn by the user) sits after ducking / fades.
+    const curve = ctx.createGain();
+    g.connect(curve).connect(master);
+    if (m.curve?.length) {
+      const pts = [...m.curve].sort((a, b) => a.t - b.t);
+      const valAt = (t: number) => {
+        if (t <= pts[0].t) return pts[0].v;
+        for (let k = 1; k < pts.length; k++) if (t <= pts[k].t) return pts[k - 1].v + ((pts[k].v - pts[k - 1].v) * (t - pts[k - 1].t)) / ((pts[k].t - pts[k - 1].t) || 1);
+        return pts[pts.length - 1].v;
+      };
+      curve.gain.setValueAtTime(valAt(from), at);
+      for (const pt of pts) if (pt.t > from && pt.t <= until) curve.gain.linearRampToValueAtTime(pt.v, toCtx(pt.t));
+    }
     const set = (T: number, v: number) => {
       const c = toCtx(T);
       if (c >= at) g.gain.linearRampToValueAtTime(v, c);

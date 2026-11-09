@@ -347,6 +347,8 @@ export interface MusicItem {
   duckAttack?: number;
   /** Seconds to come back up after speech ends (default 0.4). */
   duckRelease?: number;
+  /** Volume curve over the timeline: points (seconds, 0..2 multiplier). */
+  curve?: { t: number; v: number }[];
 }
 
 export interface SfxItem {

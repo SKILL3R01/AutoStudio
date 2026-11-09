@@ -2,7 +2,7 @@ import type { Motion } from '../types';
 import { fmtClock, parseClock, setClipStart } from '../lib/timeline';
 import { useState } from 'react';
 
-import { useEditor, clipEnd, findAsset, projectLength } from '../store';
+import { useEditor, clipEnd, findAsset, projectLength, voiceEnd } from '../store';
 
 import { useProject, useThumb } from './hooks';
 
@@ -698,7 +698,32 @@ function MusicInspector({ id }: { id: string }) {
 
         <>
 
+          <div className="row wrap">
+            {([['Gentle', 0.6, 0.35, 0.6], ['Podcast', 0.35, 0.25, 0.4], ['Strong', 0.15, 0.15, 0.3]] as const).map(([n, depth, a, r]) => (
+              <button key={n} className={`chip ${m.duckDepth === depth ? 'on' : ''}`} onClick={() => set((x) => void ((x.duck = true), (x.duckDepth = depth), (x.duckAttack = a), (x.duckRelease = r)))}>{n}</button>
+            ))}
+          </div>
           <Slider label="Duck level" value={m.duckDepth ?? 0.35} min={0} max={1} onChange={(v) => set((x) => void (x.duckDepth = v), 'mdd')} fmt={(v) => `${Math.round(v * 100)}%`} />
+          <div className="card">
+            <b>Volume curve</b>
+            <p className="hint">Add points at the playhead to shape the music over time (100 % = normal).</p>
+            {(m.curve ?? []).map((pt, k) => (
+              <div key={k} className="row between">
+                <code>{fmtClock(pt.t)}</code>
+                <Slider label="" value={pt.v} min={0} max={2} onChange={(v) => set((x) => void (x.curve![k].v = v), `mc${k}`)} fmt={(v) => `${Math.round(v * 100)}%`} />
+                <button className="icon-btn" onClick={() => set((x) => void x.curve!.splice(k, 1))}><Icon name="x" size={12} /></button>
+              </div>
+            ))}
+            <div className="row wrap">
+              <button className="btn sm ghost" onClick={() => set((x) => void (x.curve = [...(x.curve ?? []), { t: useEditor.getState().time, v: 1 }].sort((a, b) => a.t - b.t)))}><Icon name="plus" /> Point at playhead</button>
+              <button className="btn sm ghost" onClick={() => {
+                const pp = useEditor.getState().project!;
+                const vs = pp.voiceStart ?? 0, ve = voiceEnd(pp), end = m.start + m.duration;
+                set((x) => void (x.curve = [{ t: m.start, v: 1.4 }, { t: Math.max(m.start, vs - 0.5), v: 1.4 }, { t: vs + 0.5, v: 1 }, { t: Math.max(vs + 0.6, ve - 0.5), v: 1 }, { t: Math.min(end, ve + 0.5), v: 1.4 }]));
+              }}>Intro / outro louder</button>
+              {m.curve?.length ? <button className="btn sm ghost" onClick={() => set((x) => void (x.curve = undefined))}>Clear curve</button> : null}
+            </div>
+          </div>
 
           <Slider label="Dip before" value={m.duckAttack ?? 0.25} min={0.05} max={1.5} step={0.05} onChange={(v) => set((x) => void (x.duckAttack = v), 'mda')} suffix="s" />
 
