@@ -1,20 +1,56 @@
 [
-  { "wait": 9000 },
-  { "eval": "(() => { const c = document.querySelector('.stage canvas'); return 'before ' + c.width + 'x' + c.height; })()" },
-  { "eval": "[...document.querySelectorAll('.format-switch button')].find(b => b.textContent === '9:16').click(); '9:16'" },
-  { "wait": 800 },
-  { "eval": "(() => { const c = document.querySelector('.stage canvas'); return 'after ' + c.width + 'x' + c.height; })()" },
-  { "eval": "(() => { const c = document.querySelectorAll('.t-video .clip')[1]; const r = c.getBoundingClientRect(); c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 10, clientY: r.top + 10, button: 0 })); window.dispatchEvent(new PointerEvent('pointerup', { clientX: r.left + 10, clientY: r.top + 10 })); return 'clip selected'; })()" },
-  { "wait": 600 },
-  { "eval": "(() => { const pad = document.querySelector('.framing-pad'); if (!pad) return 'no framing pad'; const r = pad.getBoundingClientRect(); pad.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + r.width * 0.15, clientY: r.top + r.height / 2 })); window.dispatchEvent(new PointerEvent('pointerup', {})); const b = document.querySelector('.framing-box'); return 'box left ' + b.style.left + ' width ' + b.style.width; })()" },
-  { "wait": 500 },
-  { "shot": "vertical" },
-  { "eval": "[...document.querySelectorAll('.format-switch button')].find(b => b.textContent === '16:9').click(); '16:9 back'" },
-  { "wait": 500 },
-  { "eval": "[...document.querySelectorAll('.ed-top button')].find(b => b.textContent.includes('Make Short')).click(); 'shorts dialog'" },
-  { "wait": 500 },
-  { "eval": "[...document.querySelectorAll('.modal .list-item')].length + ' suggestions · ' + [...document.querySelectorAll('.modal button')].find(b => b.textContent.includes('From the playhead')).click()" },
-  { "eval": "[...document.querySelectorAll('.modal button')].find(b => b.textContent.includes('Create Short')).click(); 'create'" },
-  { "wait": 3000 },
-  { "eval": "document.querySelector('.ed-top input.title').value + ' · ' + [...document.querySelectorAll('.format-switch button.on, .format-switch .on')].map(b => b.textContent).join('') + ' · long-version button: ' + !![...document.querySelectorAll('.ed-top button')].find(b => b.textContent.includes('Long version')) + ' · ' + document.querySelectorAll('.t-video .clip').length + ' clips'" }
+ {
+  "wait": 9000
+ },
+ {
+  "eval": "(() => { const c = document.querySelector('.stage canvas'); return 'before ' + c.width + 'x' + c.height; })()"
+ },
+ {
+  "eval": "[...document.querySelectorAll('.format-switch button')].find(b => b.textContent === '9:16').click(); '9:16'"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "(() => { const c = document.querySelector('.stage canvas'); return 'after ' + c.width + 'x' + c.height; })()"
+ },
+ {
+  "eval": "(() => { const c = document.querySelectorAll('.t-video .clip')[1]; const r = c.getBoundingClientRect(); c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 10, clientY: r.top + 10, button: 0 })); window.dispatchEvent(new PointerEvent('pointerup', { clientX: r.left + 10, clientY: r.top + 10 })); return 'clip selected'; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "(() => { const pad = document.querySelector('.framing-pad'); if (!pad) return 'no framing pad'; const r = pad.getBoundingClientRect(); pad.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + r.width * 0.15, clientY: r.top + r.height / 2 })); window.dispatchEvent(new PointerEvent('pointerup', {})); const b = document.querySelector('.framing-box'); return 'box left ' + b.style.left + ' width ' + b.style.width; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "vertical"
+ },
+ {
+  "eval": "[...document.querySelectorAll('.format-switch button')].find(b => b.textContent === '16:9').click(); '16:9 back'"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "[...document.querySelectorAll('.ed-top button')].find(b => b.textContent.includes('Make Short')).click(); 'shorts dialog'"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent.includes('From the playhead')).click(); return [...document.querySelectorAll('.modal .list-item')].length + ' suggestions'; })()"
+ },
+ {
+  "eval": "[...document.querySelectorAll('.modal button')].find(b => b.textContent.includes('Create Short')).click(); 'create'"
+ },
+ {
+  "wait": 3000
+ },
+ {
+  "eval": "document.querySelector('.ed-top input.title').value + ' \u00b7 ' + [...document.querySelectorAll('.format-switch button.on, .format-switch .on')].map(b => b.textContent).join('') + ' \u00b7 long-version button: ' + !![...document.querySelectorAll('.ed-top button')].find(b => b.textContent.includes('Long version')) + ' \u00b7 ' + document.querySelectorAll('.t-video .clip').length + ' clips'"
+ }
 ]
