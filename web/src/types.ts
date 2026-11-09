@@ -236,6 +236,19 @@ export interface TypoBlock {
   stagger?: number;
   /** Single-line font for the `pen` entrance (default: script for script/accent words, handwriting otherwise). */
   penFont?: PenFont;
+  /** Design overrides on top of the palette / font pair (Typography studio). */
+  style?: TypoStyle;
+  /** When words appear: as spoken (default), slightly before (lead-in), or snapped to the music beat. */
+  timing?: 'word' | 'lead' | 'beat';
+}
+
+export interface TypoStyle {
+  colors?: Partial<{ text: string; minor: string; accent: string; card: string; frame: string; outline: string }>;
+  fonts?: Partial<Record<'main' | 'minor' | 'script' | 'side', { family: string; weight: number }>>;
+  /** auto = caps for main words, lowercase script; upper = all caps; none = as typed. */
+  caps?: 'auto' | 'upper' | 'none';
+  /** Neon glow 0..1. */
+  glow?: number;
 }
 
 export interface TypoSettings {

@@ -1,0 +1,44 @@
+[
+ {
+  "wait": 10000
+ },
+ {
+  "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.trim() === 'Typography').click(); 'typo'"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "eval": "document.querySelectorAll('.typo-style').length + ' styles \u00b7 groups: ' + [...document.querySelectorAll('.panels .chip')].map(c => c.textContent).join(',')"
+ },
+ {
+  "shot": "gallery"
+ },
+ {
+  "eval": "[...document.querySelectorAll('.typo-style')].find(s => s.textContent.includes('Neon night')).click(); 'neon applied'"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { const f = [...document.querySelectorAll('.panels .slider, .panels .field')].length; return 'controls: ' + f; })()"
+ },
+ {
+  "eval": "window.prompt = () => 'Test style'; [...document.querySelectorAll('.panels button')].find(b => b.textContent.includes('Save as my style')).click(); 'saved'"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "[...document.querySelectorAll('.panels .chip')].map(c => c.textContent).join(',') + ' \u00b7 my styles: ' + (JSON.parse(localStorage.getItem('typoDesigns') || '[]').map(d => d.name).join(','))"
+ },
+ {
+  "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.end-handle').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 5.3 * z })); window.dispatchEvent(new PointerEvent('pointerup')); return 'seek'; })()"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "shot": "neon"
+ }
+]

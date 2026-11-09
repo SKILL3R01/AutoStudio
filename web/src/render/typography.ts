@@ -46,12 +46,23 @@ const measure = (text: string, family: string, weight: number, size: number) => 
 };
 
 /** Lay out a block according to its template (pure geometry, cached per block + frame size). */
+/** Palette / font pair with the block's own design overrides applied. */
+export const palOf = (b: TypoBlock) => ({ ...(TYPO_PALETTES[b.palette] ?? TYPO_PALETTES['mono-yellow']), ...b.style?.colors });
+export const pairOf = (b: TypoBlock) => ({ ...(FONT_PAIRS[b.fontPair] ?? FONT_PAIRS['spartan-pacifico']), ...b.style?.fonts });
+
+let beatTimes: number[] = [];
+const snapBeat = (t: number) => {
+  let best = t, d = 0.3;
+  for (const x of beatTimes) if (Math.abs(x - t) < d) (d = Math.abs(x - t)), (best = x);
+  return best;
+};
+
 export function layoutBlock(b: TypoBlock, W: number, H: number): Layout {
   const key = `${W}x${H}:${fontsVersion}`;
   const hit = cache.get(b);
   if (hit && hit.key === key) return hit.layout;
-  const pair = FONT_PAIRS[b.fontPair] ?? FONT_PAIRS['spartan-pacifico'];
-  const pal = TYPO_PALETTES[b.palette] ?? TYPO_PALETTES['mono-yellow'];
+  const pair = pairOf(b);
+  const pal = palOf(b);
   const F = Math.min(W, (H * 16) / 9) * 0.07;
   const Wt = F * 5.2;
   const rtl = isRtl(b.words.map((w) => w.text).join(' '));
@@ -60,7 +71,9 @@ export function layoutBlock(b: TypoBlock, W: number, H: number): Layout {
   /** Script words are lowercase handwriting, everything else is caps (RTL scripts are left as typed). */
   const label = (i: number) => {
     const w = b.words[i];
-    if (rtl) return w.text;
+    const caps = b.style?.caps ?? 'auto';
+    if (rtl || caps === 'none') return w.text;
+    if (caps === 'upper') return w.text.toLocaleUpperCase();
     return w.role === 'script' || w.role === 'accent' ? w.text.toLocaleLowerCase() : w.text.toLocaleUpperCase();
   };
   const colorOf = (i: number, fallback?: string) => b.words[i].color ?? fallback ?? (b.words[i].role === 'script' || b.words[i].role === 'accent' ? pal.accent : b.words[i].role === 'main' ? pal.text : pal.minor);
@@ -210,13 +223,14 @@ export function blockBox(b: TypoBlock, W: number, H: number) {
   return { x: b.x, y: b.y, w: (L.w * s) / W + 0.02, h: (L.h * s) / H + 0.02 };
 }
 
-export function drawTypography(ctx: CanvasRenderingContext2D, blocks: TypoBlock[], t: number, W: number, H: number) {
+export function drawTypography(ctx: CanvasRenderingContext2D, blocks: TypoBlock[], t: number, W: number, H: number, beats: number[] = []) {
+  beatTimes = beats;
   for (const b of blocks) if (t >= b.start - 0.05 && t <= b.end + 0.3 && b.words.length) drawBlock(ctx, b, t, W, H);
 }
 
 function drawBlock(ctx: CanvasRenderingContext2D, b: TypoBlock, t: number, W: number, H: number) {
   const L = layoutBlock(b, W, H);
-  const pal = TYPO_PALETTES[b.palette] ?? TYPO_PALETTES['mono-yellow'];
+  const pal = palOf(b);
   const speed = b.speed ?? 1;
   const exitMode = b.exit ?? 'auto';
   const exit = exitMode === 'none' ? (t > b.end ? 1 : 0) : clamp((t - b.end) / (0.3 / speed), 0, 1);
@@ -250,7 +264,7 @@ function drawBlock(ctx: CanvasRenderingContext2D, b: TypoBlock, t: number, W: nu
   for (const it of L.items) {
     const w = b.words[it.word];
     // Stagger > 0 reveals words at a fixed rhythm from the block start instead of when they are spoken.
-    const ws = b.stagger ? b.start + it.word * b.stagger : w.start;
+    const ws = b.stagger ? b.start + it.word * b.stagger : b.timing === 'lead' ? w.start - 0.15 : b.timing === 'beat' ? snapBeat(w.start) : w.start;
     if (t < ws - 0.02) continue;
     const a = clamp(((t - ws + 0.02) * speed) / 0.26, 0, 1);
     const anim = w.anim ?? b.enter ?? 'auto';
@@ -299,6 +313,11 @@ function drawBlock(ctx: CanvasRenderingContext2D, b: TypoBlock, t: number, W: nu
       ctx.shadowColor = 'rgba(0,0,0,0.55)';
       ctx.shadowBlur = it.size * 0.12;
       ctx.shadowOffsetY = it.size * 0.04;
+    }
+    if (b.style?.glow) {
+      ctx.shadowColor = it.color;
+      ctx.shadowBlur = it.size * 0.45 * b.style.glow;
+      ctx.shadowOffsetY = 0;
     }
     if (it.marker) {
       ctx.save();

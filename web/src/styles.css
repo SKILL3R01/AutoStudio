@@ -578,3 +578,15 @@ textarea.code { font-family: ui-monospace, Consolas, monospace; font-size: 12px;
 pre.code-err { white-space: pre-wrap; font-size: 11.5px; margin: 0; }
 .hint.ok { color: #4ade80; }
 .card-row { padding: 4px 0; }
+/* v2.0: typography studio */
+.typo-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.typo-style { position: relative; cursor: pointer; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); background: var(--panel2); }
+.typo-style:hover { border-color: var(--accent); }
+.typo-style canvas { width: 100%; display: block; aspect-ratio: 16 / 9; }
+.typo-style span { display: block; font-size: 11px; padding: 3px 6px; }
+.typo-style em { position: absolute; top: 2px; right: 6px; font-style: normal; color: #fff; text-shadow: 0 0 3px #000; }
+.typo-live canvas { width: 100%; border-radius: 6px; display: block; }
+.chip.on { border-color: var(--accent); color: var(--text); }
+.colors .field { flex: 1; min-width: 60px; }
+.panels button.chip { background: var(--panel2); color: var(--dim); border: 1px solid var(--line2); font: inherit; font-size: 11.5px; padding: 3px 10px; border-radius: 999px; cursor: pointer; }
+.panels button.chip.on { color: var(--text); border-color: var(--accent); background: rgba(139, 108, 255, 0.15); }

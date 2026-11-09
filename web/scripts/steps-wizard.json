@@ -1,6 +1,6 @@
 [
  {
-  "wait": 3000
+  "wait": 6000
  },
  {
   "eval": "localStorage.setItem('uiMode', 'simple'); location.hash = '#projects'; location.reload(); 'fresh'"

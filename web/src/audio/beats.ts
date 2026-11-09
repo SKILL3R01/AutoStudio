@@ -7,7 +7,7 @@ const cache = new Map<string, Promise<number[]>>();
 export function beatsFor(p: Project): Promise<number[]> {
   const m = p.music[0];
   const id = m?.assetId ?? p.voiceover?.assetId;
-  if (!id || !p.clips.some((c) => c.regions?.some((r) => r.trigger === 'beats'))) return Promise.resolve([]);
+  if (!id || !(p.clips.some((c) => c.regions?.some((r) => r.trigger === 'beats')) || p.typo.some((b) => b.timing === 'beat'))) return Promise.resolve([]);
   if (!cache.has(id)) cache.set(id, media.audioBuffer(id).then((b) => (b ? detectBeats(b) : [])));
   const offset = m ? m.start - m.trimIn : 0;
   return cache.get(id)!.then((bs) => bs.map((b) => b + offset).filter((b) => b >= 0));

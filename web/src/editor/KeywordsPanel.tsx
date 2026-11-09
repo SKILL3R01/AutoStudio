@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../store';
 import { useProject } from './hooks';
 import { Section, Seg, Slider, Toggle } from '../components/ui';
+import { TypoStudio } from './TypoStudio';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { FONT_PAIRS, TEMPLATE_LABELS, TYPO_PALETTES, aiBlocks, autoBlocks, blockText, makeBlock, restyle } from '../lib/typography';
@@ -96,6 +97,7 @@ export function KeywordsPanel() {
         <Toggle label="Show subtitles too (separate layer — set them up in Captions)" value={p.captions.enabled} onChange={(v) => update((d) => void (d.captions.enabled = v))} />
         <p className="hint">Kinetic typography: short phrases from your voiceover appear as artistic compositions — word by word, in sync with the voice.</p>
       </Section>
+      <TypoStudio />
       <Section title="1 · Choose the phrases">
         {!words.length && <p className="warn">Add captions first (Captions panel → transcribe or upload a script). Typography uses the word timings.</p>}
         <Slider label="Density" value={s.density} min={0.3} max={6} step={0.1} onChange={(v) => setS((x) => void (x.density = v), 'td')} fmt={(v) => `${v.toFixed(1)}/10s`} />

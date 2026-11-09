@@ -62,6 +62,10 @@
     - Measured on an i7-8700 CPU: ~25 s load, roughly 3.5–7× real time.
   - **Library** (`voice/library.ts`): "My voices" samples live in IndexedDB (`voice:*`). Paragraph audio is cached by a SHA-256 of text + settings (`tts:*`), so edits only regenerate changed paragraphs. Colab `tts` is the "turbo" backend.
   - **Enhance** (`audio/enhance.ts`): `voiceChain` sits in `buildMix` (preview = export). `measureLufs` uses BS.1770-style gating, and `makeupFor` targets −14 LUFS. Pace / pitch is WSOLA in `audio/pitch.ts`.
+- Typography studio v2.0 (`editor/TypoStudio.tsx`, at the top of the Typography panel):
+  - The library is `lib/typostyles.ts`: `TYPO_DESIGNS` (21 built-ins), plus "My styles" in localStorage `typoDesigns`, applied with `applyDesign` / `designOf`.
+  - `TypoBlock.style` (colours, per-role fonts, caps, glow) is merged by `palOf` / `pairOf` in `render/typography.ts`.
+  - `TypoBlock.timing` is `word` / `lead` (−0.15 s) / `beat`. Beat snaps to `m.beats`, which `beatsFor` computes when a block uses it.
 - Effects v1.13:
   - `render/shaderfx.ts`: a WebGL2 pass over the frame. Shader bodies define `vec4 effect(vec2 uv, vec4 frame)`, and `SHADER_HEADER` provides the uniforms plus `hash` / `noise` / `fbm` / `frameAt`.
   - Built-in shaders: fire, fog, godRays, filmBurn, glowPulse. Compile errors are re-numbered to the user's lines; broken shaders are skipped.
@@ -139,6 +143,7 @@
   - `scripts/steps-autoedit.json`: Auto-edit on the demo (CLIP matching → build)
   - `scripts/run-all.sh` needs the dev server (`npx vite --port 5173 --strictPort`); if every suite fails on the first step, the server is down.
   - `scripts/steps-wizard.json`: guided wizard, templates, Simple/Pro, folded sections
+  - `scripts/steps-typostudio.json`: style library, apply, save my style
   - `scripts/steps-ai.json`: all AI-assistant actions against `node scripts/fake-llm.mjs` (port 1235; mimics LM Studio + Gemma, with messy JSON replies)
   - `scripts/steps-region.json`: object selection. The first run downloads models, and headless WebGPU is flaky, so the CPU fallback can take ~2 min.
 
