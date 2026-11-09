@@ -113,3 +113,10 @@ export async function transcribeLocal(audio: Blob, model: 'base' | 'small' = 'ba
   const samples = await to16k(audio);
   return call({ type: 'transcribe', audio: samples, model, language });
 }
+
+/** Natural preset English voices (Kokoro) — instant drafts, no install. */
+export const KOKORO_VOICES: [string, string][] = [
+  ['af_heart', 'Heart (US, female)'], ['af_bella', 'Bella (US, female)'], ['af_nicole', 'Nicole (US, soft)'], ['am_michael', 'Michael (US, male)'],
+  ['am_fenrir', 'Fenrir (US, deep)'], ['am_puck', 'Puck (US, lively)'], ['bf_emma', 'Emma (UK, female)'], ['bm_george', 'George (UK, male)'],
+];
+export const speakDraft = (text: string, voice = 'af_heart', speed = 1) => call<{ wav: Blob; seconds: number }>({ type: 'kokoro', text, voice, speed });

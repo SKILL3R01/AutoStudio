@@ -80,22 +80,30 @@ export interface GenSettings {
   exaggeration: number;
   cfg: number;
   seed: number;
+  /** Kokoro preset voice for instant drafts. */
+  draftVoice?: string;
 }
 
 /** Stable cache key for one paragraph with given settings. */
-export async function paragraphKey(text: string, s: GenSettings): Promise<string> {
-  const data = new TextEncoder().encode(JSON.stringify([text, s.voiceId ?? '', s.language, s.exaggeration, s.cfg, s.seed]));
+export async function paragraphKey(text: string, s: GenSettings, backend: Backend = 'local'): Promise<string> {
+  const data = new TextEncoder().encode(JSON.stringify([text, s.voiceId ?? '', s.language, s.exaggeration, s.cfg, s.seed, backend === 'draft' ? `draft:${s.draftVoice}` : '']));
   const h = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
   return `tts:${Array.from(h.slice(0, 16), (b) => b.toString(16).padStart(2, '0')).join('')}`;
 }
 
-export type Backend = 'local' | 'colab';
+export type Backend = 'local' | 'colab' | 'draft';
 
 /** Generate one paragraph (cached). */
 export async function speakParagraph(text: string, s: GenSettings, backend: Backend, onLog?: (l: string) => void): Promise<Blob> {
-  const key = await paragraphKey(text, s);
+  const key = await paragraphKey(text, s, backend);
   const hit = await get<Blob>(key);
   if (hit) return hit;
+  if (backend === 'draft') {
+    const { speakDraft } = await import('../ai/vision');
+    const { wav } = await speakDraft(text, s.draftVoice ?? 'af_heart');
+    await set(key, wav);
+    return wav;
+  }
   const ref = s.voiceId ? await voiceBlob(s.voiceId) : undefined;
   let wav: Blob;
   if (backend === 'local') {

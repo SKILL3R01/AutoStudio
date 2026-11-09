@@ -6,7 +6,7 @@ import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { engineHas, useEngine } from '../lib/engine';
 import { importAudio } from '../lib/project';
-import { transcribeLocal } from '../ai/vision';
+import { KOKORO_VOICES, transcribeLocal } from '../ai/vision';
 import { uid } from '../lib/util';
 import { useRecorder, toMonoWav } from './recorder';
 import { FX_PRESETS, defaultFx, makeupFor, type VoiceFx } from '../audio/enhance';
@@ -171,6 +171,8 @@ export function VoicePanel() {
   const [ex, setEx] = useState(0.5);
   const [cfg, setCfg] = useState(0.5);
   const [backend, setBackend] = useState<Backend>('local');
+  const [draftVoice, setDraftVoice] = useState(() => localStorage.getItem('voiceStudio.draft') ?? 'af_heart');
+  useEffect(() => localStorage.setItem('voiceStudio.draft', draftVoice), [draftVoice]);
   const [captions, setCaptions] = useState(true);
   const [busy, setBusy] = useState('');
   const [done, setDone] = useState({ n: 0, total: 0, chunk: 0 });
@@ -183,8 +185,8 @@ export function VoicePanel() {
     if (!window.autostudio?.voice && colab) setBackend('colab');
   }, [colab]);
   const paras = paragraphsOf(script);
-  const settings = (): GenSettings => ({ voiceId, language: lang === 'auto' ? detectLanguage(script) : lang, exaggeration: ex, cfg, seed: 0 });
-  const canGenerate = (backend === 'local' ? localReady : colab) && paras.length > 0 && !busy;
+  const settings = (): GenSettings => ({ voiceId: backend === 'draft' ? undefined : voiceId, language: lang === 'auto' ? detectLanguage(script) : lang, exaggeration: ex, cfg, seed: 0, draftVoice });
+  const canGenerate = (backend === 'local' ? localReady : backend === 'colab' ? colab : true) && paras.length > 0 && !busy;
 
   const saveScript = () => p.voiceScript !== script && update((d) => void (d.voiceScript = script));
   const previewFirst = async () => {
@@ -251,7 +253,13 @@ export function VoicePanel() {
     <>
       <Section title="AI voice engine (beta)">
         <LocalEngine onReady={setLocalReady} />
-        {window.autostudio?.voice && colab && <Seg options={[['local', 'This PC'], ['colab', 'Colab (turbo)']] as const} value={backend} onChange={setBackend} />}
+        <Seg options={[['local', 'Cloned voice (this PC)'], ['draft', 'Instant draft (English)'], ...(colab ? [['colab', 'Colab (turbo)'] as [Backend, string]] : [])] as [Backend, string][]} value={backend} onChange={setBackend} />
+        {backend === 'draft' && (
+          <>
+            <Select label="Draft voice" value={draftVoice} options={KOKORO_VOICES} onChange={setDraftVoice} />
+            <p className="hint">Natural preset voices (Kokoro, ~90 MB once) — English only, no cloning, about real-time on most PCs. Great for testing pacing before the final cloned voice.</p>
+          </>
+        )}
       </Section>
       <Section title="My voices" hint="Saved once, available in every project.">
         <VoiceLibrary voices={voices} reload={reload} selected={voiceId} onSelect={setVoiceId} />

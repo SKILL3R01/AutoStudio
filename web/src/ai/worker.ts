@@ -12,7 +12,8 @@ type Req =
   | { id: number; type: 'mask'; key: string; points: [number, number][]; labels: number[] }
   | { id: number; type: 'clipImages'; images: Blob[] }
   | { id: number; type: 'clipText'; texts: string[] }
-  | { id: number; type: 'transcribe'; audio: Float32Array; model: 'base' | 'small'; language: string };
+  | { id: number; type: 'transcribe'; audio: Float32Array; model: 'base' | 'small'; language: string }
+  | { id: number; type: 'kokoro'; text: string; voice: string; speed: number };
 
 type Device = 'webgpu' | 'wasm';
 const post = (m: unknown) => (self as unknown as Worker).postMessage(m);
@@ -147,7 +148,29 @@ async function transcribe(audio: Float32Array, model: 'base' | 'small', language
   return { words, text: String(out.text ?? '').trim() };
 }
 
+// Kokoro 82M (Apache-2.0): natural English preset voices, fast on the CPU — "instant drafts" in Voice Studio.
+let kokoro: Promise<any> | undefined;
+async function speakKokoro(text: string, voice: string, speed: number) {
+  kokoro ??= (async () => {
+    const { KokoroTTS } = await import('kokoro-js');
+    const id = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+    // WebGPU (fp32) is much faster where available; otherwise 8-bit on the CPU.
+    if (await deviceFor('depth') === 'webgpu') {
+      try {
+        return await KokoroTTS.from_pretrained(id, { dtype: 'fp32', device: 'webgpu', progress_callback: progress('Draft voice model') });
+      } catch {
+        /* fall back to CPU */
+      }
+    }
+    return KokoroTTS.from_pretrained(id, { dtype: 'q8', device: 'wasm', progress_callback: progress('Draft voice model') });
+  })();
+  const tts = await kokoro;
+  const audio = await tts.generate(text, { voice, speed });
+  return { wav: audio.toBlob() as Blob, seconds: audio.audio.length / audio.sampling_rate };
+}
+
 async function handle(r: Req) {
+  if (r.type === 'kokoro') return speakKokoro(r.text, r.voice, r.speed);
   if (r.type === 'transcribe') return transcribe(r.audio, r.model, r.language);
   if (r.type === 'depth') return depth(r.image);
   if (r.type === 'embed') return embed(r.key, r.image);
@@ -163,7 +186,7 @@ self.onmessage = async (ev: MessageEvent<Req | { type: 'cpu' }>) => {
   try {
     post({ type: 'result', id: r.id, result: await handle(r) });
   } catch (e) {
-    const clip = r.type === 'clipImages' || r.type === 'clipText' || r.type === 'transcribe';
+    const clip = r.type === 'clipImages' || r.type === 'clipText' || r.type === 'transcribe' || r.type === 'kokoro';
     post({ type: 'error', id: r.id, error: (e as Error).message, gpu: !clip && (await deviceFor(r.type === 'depth' ? 'depth' : 'sam')) === 'webgpu' });
   }
 };
