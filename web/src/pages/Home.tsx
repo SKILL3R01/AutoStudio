@@ -5,6 +5,7 @@ const TOOLS: { id: ToolId | 'editor'; icon: string; title: string; desc: string;
   { id: 'editor', icon: 'film', title: 'Video Editor', desc: 'Assemble images, video, audio, motion, FX and captions — then export.' },
   { id: 'auto', icon: 'bolt', title: 'Script → Video', desc: 'Narrate a script, transcribe it, generate a scene image per line and build the edit — in one click.', tag: 'AI' },
   { id: 'voiceover', icon: 'mic', title: 'AI Voiceover', desc: 'Turn a script into narration, with optional voice cloning, from your Colab.', tag: 'Colab' },
+  { id: 'audio', icon: 'music', title: 'Audio Studio', desc: 'Clean a voice, transcribe, translate and dub — then export MP3/SRT or start a video.', tag: 'Free' },
   { id: 'transcript', icon: 'list', title: 'AI Transcript', desc: 'Timecoded lines (control the interval) or word-level captions.', tag: 'Colab' },
   { id: 'images', icon: 'image', title: 'AI Images', desc: 'Storyboard images from prompts with SDXL — named by timestamp, ready for the editor.', tag: 'Colab' },
   { id: 'prompts', icon: 'wand', title: 'Prompt Studio', desc: 'Expert prompts filled with your project — scripts, scene images, thumbnails, SEO — sent to Claude, ChatGPT, Gemini or Flow.', tag: 'Free' },

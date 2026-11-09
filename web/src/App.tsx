@@ -6,6 +6,7 @@ import { Projects } from './pages/Projects';
 import { Editor } from './pages/Editor';
 import { Voiceover } from './tools/Voiceover';
 import { Transcript } from './tools/Transcript';
+import { AudioStudio } from './tools/AudioStudio';
 import { ImageGen } from './tools/ImageGen';
 import { Upscale } from './tools/Upscale';
 import { AutoVideo } from './tools/AutoVideo';
@@ -15,7 +16,7 @@ import { Growth, type GrowthTab } from './growth/Growth';
 import { useEngine } from './lib/engine';
 import { useLlm } from './lib/llm';
 
-export type ToolId = 'voiceover' | 'transcript' | 'images' | 'upscale' | 'auto' | 'flow' | 'prompts';
+export type ToolId = 'audio' | 'voiceover' | 'transcript' | 'images' | 'upscale' | 'auto' | 'flow' | 'prompts';
 export type Route = { page: 'home' } | { page: 'projects' } | { page: 'editor'; id: string } | { page: 'tool'; tool: ToolId } | { page: 'growth'; tab?: GrowthTab };
 
 const parse = (): Route => {
@@ -32,7 +33,7 @@ export const navigate = (r: Route) => {
 };
 
 const TOOL_PAGES: Record<ToolId, () => React.JSX.Element> = {
-  voiceover: Voiceover, transcript: Transcript, images: ImageGen, upscale: Upscale, auto: AutoVideo, flow: FlowBridge, prompts: PromptStudio,
+  audio: AudioStudio, voiceover: Voiceover, transcript: Transcript, images: ImageGen, upscale: Upscale, auto: AutoVideo, flow: FlowBridge, prompts: PromptStudio,
 };
 
 export function App() {
