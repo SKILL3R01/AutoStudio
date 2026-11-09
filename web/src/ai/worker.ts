@@ -1,4 +1,6 @@
 /// <reference lib="webworker" />
+import { mergeWindows, windows, type TimedWord } from '../lib/asrchunks';
+const fmtClock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 import { AutoProcessor, AutoTokenizer, CLIPTextModelWithProjection, CLIPVisionModelWithProjection, RawImage, SamModel, pipeline } from '@huggingface/transformers';
 
 const DEPTH_MODEL = 'onnx-community/depth-anything-v2-small';
@@ -134,17 +136,26 @@ async function transcribe(audio: Float32Array, model: 'base' | 'small', language
   const id = `onnx-community/whisper-${model}_timestamped`;
   if (!asr.has(id)) asr.set(id, pipeline('automatic-speech-recognition', id, { device: 'wasm', dtype: 'q8', progress_callback: progress(`Speech model (${model})`) }));
   const run = await asr.get(id)!;
-  const total = Math.max(1, Math.ceil(audio.length / 16000 / 25));
-  let done = 0;
-  const out = await run(audio, {
-    return_timestamps: 'word', chunk_length_s: 30, stride_length_s: 5,
-    ...(language && language !== 'auto' ? { language, task: 'transcribe' } : {}),
-    chunk_callback: () => post({ type: 'progress', label: 'Transcribing', value: Math.min(0.99, ++done / total) }),
-  });
-  const chunks: { text: string; timestamp: [number, number | null] }[] = out.chunks ?? [];
-  const words = chunks
-    .map((c) => ({ text: String(c.text).trim(), start: +c.timestamp[0], end: +(c.timestamp[1] ?? c.timestamp[0] + 0.3) }))
-    .filter((w) => w.text && Number.isFinite(w.start));
+  // Our own windows (the pipeline has no progress hook): progress + time left after each window.
+  const sr = 16000;
+  const wins = windows(audio.length / sr);
+  const perWin: TimedWord[][] = [];
+  const texts: string[] = [];
+  const t0 = performance.now();
+  for (const [i, w] of wins.entries()) {
+    const out = await run(audio.subarray(Math.floor(w.start * sr), Math.ceil(w.end * sr)), {
+      return_timestamps: 'word',
+      ...(language && language !== 'auto' ? { language, task: 'transcribe' } : {}),
+    });
+    const chunks: { text: string; timestamp: [number, number | null] }[] = out.chunks ?? [];
+    perWin.push(chunks.map((c) => ({ text: String(c.text).trim(), start: +c.timestamp[0], end: +(c.timestamp[1] ?? c.timestamp[0] + 0.3) })).filter((x) => x.text && Number.isFinite(x.start)));
+    texts.push(String(out.text ?? '').trim());
+    const elapsed = (performance.now() - t0) / 1000;
+    const left = (elapsed / (i + 1)) * (wins.length - i - 1);
+    post({ type: 'progress', label: `Transcribing ${fmtClock(w.end)} / ${fmtClock(wins[wins.length - 1].end)}${i < wins.length - 1 ? ` · about ${fmtClock(left)} left` : ''}`, value: (i + 1) / wins.length });
+  }
+  const words = mergeWindows(wins, perWin);
+  const out = { text: texts.join(' ') };
   return { words, text: String(out.text ?? '').trim() };
 }
 

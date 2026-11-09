@@ -11,6 +11,9 @@ const { spawn } = require('node:child_process');
 const UV_VERSION = '0.13.6';
 const UV_SHA256 = 'a2a8820d5eea32f08ef467ef3b7f66883a9b076d5737a2fc2fbb5f458d1bb50f';
 const UV_URL = `https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-pc-windows-msvc.zip`;
+// Mirror: the same uv build published on PyPI (a wheel is a zip; uv.exe sits under uv-<ver>.data/scripts/).
+const UV_PYPI_URL = 'https://files.pythonhosted.org/packages/7c/9d/714523188aea3054644d8e69ae8089aac70325a3cee2d3d05509d4f23398/uv-0.13.6-py3-none-win_amd64.whl';
+const UV_PYPI_SHA256 = '7c9bc35ccb65932d8dc10a0669f9c805eaa3c9827ce18ecbecb1bd67944b2cdf';
 const PACKAGES = { torch: ['torch==2.6.0', 'torchaudio==2.6.0'], chatterbox: ['chatterbox-tts==0.1.7'] };
 const NEED_GB = 7; // runtime ~2.2 GB + model ~3 GB + headroom
 
@@ -85,21 +88,91 @@ function run(cmd, args, stage, pct, env = {}) {
   });
 }
 
-async function downloadUv() {
-  progress('Downloading installer (uv)', 0.02);
-  const r = await net.fetch(UV_URL);
-  if (!r.ok) throw new Error(`uv download failed (${r.status})`);
-  const buf = Buffer.from(await r.arrayBuffer());
-  if (crypto.createHash('sha256').update(buf).digest('hex') !== UV_SHA256) throw new Error('uv download does not match its published checksum');
-  const zip = path.join(dir(), 'uv.zip');
-  fs.writeFileSync(zip, buf);
-  fs.mkdirSync(path.join(dir(), 'uv'), { recursive: true });
-  await run('powershell.exe', ['-NoProfile', '-Command', `Expand-Archive -Force -LiteralPath '${zip}' -DestinationPath '${path.join(dir(), 'uv')}'`], 'Unpacking installer', 0.04);
-  fs.rmSync(zip, { force: true });
-  if (!fs.existsSync(P.uv())) throw new Error('uv.exe not found after unpacking');
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Download with retries + backoff; throws the last error. */
+async function fetchRetry(url, tries = 5) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    if (installing?.cancelled) throw new Error('Cancelled');
+    try {
+      const r = await net.fetch(url);
+      if (r.ok) return Buffer.from(await r.arrayBuffer());
+      last = new Error(`HTTP ${r.status}`);
+    } catch (e) {
+      last = e;
+    }
+    note(`[voice] download attempt ${i + 1} failed for ${new URL(url).host}: ${last.message}`);
+    await sleep(1500 * 2 ** i);
+  }
+  throw last;
 }
 
-const uvEnv = () => ({ UV_PYTHON_INSTALL_DIR: path.join(dir(), 'python'), UV_CACHE_DIR: path.join(dir(), 'uvcache'), UV_NO_PROGRESS: '1' });
+async function downloadUv() {
+  const sources = [{ url: UV_URL, sha: UV_SHA256, label: 'GitHub' }, { url: UV_PYPI_URL, sha: UV_PYPI_SHA256, label: 'PyPI mirror' }];
+  let buf, errors = [];
+  for (const s of sources) {
+    progress(`Downloading installer (uv) from ${s.label}`, 0.02);
+    try {
+      const b = await fetchRetry(s.url, 3);
+      if (crypto.createHash('sha256').update(b).digest('hex') !== s.sha) throw new Error('checksum mismatch');
+      buf = b;
+      break;
+    } catch (e) {
+      errors.push(`${s.label}: ${e.message}`);
+    }
+  }
+  if (!buf) throw new Error(`Could not download the installer (${errors.join('; ')})`);
+  const zip = path.join(dir(), 'uv.zip');
+  fs.writeFileSync(zip, buf);
+  const tmp = path.join(dir(), 'uv-unpack');
+  fs.rmSync(tmp, { recursive: true, force: true });
+  await run('powershell.exe', ['-NoProfile', '-Command', `Expand-Archive -Force -LiteralPath '${zip}' -DestinationPath '${tmp}'`], 'Unpacking installer', 0.04);
+  fs.rmSync(zip, { force: true });
+  // GitHub zip: uv.exe at the root; PyPI wheel: uv-<ver>.data/scripts/uv.exe.
+  const find = (d) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) {
+        const r = find(f);
+        if (r) return r;
+      } else if (e.name.toLowerCase() === 'uv.exe') return f;
+    }
+    return null;
+  };
+  const exe = find(tmp);
+  if (!exe) throw new Error('uv.exe not found after unpacking');
+  fs.mkdirSync(path.join(dir(), 'uv'), { recursive: true });
+  fs.copyFileSync(exe, P.uv());
+  fs.rmSync(tmp, { recursive: true, force: true });
+}
+
+/** Run a step up to `tries` times (network hiccups), keeping the last error. */
+async function step(fn, tries = 3) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      last = e;
+      if (installing?.cancelled || /Cancelled/.test(e.message)) throw e;
+      note(`[voice] step failed (attempt ${i + 1}): ${e.message}`);
+      await sleep(3000 * (i + 1));
+    }
+  }
+  throw last;
+}
+
+/** Turn network failures into a message that says what to do. */
+function friendly(e) {
+  const m = String(e?.message ?? e);
+  if (/504|502|503|timed? ?out|ETIMEDOUT|ECONNRESET|ENOTFOUND|EAI_AGAIN|Read timed out|ConnectionError|net::ERR/i.test(m)) {
+    return `A download kept failing (${m.slice(0, 160)}). Your network or a firewall / proxy may be blocking GitHub or Hugging Face. Click “Retry install” — finished steps are skipped — or use the Colab engine.`;
+  }
+  return m;
+}
+
+const uvEnv = () => ({ UV_PYTHON_INSTALL_DIR: path.join(dir(), 'python'), UV_CACHE_DIR: path.join(dir(), 'uvcache'), UV_NO_PROGRESS: '1', UV_HTTP_TIMEOUT: '180', UV_HTTP_RETRIES: '5' });
 
 async function install() {
   if (installing) throw new Error('Already installing');
@@ -109,18 +182,21 @@ async function install() {
   installing = { child: null, cancelled: false };
   fs.mkdirSync(dir(), { recursive: true });
   try {
+    // Each step is skipped when already done, so "Retry install" resumes where it stopped.
     if (!fs.existsSync(P.uv())) await downloadUv();
-    if (!fs.existsSync(P.py())) await run(P.uv(), ['venv', P.env(), '--python', '3.12'], 'Installing Python 3.12', 0.08, uvEnv());
-    await run(P.uv(), ['pip', 'install', '--python', P.py(), ...PACKAGES.torch, '--index-url', 'https://download.pytorch.org/whl/cpu'], 'Installing PyTorch (CPU, ~1 GB)', 0.2, uvEnv());
-    await run(P.uv(), ['pip', 'install', '--python', P.py(), ...PACKAGES.chatterbox], 'Installing Chatterbox', 0.45, uvEnv());
+    if (!fs.existsSync(P.py())) await step(() => run(P.uv(), ['venv', P.env(), '--python', '3.12'], 'Installing Python 3.12', 0.08, uvEnv()));
+    await step(() => run(P.uv(), ['pip', 'install', '--python', P.py(), ...PACKAGES.torch, '--index-url', 'https://download.pytorch.org/whl/cpu'], 'Installing PyTorch (CPU, ~1 GB)', 0.2, uvEnv()));
+    await step(() => run(P.uv(), ['pip', 'install', '--python', P.py(), ...PACKAGES.chatterbox], 'Installing Chatterbox', 0.45, uvEnv()));
     progress('Downloading the voice model (~3 GB, first time only)', 0.6);
     // The first load straight after the download can crash natively on Windows; a fresh process loads fine.
-    await withRetry(() => job({ warmup: true, model: 'multilingual', language: 'en' }));
+    await step(() => withRetry(() => job({ warmup: true, model: 'multilingual', language: 'en' })), 3);
     fs.writeFileSync(P.marker(), JSON.stringify({ at: new Date().toISOString(), uv: UV_VERSION, packages: PACKAGES }));
     await run(P.uv(), ['cache', 'clean'], 'Cleaning up', 0.98, uvEnv()).catch(() => {});
     progress('Ready', 1);
     installing = null;
     return status();
+  } catch (e) {
+    throw new Error(friendly(e));
   } finally {
     installing = null;
   }
@@ -140,7 +216,7 @@ function ensureWorker() {
   fs.mkdirSync(P.tmp(), { recursive: true });
   const proc = spawn(P.py(), [P.worker(), '--serve'], {
     windowsHide: true,
-    env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1', HF_HOME: P.hf(), HF_HUB_DISABLE_SYMLINKS_WARNING: '1', TOKENIZERS_PARALLELISM: 'false' },
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1', HF_HOME: P.hf(), HF_HUB_DISABLE_SYMLINKS_WARNING: '1', TOKENIZERS_PARALLELISM: 'false', HF_HUB_DOWNLOAD_TIMEOUT: '120', HF_HUB_ETAG_TIMEOUT: '60' },
   });
   const pending = new Map();
   let readyResolve, readyReject;

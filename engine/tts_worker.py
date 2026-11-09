@@ -2,6 +2,7 @@
 - CLI mode: launched per job by server.py (Colab) so the GPU is fully released when it exits.
 - `--serve`: persistent mode used by the desktop app's local voice engine (model stays loaded)."""
 import argparse
+import os
 import re
 import sys
 
@@ -41,6 +42,10 @@ def get_model(kind, device):
     if kind in _models:
         return _models[kind]
     log(f"Loading Chatterbox ({kind}) on {device}…")
+    if kind == "multilingual" and os.environ.get("AUTOSTUDIO_ZH") != "1" and "spacy_pkuseg" not in sys.modules:
+        # The Chinese word segmenter downloads its model from GitHub with a 5 s timeout, which fails on slow or
+        # filtered networks. Chatterbox skips it when the import fails, so block it unless Chinese is needed.
+        sys.modules["spacy_pkuseg"] = None
     if kind == "multilingual":
         from chatterbox.mtl_tts import ChatterboxMultilingualTTS
         try:

@@ -68,9 +68,14 @@ function LocalEngine({ onReady }: { onReady: (ok: boolean) => void }) {
           <button className="btn sm ghost" onClick={() => void api.cancelInstall()}>Cancel</button>
         </>
       ) : (
-        <button className="btn primary sm" disabled={st.freeGB < st.needGB} onClick={install}><Icon name="download" /> Install local voice (~5 GB)</button>
+        <button className="btn primary sm" disabled={st.freeGB < st.needGB} onClick={install}><Icon name="download" /> {err ? 'Retry install (resumes)' : 'Install local voice (~5 GB)'}</button>
       )}
-      {err && <p className="warn">{err}</p>}
+      {err && (
+        <>
+          <p className="warn">{err}</p>
+          <button className="btn sm ghost" onClick={async () => void navigator.clipboard.writeText((await api.logs()).join(String.fromCharCode(10))).then(() => toast('Install log copied — paste it to your assistant', 'ok'))}><Icon name="copy" /> Copy install log</button>
+        </>
+      )}
     </div>
   );
 }
