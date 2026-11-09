@@ -87,6 +87,13 @@ export function FreeMediaPanel() {
     <>
       <Section title="Free media" hint="No account or key needed. Public-domain / CC0 by default — free to use, no credit needed.">
         <Seg options={KINDS} value={kind} onChange={(k) => (setKind(k), setItems([]))} />
+        {(kind === 'music' || kind === 'sfx') && (
+          <div className="row wrap">
+            {(kind === 'music' ? ['calm piano', 'epic orchestral', 'motivational', 'lo-fi', 'cinematic ambient', 'happy acoustic', 'dark suspense', 'corporate'] : ['whoosh', 'rain', 'thunder', 'crowd', 'footsteps', 'birds', 'wind', 'city traffic']).map((m) => (
+              <button key={m} className="chip" onClick={() => (setQ(m), void search(m))}>{m}</button>
+            ))}
+          </div>
+        )}
         <div className="row">
           <input value={q} placeholder={kind === 'sfx' ? 'e.g. door slam, rain' : 'e.g. city at night'} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && search()} />
           <button className="icon-btn" disabled={!!busy} onClick={() => search()} title="Search"><Icon name="cursor" /></button>
