@@ -5,7 +5,7 @@
  * Pexels and Pixabay have no keyless API, so they are offered as "search on the website" links.
  */
 export type FreeKind = 'image' | 'video' | 'music' | 'sfx';
-export type FreeSource = 'wikimedia' | 'openverse';
+export type FreeSource = 'wikimedia' | 'openverse' | 'nasa' | 'usgs' | 'all';
 
 export interface FreeItem {
   id: string;
@@ -129,6 +129,13 @@ export const siteLinks = (q: string, kind: FreeKind) => {
 
 /** Download a result. The desktop app can fetch hosts that block cross-site downloads; the browser falls back to the thumbnail. */
 export async function downloadFree(item: FreeItem): Promise<Blob> {
+  if (item.url.startsWith('nasa-video:')) {
+    // NASA videos: pick a medium / small MP4 from the asset list.
+    const list: string[] = await (await fetch(item.url.slice('nasa-video:'.length), { signal: AbortSignal.timeout(20000) })).json();
+    const pick = list.find((u) => /~medium\.mp4$/i.test(u)) ?? list.find((u) => /~small\.mp4$/i.test(u)) ?? list.find((u) => /\.mp4$/i.test(u));
+    if (!pick) throw new Error('This NASA video has no MP4 file');
+    item = { ...item, url: pick.replace(/^http:/, 'https:') };
+  }
   try {
     const r = await fetch(item.url, { signal: AbortSignal.timeout(120000) });
     if (r.ok) return await r.blob();
@@ -154,3 +161,56 @@ export function keywordsFrom(text: string, max = 4): string {
 /** Credit lines for the video description. */
 export const creditsText = (credits: Credit[]) =>
   credits.map((c) => `“${c.title}” by ${c.creator} — ${c.license} — ${c.page}`).join('\n');
+
+// ---------- NASA (public domain, no key) ----------
+export async function searchNasa(q: string, kind: FreeKind): Promise<FreeItem[]> {
+  if (kind === 'music' || kind === 'sfx') return [];
+  const r = await fetch(`https://images-api.nasa.gov/search?${new URLSearchParams({ q, media_type: kind, page_size: '30' })}`, { signal: AbortSignal.timeout(15000) });
+  const j = await r.json();
+  return (j.collection?.items ?? []).map((it: any): FreeItem => {
+    const d = it.data?.[0] ?? {};
+    const thumb = it.links?.[0]?.href ?? '';
+    return {
+      id: `nasa:${d.nasa_id}`, source: 'nasa', kind, title: d.title ?? d.nasa_id, creator: d.photographer || d.center || 'NASA',
+      license: 'Public domain (NASA)', credit: false, thumb,
+      // Images: the large rendition; videos: resolved from the asset list when downloading.
+      url: kind === 'image' ? thumb.replace('~thumb', '~large') : `nasa-video:${it.href}`,
+      page: `https://images.nasa.gov/details/${encodeURIComponent(d.nasa_id)}`,
+    };
+  });
+}
+
+/** USGS public-domain media mirrored on Wikimedia Commons. */
+export const searchUsgs = (q: string, kind: FreeKind, allowCredit: boolean) => searchWikimedia(`USGS ${q}`, kind, allowCredit);
+
+export interface MultiResult {
+  items: FreeItem[];
+  status: { source: string; count: number; error?: string }[];
+  query: string;
+}
+
+/** Search several sources at once; if nothing comes back, retry with simpler words. */
+export async function searchAll(q: string, kind: FreeKind, allowCredit: boolean, sources: FreeSource[] = ['wikimedia', 'openverse', 'nasa', 'usgs'], aspect?: 'wide' | 'tall' | 'square'): Promise<MultiResult> {
+  const run = async (query: string): Promise<MultiResult> => {
+    const jobs = sources.map((src) => (src === 'openverse' ? searchOpenverse(query, kind, allowCredit, aspect) : src === 'nasa' ? searchNasa(query, kind) : src === 'usgs' ? searchUsgs(query, kind, allowCredit) : searchWikimedia(query, kind, allowCredit)));
+    const res = await Promise.allSettled(jobs);
+    const seen = new Set<string>();
+    const lists = res.map((r) => (r.status === 'fulfilled' ? r.value : []));
+    // Interleave sources so the first results are varied.
+    const items: FreeItem[] = [];
+    for (let k = 0; k < Math.max(0, ...lists.map((l) => l.length)); k++) for (const l of lists) if (l[k] && !seen.has(l[k].url)) (seen.add(l[k].url), items.push(l[k]));
+    return { items, query, status: res.map((r, i) => ({ source: sources[i], count: lists[i].length, error: r.status === 'rejected' ? String((r.reason as Error)?.message ?? r.reason).slice(0, 80) : undefined })) };
+  };
+  let out = await run(q);
+  if (!out.items.length) {
+    const simpler = simplerQuery(q);
+    if (simpler && simpler !== q) out = await run(simpler);
+  }
+  return out;
+}
+
+/** Fewer, stronger words for a retry ("a man walking on a beach at sunset" → "beach sunset"). */
+export function simplerQuery(q: string): string {
+  const k = keywordsFrom(q, 4).split(' ').filter(Boolean);
+  return k.length > 2 ? k.slice(-2).join(' ') : k.slice(0, 1).join(' ');
+}

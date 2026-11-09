@@ -7,7 +7,7 @@ import { toast } from '../components/Toast';
 import { probe, importAudio } from '../lib/project';
 import { clipIndexAt } from '../render/renderer';
 import { uid } from '../lib/util';
-import { creditsText, downloadFree, keywordsFrom, searchOpenverse, searchWikimedia, siteLinks, type FreeItem, type FreeKind, type FreeSource } from '../lib/freemedia';
+import { creditsText, downloadFree, keywordsFrom, searchAll, siteLinks, type FreeItem, type FreeKind, type FreeSource, type MultiResult } from '../lib/freemedia';
 import { insertAssetAt, replaceClipAsset } from './MediaPanel';
 
 const KINDS: [FreeKind, string][] = [['image', 'Images'], ['video', 'Video'], ['music', 'Music'], ['sfx', 'Sound FX']];
@@ -25,7 +25,8 @@ export function FreeMediaPanel() {
   const { update, selection, time } = useEditor();
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<FreeKind>('image');
-  const [source, setSource] = useState<FreeSource>('wikimedia');
+  const [source, setSource] = useState<FreeSource>('all');
+  const [status, setStatus] = useState<MultiResult['status']>([]);
   const [allowCredit, setAllowCredit] = useState(false);
   const [items, setItems] = useState<FreeItem[]>([]);
   const [busy, setBusy] = useState('');
@@ -36,7 +37,10 @@ export function FreeMediaPanel() {
     setBusy('Searching…');
     try {
       const aspect = p.export.aspect === '9:16' ? 'tall' : p.export.aspect === '1:1' ? 'square' : 'wide';
-      const list = source === 'openverse' ? await searchOpenverse(query, kind, allowCredit, aspect) : await searchWikimedia(query, kind, allowCredit);
+      const r = await searchAll(query, kind, allowCredit, source === 'all' ? ['wikimedia', 'openverse', 'nasa', 'usgs'] : [source], aspect);
+      const list = r.items;
+      setStatus(r.status);
+      if (r.query !== query) toast(`Nothing for “${query}” — showing results for “${r.query}”`, 'info');
       setItems(list);
       if (!list.length) toast(kind === 'video' && source === 'openverse' ? 'Openverse has no video — use Wikimedia Commons' : 'Nothing free found — try other words, allow CC BY, or open Pexels / Pixabay', 'info');
     } catch (e) {
@@ -101,12 +105,16 @@ export function FreeMediaPanel() {
         <div className="row wrap">
           <button className="btn sm ghost" disabled={!!busy} onClick={fromNarration} title="Search with the key words spoken in the current clip"><Icon name="mic" /> From narration here</button>
           <select value={source} onChange={(e) => (setSource(e.target.value as FreeSource), setItems([]))}>
+            <option value="all">All sources</option>
             <option value="wikimedia">Wikimedia Commons</option>
             <option value="openverse">Openverse</option>
+            <option value="nasa">NASA (public domain)</option>
+            <option value="usgs">USGS (via Wikimedia)</option>
           </select>
         </div>
         <Toggle label="Also show CC BY / BY-SA (needs a credit line)" value={allowCredit} onChange={setAllowCredit} />
         {busy && <p className="hint">{busy}</p>}
+        {!busy && status.length > 1 && <p className="hint">{status.map((x) => `${x.source}: ${x.error ? 'not answering' : x.count}`).join(' · ')}</p>}
         <div className={visual ? 'free-grid' : 'free-list'}>
           {items.map((it) => (
             <div key={it.id} className="free-item" title={`${it.title} — ${it.creator} — ${it.license}`}>
