@@ -1,0 +1,50 @@
+[
+ {
+  "wait": 9000
+ },
+ {
+  "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.trim().startsWith('Media')).click(); 'media'"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "document.querySelectorAll('.t-video .clip').length + ' clips before'"
+ },
+ {
+  "drag": {
+   "from": "(() => { const r = document.querySelectorAll('.media-item .mthumb')[1].getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()",
+   "to": "(() => { const r = document.querySelector('.t-video').getBoundingClientRect(); return [r.left + 60, r.top + r.height / 2]; })()"
+  }
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "document.querySelectorAll('.t-video .clip').length + ' clips after drop on video'"
+ },
+ {
+  "drag": {
+   "from": "(() => { const r = document.querySelectorAll('.media-item .mthumb')[2].getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()",
+   "to": "(() => { const r = document.querySelector('.t-caps').getBoundingClientRect(); return [r.left + 300, r.top + r.height * 0.5]; })()"
+  }
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "document.querySelectorAll('.t-video .clip').length + ' clips after drop on the captions row (falls back to video)'"
+ },
+ {
+  "drag": {
+   "from": "(() => { const r = document.querySelectorAll('.media-item .mthumb')[3].getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()",
+   "to": "(() => { const r = document.querySelector('.stage canvas').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()"
+  }
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "document.querySelectorAll('.t-video .clip').length + ' clips after drop on the preview'"
+ }
+]

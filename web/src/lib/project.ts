@@ -145,7 +145,7 @@ export function addVoiceTake(p: Project, assetId: string, duration: number, at =
     p.audio.push(newAudioClip(tid, assetId, at, duration, 'voice'));
     return { trackName: p.audioTracks.find((t) => t.id === tid)!.name };
   }
-  const tid = addTrack(p, 'voice');
+  const tid = addTrack(p, 'voice', undefined, prev?.id);
   const t = p.audioTracks.find((x) => x.id === tid)!;
   t.fx = prev?.fx;
   p.audio.push(newAudioClip(tid, assetId, at, duration, 'voice'));

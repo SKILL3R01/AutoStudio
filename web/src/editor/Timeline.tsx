@@ -1,7 +1,6 @@
 import { useMenu } from './ContextMenu';
-import { addTrack, bindWords, captionDrift, moveAudioClip, newAudioClip, resolveOverlap, resyncCaptions, unbindWords } from '../lib/audiotracks';
-import { insertAssetAt } from './MediaPanel';
-import { addVideoTrack, newPip } from '../lib/pip';
+import { addTrack, bindWords, captionDrift, moveAudioClip, resolveOverlap, resyncCaptions, unbindWords } from '../lib/audiotracks';
+import { addVideoTrack } from '../lib/pip';
 import type { PipClip } from '../types';
 import { toast } from '../components/Toast';
 import type { AudioTrack } from '../types';
@@ -16,7 +15,7 @@ import { media, peaks } from '../render/media';
 import { fmtTime } from '../lib/util';
 import { TRANSITIONS, type Clip, type Transition } from '../types';
 import { deleteAction } from './shortcuts';
-import { copySelection, detachSelectedAudio, duplicate, hasClipboard, paste, splitAllAtPlayhead, splitAtPlayhead } from './actions';
+import { ASSET_MIME, copySelection, detachSelectedAudio, dropAssetAt, duplicate, hasClipboard, paste, splitAllAtPlayhead, splitAtPlayhead } from './actions';
 import { snapPoints, snapTime } from './edit';
 import { Icon } from '../components/icons';
 import { Slider } from '../components/ui';
@@ -357,40 +356,26 @@ export function Timeline() {
   const selCount = (sel ? 1 : 0) + multi.filter((m) => m !== sel?.id).length;
   const drift = captionDrift(p);
   const allowDrop = (e: React.DragEvent) => {
-    if (!e.dataTransfer.types.includes('application/x-asset')) return;
+    if (!e.dataTransfer.types.includes(ASSET_MIME)) return;
     e.preventDefault();
-    e.currentTarget.classList.add('drop-on');
+    e.dataTransfer.dropEffect = 'copy';
+    const row = rowAt(e.clientX, e.clientY);
+    document.querySelectorAll('.track.drop-on').forEach((x) => x !== row && x.classList.remove('drop-on'));
+    row?.classList.add('drop-on');
   };
-  const dropLeave = (e: React.DragEvent) => e.currentTarget.classList.remove('drop-on');
-  /** Media dragged from the Media panel: visuals go on the main track, audio on the track it was dropped on. */
-  const dropAsset = (e: React.DragEvent, target: string) => {
-    e.currentTarget.classList.remove('drop-on');
-    const id = e.dataTransfer.getData('application/x-asset');
-    const a = id && assets.get(id);
-    if (!a) return;
+  const dropLeave = (e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) document.querySelectorAll('.track.drop-on').forEach((x) => x.classList.remove('drop-on'));
+  };
+  /** Any drop on the timeline: the time comes from the pointer, the track from the row under it. */
+  const dropAsset = (e: React.DragEvent) => {
+    document.querySelectorAll('.track.drop-on').forEach((x) => x.classList.remove('drop-on'));
+    const id = e.dataTransfer.getData(ASSET_MIME);
+    if (!id) return;
     e.preventDefault();
-    const t = Math.max(0, (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom);
-    if (target === 'video' || target.startsWith('v:')) {
-      if (a.kind === 'audio') return toast('Drop audio on an audio track', 'info');
-      if (target === 'video') return update((d) => insertAssetAt(d, a.id, t));
-      const tid = target.slice(2);
-      return update((d) => {
-        const c = newPip(tid, a.id, t, a.kind === 'video' ? Math.min(a.duration ?? 4, 8) : 4, 'corner');
-        const busy = d.pips.some((o) => o.trackId === tid && o.start < c.start + c.duration && o.start + o.duration > c.start);
-        if (busy) c.trackId = addVideoTrack(d);
-        d.pips.push(c);
-        useEditor.getState().select({ kind: 'pip', id: c.id });
-      });
-    }
-    if (a.kind === 'image') return toast('Drop images on the Video track', 'info');
-    let moved = '';
-    update((d) => {
-      const tr = d.audioTracks.find((x) => x.id === target)!;
-      const c = newAudioClip(target, a.id, t, a.duration ?? 5, tr.kind);
-      d.audio.push(c);
-      moved = resolveOverlap(d, c.id);
-    });
-    if (moved) toast(`That spot was taken — added on “${moved}”`, 'info');
+    const inner = scroller.current!.querySelector('.tl-inner')!.getBoundingClientRect();
+    const row = rowAt(e.clientX, e.clientY);
+    const target = row?.dataset.vtrack ? `v:${row.dataset.vtrack}` : row?.dataset.track ?? 'video';
+    dropAssetAt(id, (e.clientX - inner.left) / zoom, target);
   };
   const [rowH, setRowH] = useState<Record<string, number>>(() => JSON.parse(localStorage.getItem('tlRows') || '{}'));
   const base = { ...ROWS[tlSize], ...rowH };
@@ -493,7 +478,7 @@ export function Timeline() {
           ))}
           <span className="row-head" title="Effects"><Icon name="sfx" size={13} /> FX{grip('fx', base.fx)}</span>
         </div>
-        <div className="tl-scroll" ref={scroller} onWheel={(e) => {
+        <div className="tl-scroll" ref={scroller} onDragOver={allowDrop} onDragLeave={dropLeave} onDrop={dropAsset} onWheel={(e) => {
           if (e.ctrlKey) {
             e.preventDefault();
             setZoom(Math.min(300, Math.max(1, zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15))));
@@ -519,14 +504,14 @@ export function Timeline() {
               ))}
             </div>
             {vtracks.map((t) => (
-              <div key={t.id} className={`track t-vov ${t.muted ? 'muted' : ''}`} data-vtrack={t.id} onDragOver={allowDrop} onDragLeave={dropLeave} onDrop={(e) => dropAsset(e, `v:${t.id}`)}>
+              <div key={t.id} className={`track t-vov ${t.muted ? 'muted' : ''}`} data-vtrack={t.id}>
                 {p.pips.filter((c) => c.trackId === t.id && inView(c.start, c.start + c.duration)).map((c) => (
                   <PipBlock key={c.id} c={c} zoom={zoom} sel={sel?.id === c.id || multi.includes(c.id)} name={assets.get(c.assetId)?.name ?? ''} kind={assets.get(c.assetId)?.kind}
                     onDown={(e, mode) => moveItem('pips', c.id, e, mode)} onMenu={(e) => openMenu(e, { kind: 'pip', id: c.id }, c.start + (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom)} />
                 ))}
               </div>
             ))}
-            <div className="track t-video" onDragOver={allowDrop} onDragLeave={dropLeave} onDrop={(e) => dropAsset(e, 'video')}>
+            <div className="track t-video">
               {p.clips.map((c, i) => {
                 const end = clipEnd(p, i);
                 return inView(i === 0 ? 0 : c.start, end) ? (
@@ -549,7 +534,7 @@ export function Timeline() {
               ))}
             </div>
             {p.audioTracks.map((t) => (
-              <div key={t.id} className={`track t-aud k-${t.kind} ${t.muted ? 'muted' : ''}`} data-track={t.id} onDragOver={allowDrop} onDragLeave={dropLeave} onDrop={(e) => dropAsset(e, t.id)}>
+              <div key={t.id} className={`track t-aud k-${t.kind} ${t.muted ? 'muted' : ''}`} data-track={t.id}>
                 {p.audio.filter((c) => c.trackId === t.id && inView(c.start, c.start + c.duration)).map((c) => {
                   const w = Math.max(8, c.duration * zoom);
                   const h = trackH(t) - 6;
@@ -625,4 +610,9 @@ function PipBlock({ c, zoom, sel, name, kind, onDown, onMenu }: { c: PipClip; zo
       <div className="resize" onPointerDown={(e) => onDown(e, 'resize')} />
     </div>
   );
+}
+
+/** The timeline row under the pointer (main video, overlay or audio track); null over the ruler / text rows. */
+function rowAt(x: number, y: number): HTMLElement | null {
+  return ((document.elementFromPoint(x, y) as HTMLElement | null)?.closest('[data-vtrack], [data-track], .t-video') as HTMLElement | null) ?? null;
 }

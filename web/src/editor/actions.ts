@@ -1,5 +1,7 @@
 /** Timeline actions used by the toolbar, keyboard shortcuts and the Properties panel. */
-import { splitPip } from '../lib/pip';
+import { addVideoTrack, newPip, splitPip } from '../lib/pip';
+import { newAudioClip, resolveOverlap } from '../lib/audiotracks';
+import { insertAssetAt } from './MediaPanel';
 import { useEditor, findAsset } from '../store';
 import { media } from '../render/media';
 import { cutBuffer, encodeWav } from '../audio/silence';
@@ -112,4 +114,42 @@ export function detachSelectedAudio() {
     select({ kind: 'audio', id });
     toast('Sound moved to an audio track — trim, fade or delete it there', 'ok');
   } else toast('Only video clips with sound can be detached', 'info');
+}
+
+export const ASSET_MIME = 'application/x-asset';
+
+/**
+ * Put a media item where it was dropped. `target`: 'video' (main track), 'v:<id>' (overlay track) or an audio track id;
+ * unknown / mismatched targets fall back to the main track (visuals) or the first track of the right kind (audio).
+ */
+export function dropAssetAt(assetId: string, t: number, target?: string) {
+  const { project: p, update, select } = useEditor.getState();
+  const a = p && findAsset(p, assetId);
+  if (!p || !a) return;
+  const time = Math.max(0, t);
+  if (a.kind !== 'audio') {
+    if (target?.startsWith('v:')) {
+      const tid = target.slice(2);
+      let id = '';
+      update((d) => {
+        const c = newPip(tid, a.id, time, a.kind === 'video' ? Math.min(a.duration ?? 4, 8) : 4, 'corner');
+        if (d.pips.some((o) => o.trackId === tid && o.start < c.start + c.duration && o.start + o.duration > c.start)) c.trackId = addVideoTrack(d, tid);
+        d.pips.push(c);
+        id = c.id;
+      });
+      return select({ kind: 'pip', id });
+    }
+    return update((d) => insertAssetAt(d, a.id, time));
+  }
+  let moved = '';
+  let id = '';
+  update((d) => {
+    const tr = d.audioTracks.find((x) => x.id === target) ?? d.audioTracks.find((x) => x.kind === 'music') ?? d.audioTracks[0];
+    const c = newAudioClip(tr.id, a.id, time, a.duration ?? 5, tr.kind);
+    d.audio.push(c);
+    id = c.id;
+    moved = resolveOverlap(d, c.id);
+  });
+  select({ kind: 'audio', id });
+  if (moved) toast(`That spot was taken — added on “${moved}”`, 'info');
 }

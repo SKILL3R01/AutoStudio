@@ -44,6 +44,7 @@ run phaseE "http://localhost:5173/#demo" steps-phaseE.json
 run describe "http://localhost:5173/#demo" steps-describe.json
 run typostudio "http://localhost:5173/#demo" steps-typostudio.json
 run timeline "http://localhost:5173/#demo" steps-timeline.json
+run dragdrop "http://localhost:5173/#demo" steps-dragdrop.json
 run pip "http://localhost:5173/#demo" steps-pip.json
 run wizard "http://localhost:5173/" steps-wizard.json simple
 echo "=== done"

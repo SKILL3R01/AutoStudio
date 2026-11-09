@@ -51,10 +51,13 @@ export function ensureTrack(p: Project, kind: TrackKind): string {
 }
 
 /** Add a new track (Pro). */
-export function addTrack(p: Project, kind: TrackKind = 'other', name?: string): string {
+/** Add a track; with `after`, it is inserted directly under that track (next to the original, not at the bottom). */
+export function addTrack(p: Project, kind: TrackKind = 'other', name?: string, after?: string): string {
   const id = 'trk_' + uid();
   const n = p.audioTracks.filter((t) => t.kind === kind).length + 1;
-  p.audioTracks.push({ id, name: name ?? `${kind === 'voice' ? 'Voice' : kind === 'music' ? 'Music' : kind === 'sfx' ? 'SFX' : 'Audio'} ${n}`, kind, volume: 1 });
+  const tr = { id, name: name ?? `${kind === 'voice' ? 'Voice' : kind === 'music' ? 'Music' : kind === 'sfx' ? 'SFX' : 'Audio'} ${n}`, kind, volume: 1 };
+  const i = after ? p.audioTracks.findIndex((t) => t.id === after) : -1;
+  p.audioTracks.splice(i >= 0 ? i + 1 : p.audioTracks.length, 0, tr);
   return id;
 }
 
@@ -206,7 +209,9 @@ export function resolveOverlap(p: Project, id: string): string {
   const hits = (tid: string) => p.audio.some((o) => o.id !== id && o.trackId === tid && o.start < clipEndOf(c) - 0.01 && clipEndOf(o) > c.start + 0.01);
   if (!hits(c.trackId)) return '';
   const kind = p.audioTracks.find((t) => t.id === c.trackId)?.kind ?? 'other';
-  const free = p.audioTracks.find((t) => t.kind === kind && t.id !== c.trackId && !hits(t.id));
-  c.trackId = free ? free.id : addTrack(p, kind);
+  // Only an empty-at-that-time track of the same kind right next to it counts; otherwise a new one goes directly under it.
+  const i = p.audioTracks.findIndex((t) => t.id === c.trackId);
+  const near = [p.audioTracks[i + 1], p.audioTracks[i - 1]].find((t) => t && t.kind === kind && !hits(t.id));
+  c.trackId = near ? near.id : addTrack(p, kind, undefined, c.trackId);
   return p.audioTracks.find((t) => t.id === c.trackId)!.name;
 }

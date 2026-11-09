@@ -90,6 +90,8 @@ describe('audio tracks', () => {
     moveAudioClip(p, right, 2);
     expect(resolveOverlap(p, right)).toBe('Music 2');
     expect(p.audioTracks.filter((t) => t.kind === 'music')).toHaveLength(2);
+    // the new track sits directly under the original Music track, above SFX
+    expect(p.audioTracks.map((t) => t.name)).toEqual(['Voice', 'Music', 'Music 2', 'SFX']);
     expect(resolveOverlap(p, 'm')).toBe('');
   });
 });

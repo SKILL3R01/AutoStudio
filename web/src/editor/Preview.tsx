@@ -1,3 +1,4 @@
+import { ASSET_MIME, dropAssetAt } from './actions';
 import { activePips } from '../lib/pip';
 import { syncProxies } from '../lib/proxy';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -97,6 +98,7 @@ export function Preview() {
   const [status, setStatus] = useState('');
   const [full, setFull] = useState(false);
   const [guides, setGuides] = useState(false);
+  const [dropping, setDropping] = useState(false);
   const modelRef = useRef(m);
   modelRef.current = m;
   const baseLong = PROFILE_SETTINGS[usePerf((s) => s.profile)].preview;
@@ -266,10 +268,18 @@ export function Preview() {
   };
   return (
     <div className={`preview ${full ? 'full' : ''}`}>
-      <div className="stage" ref={stageRef}>
+      <div className="stage" ref={stageRef}
+        onDragOver={(e) => e.dataTransfer.types.includes(ASSET_MIME) && (e.preventDefault(), setDropping(true))}
+        onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setDropping(false)}
+        onDrop={(e) => {
+          setDropping(false);
+          const id = e.dataTransfer.getData(ASSET_MIME);
+          if (id) (e.preventDefault(), dropAssetAt(id, useEditor.getState().time));
+        }}>
         <div className="frame" style={{ width: W * fitScale, height: H * fitScale }}>
           <canvas ref={canvas} width={W} height={H} onPointerDown={onPointerDown} onDoubleClick={() => useEditor.getState().setPlaying(!playing)} />
           {guides && <div className={`guides ${m.project.export.aspect === '9:16' ? 'tall' : ''}`} />}
+          {dropping && <div className="preview-drop">Drop to add at {fmtTime(time)}</div>}
           {sel && (
             <div className="sel-box" style={{ left: `${(sel.x - sel.w / 2) * 100}%`, top: `${(sel.y - sel.h / 2) * 100}%`, width: `${sel.w * 100}%`, height: `${sel.h * 100}%`, transform: `rotate(${selRotation}deg)` }}>
               {(['nw', 'ne', 'sw', 'se'] as const).map((c) => <span key={c} className={`h-scale ${c}`} onPointerDown={(e) => handleDrag(e, 'scale')} title="Drag to resize" />)}

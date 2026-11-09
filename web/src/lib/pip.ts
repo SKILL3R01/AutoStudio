@@ -23,9 +23,11 @@ export function ensureVideoTrack(p: Project): string {
   return p.videoTracks[p.videoTracks.length - 1].id;
 }
 
-export function addVideoTrack(p: Project): string {
+/** New overlay track; with `after`, it goes right above that track (next to the original, not at the end). */
+export function addVideoTrack(p: Project, after?: string): string {
   const id = 'vtr_' + uid();
-  p.videoTracks.push({ id, name: `V${p.videoTracks.length + 2}` });
+  const i = after ? p.videoTracks.findIndex((t) => t.id === after) : -1;
+  p.videoTracks.splice(i >= 0 ? i + 1 : p.videoTracks.length, 0, { id, name: `V${p.videoTracks.length + 2}` });
   return id;
 }
 

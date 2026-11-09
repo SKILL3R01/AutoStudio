@@ -1,6 +1,7 @@
 // Headless Edge/Chrome harness: open a URL, run optional JS steps, print console errors, save screenshots.
 // Usage: node scripts/cdp-shot.mjs <url> <out-prefix> [steps.json]
-// steps.json: [{ "wait": ms } | { "eval": "js" } | { "shot": "name" }]
+// steps.json: [{ "wait": ms } | { "eval": "js" } | { "shot": "name" } | { "drag": { "from": "js → [x, y]", "to": "js → [x, y]" } }]
+// "drag" is a real mouse drag: the browser runs its own HTML5 drag-and-drop (CDP drag interception).
 import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -23,12 +24,14 @@ const page = targets.find((t) => t.type === 'page');
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((r) => (ws.onopen = r));
 let id = 0;
+let lastDrag = null;
 const pending = new Map();
 ws.onmessage = (m) => {
   const msg = JSON.parse(m.data);
   if (msg.id && pending.has(msg.id)) return pending.get(msg.id)(msg), pending.delete(msg.id);
   if (msg.method === 'Runtime.consoleAPICalled' && ['error', 'warning'].includes(msg.params.type))
     console.log(`[console.${msg.params.type}]`, msg.params.args.map((a) => a.value ?? a.description).join(' '));
+  if (msg.method === 'Input.dragIntercepted') lastDrag = msg.params.data;
   if (msg.method === 'Runtime.exceptionThrown') console.log('[exception]', msg.params.exceptionDetails.exception?.description ?? msg.params.exceptionDetails.text);
 };
 const send = (method, params = {}) => new Promise((r) => {
@@ -46,6 +49,22 @@ for (const s of steps) {
   if (s.eval) {
     const r = await send('Runtime.evaluate', { expression: s.eval, awaitPromise: true, returnByValue: true });
     console.log('[eval]', JSON.stringify(r.result?.result?.value ?? r.result?.exceptionDetails?.exception?.description ?? null).slice(0, 2000));
+  }
+  if (s.drag) {
+    const at = async (js) => (await send('Runtime.evaluate', { expression: js, returnByValue: true })).result?.result?.value;
+    const [x0, y0] = await at(s.drag.from), [x1, y1] = await at(s.drag.to);
+    lastDrag = null;
+    await send('Input.setInterceptDrags', { enabled: true });
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', clickCount: 1 });
+    for (let k = 1; k <= 6; k++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + ((x1 - x0) * k) / 6, y: y0 + ((y1 - y0) * k) / 6, button: 'left', buttons: 1 });
+    await sleep(200);
+    if (lastDrag) {
+      for (const type of ['dragEnter', 'dragOver']) await send('Input.dispatchDragEvent', { type, x: x1, y: y1, data: lastDrag });
+      await send('Input.dispatchDragEvent', { type: 'drop', x: x1, y: y1, data: lastDrag });
+    }
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 });
+    await send('Input.setInterceptDrags', { enabled: false });
+    console.log('[drag]', lastDrag ? `dropped (${lastDrag.items.map((i) => i.mimeType).join(', ')})` : 'no drag started');
   }
   if (s.shot) {
     const r = await send('Page.captureScreenshot', { format: 'png' });

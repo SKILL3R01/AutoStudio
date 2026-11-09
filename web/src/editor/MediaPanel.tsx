@@ -1,12 +1,14 @@
 import { narrationEnd } from '../lib/audiotracks';
 import { keywordsFrom, siteLinks } from '../lib/stocklinks';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditor, clipEnd } from '../store';
 import { media } from '../render/media';
 import { fmtTime } from '../lib/util';
 import { addVoiceTake, placeAudio } from '../lib/project';
 import { narrationClips } from '../lib/audiotracks';
 import { placePip } from '../lib/pip';
+import { ASSET_MIME } from './actions';
+import { analyzeLevels } from '../audio/silence';
 import { useProject, useThumb } from './hooks';
 import { Section, Seg } from '../components/ui';
 import { Icon } from '../components/icons';
@@ -36,18 +38,36 @@ async function togglePreview(id: string) {
   void previewAudio.play();
 }
 
+/** Small waveform for audio tiles (levels are cached per buffer). */
+function MiniWave({ id }: { id: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    let live = true;
+    void media.audioBuffer(id).then((b) => {
+      const c = ref.current;
+      if (!b || !c || !live) return;
+      const { db } = analyzeLevels(b);
+      const g = c.getContext('2d')!;
+      g.clearRect(0, 0, c.width, c.height);
+      g.fillStyle = 'rgba(180, 200, 255, 0.75)';
+      const bars = 48, per = Math.max(1, Math.floor(db.length / bars));
+      for (let k = 0; k < bars; k++) {
+        let mx = -90;
+        for (let j = k * per; j < Math.min(db.length, (k + 1) * per); j++) mx = Math.max(mx, db[j]);
+        const h = Math.max(1, ((mx + 60) / 60) * c.height * 0.9);
+        g.fillRect(k * (c.width / bars) + 1, (c.height - h) / 2, c.width / bars - 2, h);
+      }
+    });
+    return () => void (live = false);
+  }, [id]);
+  return <canvas ref={ref} className="mini-wave" width={192} height={48} />;
+}
+
 function MediaItem({ a, uses, onInsert, onReplace, canReplace, match, list }: { a: Asset; uses: number; onInsert: (kind?: 'voice' | 'music' | 'sfx' | 'overlay') => void; onReplace: () => void; canReplace: boolean; match?: number; list: boolean }) {
   const thumb = useThumb(a.kind === 'audio' ? undefined : a.id, a.kind);
   const audio = a.kind === 'audio';
-  return (
-    <div className={`media-item ${list ? 'row-item' : ''} k-${a.kind}`} title={`${a.name} — drag onto the timeline`} draggable
-      onDragStart={(e) => (e.dataTransfer.setData('application/x-asset', a.id), (e.dataTransfer.effectAllowed = 'copy'))}>
-      <div className="mthumb">
-        {thumb ? <img src={thumb} alt="" loading="lazy" /> : <Icon name={a.kind === 'video' ? 'film' : audio ? 'music' : 'image'} />}
-        {(a.kind === 'video' || audio) && <span className="badge">{fmtTime(a.duration ?? 0, false)}</span>}
-        {uses > 0 && <span className="badge used">×{uses}</span>}
-        {match !== undefined && <span className={`badge match ${match >= 60 ? 'hi' : ''}`} title="How well it matches your description">{match}%</span>}
-        <div className="mactions">
+  const actions = (
+    <div className="mactions">
           {audio ? (
             <>
               <button className="icon-btn" title="Listen" onClick={() => void togglePreview(a.id)}><Icon name="play" /></button>
@@ -62,9 +82,21 @@ function MediaItem({ a, uses, onInsert, onReplace, canReplace, match, list }: { 
               {canReplace && <button className="icon-btn" title="Use for selected clip" onClick={onReplace}><Icon name="link" /></button>}
             </>
           )}
-        </div>
+    </div>
+  );
+  return (
+    <div className={`media-item ${list ? 'row-item' : ''} k-${a.kind}`} title={`${a.name} — drag onto the timeline`} draggable
+      onDragStart={(e) => (e.dataTransfer.setData(ASSET_MIME, a.id), (e.dataTransfer.effectAllowed = 'copy'))}>
+      <div className="mthumb">
+        {audio ? <MiniWave id={a.id} /> : thumb ? <img src={thumb} alt="" loading="lazy" draggable={false} /> : <Icon name={a.kind === 'video' ? 'film' : 'image'} />}
+        {(a.kind === 'video' || audio) && <span className="badge">{fmtTime(a.duration ?? 0, false)}</span>}
+        {uses > 0 && <span className="badge used">×{uses}</span>}
+        {match !== undefined && <span className={`badge match ${match >= 60 ? 'hi' : ''}`} title="How well it matches your description">{match}%</span>}
+        {!list && actions}
       </div>
       <span className="mname">{a.name}</span>
+      {list && actions}
+      {list && <span className="hint mmeta">{a.kind}{a.duration ? ` · ${fmtTime(a.duration, false)}` : a.width ? ` · ${a.width}×${a.height}` : ''}{uses ? ` · used ×${uses}` : ''}</span>}
     </div>
   );
 }
