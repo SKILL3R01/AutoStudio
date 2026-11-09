@@ -32,6 +32,8 @@ export function newProject(name = 'Untitled project'): Project {
     audioTracks: defaultTracks(),
     audio: [],
     narrationTrackId: TRACK_IDS.voice,
+    videoTracks: [],
+    pips: [],
     audioFade: { in: 0, out: 0 },
     clips: [],
     motionDepth: 0.12,

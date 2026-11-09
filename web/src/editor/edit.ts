@@ -5,7 +5,7 @@
 import { clipEnd, projectLength } from '../store';
 import { remapTime, type Range } from '../audio/silence';
 import { uid } from '../lib/util';
-import type { AudioClip, Clip, Overlay, Project, TypoBlock } from '../types';
+import type { AudioClip, Clip, Overlay, PipClip, Project, TypoBlock } from '../types';
 import { narrationClips, splitAudioClip, unbindWords } from '../lib/audiotracks';
 import { placeAudio } from '../lib/project';
 
@@ -23,7 +23,7 @@ export function applyTimeMap(p: Project, r: (t: number) => number, opts: { clips
   p.words.forEach((w) => ((w.start = r(w.start)), (w.end = r(w.end))));
   p.lines.forEach((l) => ((l.start = r(l.start)), (l.end = r(l.end)), l.words.forEach((w) => ((w.start = r(w.start)), (w.end = r(w.end))))));
   p.typo.forEach((b) => ((b.start = r(b.start)), (b.end = r(b.end)), b.words.forEach((w) => ((w.start = r(w.start)), (w.end = r(w.end))))));
-  for (const list of [p.overlays, p.audio] as { start: number; duration: number }[][]) {
+  for (const list of [p.overlays, p.audio, p.pips ?? []] as { start: number; duration: number }[][]) {
     list.forEach((o) => {
       const end = r(o.start + o.duration);
       o.start = r(o.start);
@@ -112,6 +112,7 @@ export type ClipboardData =
   | { kind: 'clips'; items: Clip0[] }
   | { kind: 'overlays'; items: Overlay[] }
   | { kind: 'audio'; items: AudioClip[] }
+  | { kind: 'pips'; items: PipClip[] }
   | { kind: 'typo'; items: TypoBlock[] }
   | { kind: 'mixed'; items: (Clip0 | Overlay | AudioClip | TypoBlock)[]; clips: Clip0[]; overlays: Overlay[]; audio: AudioClip[]; typo: TypoBlock[]; t0: number };
 
@@ -135,6 +136,7 @@ export function copyItems(p: Project, sel: { kind: string; id: string } | null, 
   const pick = <T extends { id: string }>(list: T[]) => list.filter((x) => x.id === sel.id).map((x) => structuredClone(x));
   if (sel.kind === 'overlay') return { kind: 'overlays', items: pick(p.overlays) };
   if (sel.kind === 'audio') return { kind: 'audio', items: pick(p.audio) };
+  if (sel.kind === 'pip') return { kind: 'pips', items: pick(p.pips) };
   if (sel.kind === 'keyword') return { kind: 'typo', items: pick(p.typo) };
   return null;
 }
@@ -194,6 +196,7 @@ export function pasteItems(p: Project, data: ClipboardData, t: number): string[]
   };
   if (data.kind === 'overlays') p.overlays.push(...data.items.map(fresh));
   if (data.kind === 'audio') p.audio.push(...data.items.map(fresh));
+  if (data.kind === 'pips') p.pips.push(...data.items.map(fresh));
   if (data.kind === 'typo') {
     p.typo.push(...data.items.map((b) => {
       const c = fresh(b);
@@ -241,7 +244,7 @@ export function snapPoints(p: Project, playhead: number, exclude?: string): numb
   const pts = [0, projectLength(p), playhead];
   p.clips.forEach((c, i) => i > 0 && c.id !== exclude && pts.push(c.start));
   if (p.clips.length) pts.push(p.length);
-  for (const o of [...p.overlays, ...p.audio]) if (o.id !== exclude) pts.push(o.start, o.start + o.duration);
+  for (const o of [...p.overlays, ...p.audio, ...(p.pips ?? [])]) if (o.id !== exclude) pts.push(o.start, o.start + o.duration);
   for (const b of p.typo) if (b.id !== exclude) pts.push(b.start, b.end);
   return pts;
 }

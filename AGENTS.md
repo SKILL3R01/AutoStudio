@@ -42,7 +42,9 @@
   - New voices go through `addVoiceTake` (never replace: a new voice track becomes the narration, the old one is muted). Other audio: `placeAudio`.
   - Captions / typography follow a moved narration clip (`moveAudioClip`, `shiftWords`). Transcription uses `narrationAudio()` (mix.ts) + `offsetWords`.
 - Timeline length = the end of the last item on any track (`projectLength`). `p.length` is the end of the main video track (the last clip runs to it). Blank sections are clips with `fill`.
-- Selection kinds: clip / overlay / audio / keyword; `multi` holds ids of any kind (Ctrl+A `selectAll`, mixed copy / paste in `edit.ts`).
+- Video overlay tracks (v3.1, `lib/pip.ts`): `project.videoTracks` + `project.pips` (`PipClip`: shape rect / circle / full / half, x / y centre, scale, radius, border, shadow, fades, zoom, volume). `PIP_PRESETS` (B-roll, PiP corner, face-cam, side by side). `drawPip` runs in `renderFrame` right after the main visuals (effects, text and captions stay on top); preview syncs their `<video>`, export decodes them via `pipAsClip`, the mix plays their sound when `volume > 0`.
+- Media panel (v3.1): All / Images / Video / Audio tabs, grid / list, sort; items are draggable (`application/x-asset`) onto the main video track, overlay tracks or audio tracks (`dropAsset` in Timeline). Timeline row heights are a UI preference (`localStorage.tlRows`), audio track heights live in the project.
+- Selection kinds: clip / overlay / audio / keyword / pip; `multi` holds ids of any kind (Ctrl+A `selectAll`, mixed copy / paste in `edit.ts`).
 - Filename times:
   - 2 parts = m-s; 3 parts = m-s-fraction; 4 parts = h-m-s-fraction.
   - The fraction is tenths with 1 digit, hundredths with 2, ms with 3 (`src/lib/timecode.ts`).
@@ -136,6 +138,7 @@
   - `scripts/steps-depth2.json`: depth maps
   - `scripts/steps-phaseA.json`: settings, collapsed panels, effect ranges, typography animation + handles
   - `scripts/steps-silence.json`: synthetic voice with pauses → Remove silences → length shrinks
+  - `scripts/steps-pip.json`: media tabs, add an image as an overlay, face-cam preset renders, delete / undo
   - `scripts/steps-phaseB.json`: duplicate, ripple delete, snapping toggle, split a voice clip (S) → delete a part → undo, Ctrl+A
   - `scripts/steps-tryai.json`: TryAIToday adapter against `node scripts/fake-tryai.mjs` (port 1236)
   - `scripts/steps-aivideo.json`: Animate with AI against `node scripts/fake-engine.mjs` (port 1237)

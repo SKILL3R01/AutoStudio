@@ -665,3 +665,19 @@ pre.code-err { white-space: pre-wrap; font-size: 11.5px; margin: 0; }
 .media-item.row-item .mthumb { width: 64px; height: 40px; aspect-ratio: auto; }
 .media-item.row-item .mname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .track.drop-on { outline: 2px dashed var(--accent); outline-offset: -2px; background: rgba(179, 157, 255, 0.08); }
+
+/* v3.1: video overlay tracks */
+.track.t-vov { background: rgba(120, 90, 200, 0.06); }
+.track.t-vov.muted { opacity: 0.45; }
+.item.pip { position: absolute; top: 3px; bottom: 3px; border-radius: 5px; background: #3b2f5c center / cover; border: 1px solid rgba(0, 0, 0, 0.6); overflow: hidden; }
+.item.pip.sel { box-shadow: 0 0 0 2px var(--accent); }
+
+/* v3.1: layout */
+.tl-labels .row-head { position: relative; }
+.tl-more { position: relative; }
+.tl-more-menu { position: fixed; }
+.tl-tools { flex-wrap: nowrap; overflow: hidden; }
+.tl-tools .btn.sm, .tl-tools .icon-btn { flex: none; }
+.inspector .section > .section-title, .inspector .sec-head { position: sticky; top: 0; z-index: 2; background: var(--bg2); }
+.ed-top { gap: 8px; }
+.ed-top .btn { white-space: nowrap; }

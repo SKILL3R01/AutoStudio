@@ -6,6 +6,7 @@ import { media } from '../render/media';
 import { fmtTime } from '../lib/util';
 import { addVoiceTake, placeAudio } from '../lib/project';
 import { narrationClips } from '../lib/audiotracks';
+import { placePip } from '../lib/pip';
 import { useProject, useThumb } from './hooks';
 import { Section, Seg } from '../components/ui';
 import { Icon } from '../components/icons';
@@ -35,7 +36,7 @@ async function togglePreview(id: string) {
   void previewAudio.play();
 }
 
-function MediaItem({ a, uses, onInsert, onReplace, canReplace, match, list }: { a: Asset; uses: number; onInsert: (kind?: 'voice' | 'music' | 'sfx') => void; onReplace: () => void; canReplace: boolean; match?: number; list: boolean }) {
+function MediaItem({ a, uses, onInsert, onReplace, canReplace, match, list }: { a: Asset; uses: number; onInsert: (kind?: 'voice' | 'music' | 'sfx' | 'overlay') => void; onReplace: () => void; canReplace: boolean; match?: number; list: boolean }) {
   const thumb = useThumb(a.kind === 'audio' ? undefined : a.id, a.kind);
   const audio = a.kind === 'audio';
   return (
@@ -57,6 +58,7 @@ function MediaItem({ a, uses, onInsert, onReplace, canReplace, match, list }: { 
           ) : (
             <>
               <button className="icon-btn" title="Insert at playhead" onClick={() => onInsert()}><Icon name="plus" /></button>
+              <button className="icon-btn" title="Add over the video at the playhead (picture-in-picture / B-roll)" onClick={() => onInsert('overlay')}><Icon name="layers" /></button>
               {canReplace && <button className="icon-btn" title="Use for selected clip" onClick={onReplace}><Icon name="link" /></button>}
             </>
           )}
@@ -90,7 +92,7 @@ export function replaceClipAsset(d: Project, clipId: string, assetId: string) {
 
 export function MediaPanel() {
   const p = useProject();
-  const { update, selection, time } = useEditor();
+  const { update, selection, time, select } = useEditor();
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unused'>('all');
   const [kind, setKind] = useState<'all' | 'image' | 'video' | 'audio'>('all');
@@ -110,10 +112,15 @@ export function MediaPanel() {
   let visuals = all.filter((a) => (kind === 'all' || a.kind === kind) && (filter === 'all' || !uses.get(a.id)));
   visuals = sort === 'name' ? [...visuals].sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true })) : sort === 'used' ? [...visuals].sort((x, y) => (uses.get(y.id) ?? 0) - (uses.get(x.id) ?? 0)) : sort === 'new' ? [...visuals].reverse() : visuals;
   if (scores) visuals = visuals.filter((a) => scores.has(a.id)).sort((a, b) => scores.get(b.id)! - scores.get(a.id)!);
-  const insert = (a: Asset, as?: 'voice' | 'music' | 'sfx') => {
+  const insert = (a: Asset, as?: 'voice' | 'music' | 'sfx' | 'overlay') => {
+    if (as === 'overlay') {
+      let id = '';
+      update((d) => void (id = placePip(d, a.id, time, a.kind === 'video' ? Math.min(a.duration ?? 4, 8) : 4).id));
+      return select({ kind: 'pip', id });
+    }
     if (a.kind !== 'audio') return update((d) => insertAssetAt(d, a.id, time));
     let info: ReturnType<typeof addVoiceTake> | undefined;
-    update((d) => void (as === 'voice' ? (info = addVoiceTake(d, a.id, a.duration ?? 0, narrationClips(d).length ? 0 : time)) : placeAudio(d, a.id, as ?? 'music', time, a.duration ?? 5)));
+    update((d) => void (as === 'voice' ? (info = addVoiceTake(d, a.id, a.duration ?? 0, narrationClips(d).length ? 0 : time)) : placeAudio(d, a.id, as === 'sfx' ? 'sfx' : 'music', time, a.duration ?? 5)));
     if (info?.replacedName) toast(`Added on “${info.trackName}” — your previous voice is kept on “${info.replacedName}” (muted)`, 'ok');
   };
   const replace = (a: Asset) => selection?.kind === 'clip' && update((d) => replaceClipAsset(d, selection.id, a.id));

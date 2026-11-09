@@ -1,3 +1,4 @@
+import { activePips, pipAsClip } from '../lib/pip';
 import {
   ALL_FORMATS, AudioBufferSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, Input, Mp4OutputFormat, OggOutputFormat, Output,
   WebMOutputFormat, getFirstEncodableAudioCodec, getFirstEncodableVideoCodec,
@@ -107,6 +108,14 @@ export async function exportVideo(p: Project, lines: CaptionLine[], onProgress: 
       plan.set(clip.id, list);
     }
   }
+  for (let f = 0; f < total; f++) {
+    for (const c of activePips(p, f / fps)) {
+      if (m.assets.get(c.assetId)?.kind !== 'video') continue;
+      const list = plan.get(c.id) ?? [];
+      list.push(c.trimIn + (f / fps - c.start));
+      plan.set(c.id, list);
+    }
+  }
   const frames = new VideoFrames(W, plan);
   const src: FrameSource = {
     clip: (clip, asset) => (asset.kind === 'video' ? frames.get(clip) : media.image(asset.id)),
@@ -125,6 +134,7 @@ export async function exportVideo(p: Project, lines: CaptionLine[], onProgress: 
       if (asset?.kind === 'video') await frames.next(clip);
       else if (asset) await media.ensureImage(asset.id);
     }
+    for (const c of activePips(p, t)) if (m.assets.get(c.assetId)?.kind === 'video') await frames.next(pipAsClip(c));
     await Promise.all(imagesNeededAt(m, t).map((id) => media.ensureImage(id)));
     renderFrame(ctx, m, t, src, W, H);
     await vsrc.add(t, 1 / fps);

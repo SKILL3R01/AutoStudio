@@ -1,4 +1,5 @@
 /** Timeline actions used by the toolbar, keyboard shortcuts and the Properties panel. */
+import { splitPip } from '../lib/pip';
 import { useEditor, findAsset } from '../store';
 import { media } from '../render/media';
 import { cutBuffer, encodeWav } from '../audio/silence';
@@ -21,6 +22,7 @@ export function splitAtPlayhead(at?: number) {
   update((d) => {
     if (sel?.kind === 'audio') ok = splitAudio(d, sel.id, t);
     else if (sel?.kind === 'overlay') ok = splitOverlay(d, sel.id, t);
+    else if (sel?.kind === 'pip') ok = splitPip(d, sel.id, t);
     else ok = splitClipAt(d, t);
   });
   if (!ok) toast('Put the playhead (or the mouse) inside the item to split it', 'info');
@@ -35,6 +37,7 @@ export function splitAllAtPlayhead() {
     if (splitClipAt(d, time)) n++;
     for (const c of [...d.audio]) if (c.start < time - 0.05 && c.start + c.duration > time + 0.05 && splitAudio(d, c.id, time)) n++;
     for (const o of [...d.overlays]) if (o.start < time - 0.1 && o.start + o.duration > time + 0.1 && splitOverlay(d, o.id, time)) n++;
+    for (const o of [...d.pips]) if (o.start < time - 0.1 && o.start + o.duration > time + 0.1 && splitPip(d, o.id, time)) n++;
   });
   toast(n ? `Split ${n} item${n > 1 ? 's' : ''} at the playhead` : 'Nothing under the playhead to split', n ? 'ok' : 'info');
 }

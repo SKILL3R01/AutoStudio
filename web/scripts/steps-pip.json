@@ -1,0 +1,68 @@
+[
+ {
+  "wait": 9000
+ },
+ {
+  "eval": "[...document.querySelectorAll('.rail button')].find(b => b.textContent.trim().startsWith('Media')).click(); 'media'"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "[...document.querySelectorAll('.panels .seg button, .panels button')].filter(b => /^(All|Images|Video|Audio) [0-9]+$/.test(b.textContent.trim())).map(b => b.textContent.trim()).join(', ')"
+ },
+ {
+  "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.main-end').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 7 * z, clientY: r.top + 5 })); window.dispatchEvent(new PointerEvent('pointerup', {})); return 'seek 7s'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { const b = [...document.querySelectorAll('.media-item')][1].querySelector('button[title^=\"Add over the video\"]'); b.click(); return 'overlay added'; })()"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "document.querySelectorAll('[data-vtrack] .item.pip').length + ' overlay clips \u00b7 inspector: ' + (document.querySelector('.inspector')?.innerText ?? '').split(String.fromCharCode(10))[0]"
+ },
+ {
+  "eval": "[...document.querySelectorAll('.inspector .tile')].find(b => b.textContent.includes('Face-cam')).click(); 'face-cam'"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.main-end').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 8 * z, clientY: r.top + 5 })); window.dispatchEvent(new PointerEvent('pointerup', {})); return 'seek 8s'; })()"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "shot": "facecam"
+ },
+ {
+  "eval": "(() => { const c = document.querySelector('.preview canvas, canvas.preview'); const g = c.getContext('2d'); const px = (x, y) => [...g.getImageData(Math.round(c.width * x), Math.round(c.height * y), 1, 1).data].slice(0, 3).join(','); return 'circle centre ' + px(0.86, 0.76) + ' \u00b7 frame centre ' + px(0.5, 0.5); })()"
+ },
+ {
+  "eval": "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true })); 'delete'"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "document.querySelectorAll('[data-vtrack] .item.pip').length + ' after delete'"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true })); 'undo'"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "document.querySelectorAll('[data-vtrack] .item.pip').length + ' after undo'"
+ }
+]

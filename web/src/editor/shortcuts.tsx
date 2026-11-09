@@ -15,6 +15,7 @@ export function deleteSelection() {
     p.overlays = p.overlays.filter((o) => !ids.has(o.id));
     p.audio = p.audio.filter((o) => !ids.has(o.id));
     p.typo = p.typo.filter((o) => !ids.has(o.id));
+    p.pips = p.pips.filter((o) => !ids.has(o.id));
   });
   select(null);
 }
@@ -23,7 +24,7 @@ export function deleteSelection() {
 export function selectAll() {
   const { project: p } = useEditor.getState();
   if (!p) return;
-  useEditor.setState({ selection: null, multi: [...p.clips, ...p.overlays, ...p.typo, ...p.audio].map((x) => x.id) });
+  useEditor.setState({ selection: null, multi: [...p.clips, ...p.overlays, ...p.typo, ...p.audio, ...p.pips].map((x) => x.id) });
 }
 
 /** Ctrl+X: copy, then delete. */

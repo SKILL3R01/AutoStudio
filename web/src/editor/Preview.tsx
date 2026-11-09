@@ -1,3 +1,4 @@
+import { activePips } from '../lib/pip';
 import { syncProxies } from '../lib/proxy';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../store';
@@ -34,6 +35,19 @@ function syncVideos(m: RenderModel, t: number, playing: boolean) {
       if (Math.abs(v.currentTime - want) > 0.03) v.currentTime = want;
     }
   }
+  for (const c of activePips(m.project, t)) {
+    if (m.assets.get(c.assetId)?.kind !== 'video' || active.has(c.assetId)) continue;
+    active.add(c.assetId);
+    const v = media.video(c.assetId);
+    const want = c.trimIn + (t - c.start);
+    if (playing) {
+      if (v.paused) (v.currentTime = want), void v.play().catch(() => {});
+      else if (Math.abs(v.currentTime - want) > 0.3) v.currentTime = want;
+    } else {
+      if (!v.paused) v.pause();
+      if (Math.abs(v.currentTime - want) > 0.03) v.currentTime = want;
+    }
+  }
   for (const [id, v] of media.allVideos()) if (!active.has(id) && !v.paused) v.pause();
 }
 
@@ -44,7 +58,7 @@ const source: FrameSource = {
 
 /** Only the fields that affect sound — playback restarts when these change, not on every visual tweak. */
 const audioKey = (p: Project) => JSON.stringify([
-  p.audio, p.audioTracks, p.narrationTrackId, p.clips.map((c) => [c.assetId, c.start, c.trimIn, c.trimOut, c.loop, c.volume]), p.words.length, p.lines.length,
+  p.audio, p.audioTracks, p.narrationTrackId, p.pips.map((c) => [c.assetId, c.start, c.trimIn, c.duration, c.volume]), p.clips.map((c) => [c.assetId, c.start, c.trimIn, c.trimOut, c.loop, c.volume]), p.words.length, p.lines.length,
 ]);
 
 type Draggable = { kind: 'overlay' | 'keyword'; id: string; x: number; y: number; w: number; h: number };

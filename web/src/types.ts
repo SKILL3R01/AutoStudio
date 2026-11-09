@@ -336,6 +336,43 @@ export interface Overlay {
 
 export type TrackKind = 'voice' | 'music' | 'sfx' | 'other';
 
+/** A video overlay track above the main video (v3.1). */
+export interface VideoTrack {
+  id: string;
+  name: string;
+  muted?: boolean;
+  height?: number;
+}
+
+export type PipShape = 'rect' | 'circle' | 'full' | 'half';
+
+/** Picture-in-picture / B-roll clip on a video overlay track. x / y = centre (0..1), scale = width share of the frame. */
+export interface PipClip {
+  id: string;
+  trackId: string;
+  assetId: string;
+  start: number;
+  duration: number;
+  trimIn: number;
+  shape: PipShape;
+  x: number;
+  y: number;
+  scale: number;
+  rotate: number;
+  opacity: number;
+  /** Corner radius as a share of the shorter side. */
+  radius: number;
+  border: number;
+  borderColor: string;
+  shadow: boolean;
+  fadeIn: number;
+  fadeOut: number;
+  /** Slow zoom over the clip (0 = none, 0.1 = +10 %). */
+  zoom?: number;
+  /** Sound of a video overlay (0 = muted). */
+  volume: number;
+}
+
 /** An audio track (v3.0): any number, any clip type. The narration track drives captions and ducking. */
 export interface AudioTrack {
   id: string;
@@ -403,6 +440,8 @@ export interface Project {
   audio: AudioClip[];
   /** Track whose clips are the narration (captions, ducking, silence tools). */
   narrationTrackId: string;
+  videoTracks: VideoTrack[];
+  pips: PipClip[];
   /** Master audio fade in/out in seconds. */
   audioFade: { in: number; out: number };
   clips: Clip[];

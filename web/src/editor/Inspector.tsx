@@ -1,3 +1,4 @@
+import { PIP_PRESETS } from '../lib/pip';
 import { mainVoiceAsset, moveAudioClip, voiceStartOf } from '../lib/audiotracks';
 import type { Motion } from '../types';
 import { fmtClock, parseClock, setClipStart } from '../lib/timeline';
@@ -7,13 +8,13 @@ import { useEditor, clipEnd, findAsset, projectLength, voiceEnd } from '../store
 
 import { useProject, useThumb } from './hooks';
 
-import { FilePick, Section, Select, Slider, LogBox, Toggle } from '../components/ui';
+import { FilePick, Section, Seg, Select, Slider, LogBox, Toggle } from '../components/ui';
 
 import { Icon } from '../components/icons';
 
 import { toast } from '../components/Toast';
 
-import { MOTIONS, TRANSITIONS, REGION_EFFECTS, TYPO_TEMPLATES, TYPO_ENTERS, TYPO_EXITS, type TypoEnter, type TypoExit, type Framing, type MotionEasing, type Overlay, type Region, type AudioClip, type TypoBlock, type TypoBg, type TypoRole, type TypoTemplate } from '../types';
+import { MOTIONS, TRANSITIONS, REGION_EFFECTS, TYPO_TEMPLATES, TYPO_ENTERS, TYPO_EXITS, type TypoEnter, type TypoExit, type Framing, type MotionEasing, type Overlay, type Region, type AudioClip, type PipClip, type TypoBlock, type TypoBg, type TypoRole, type TypoTemplate } from '../types';
 
 import { FONT_PAIRS, TEMPLATE_LABELS, TYPO_PALETTES } from '../lib/typography';
 
@@ -749,6 +750,61 @@ function AudioClipInspector({ id }: { id: string }) {
   );
 }
 
+function PipInspector({ id }: { id: string }) {
+  const p = useProject();
+  const update = useEditor((s) => s.update);
+  const c = p.pips.find((x) => x.id === id);
+  if (!c) return null;
+  const asset = findAsset(p, c.assetId);
+  const set = (fn: (x: PipClip) => void, k?: string) => update((d) => fn(d.pips.find((x) => x.id === id)!), k && `${k}${id}`);
+  const free = c.shape === 'rect' || c.shape === 'circle';
+  return (
+    <>
+      <Section title={`Overlay · ${asset?.name ?? ''}`}>
+        <p className="hint">{fmtTime(c.start)} → {fmtTime(c.start + c.duration)} · {c.duration.toFixed(2)} s · on {p.videoTracks.find((t) => t.id === c.trackId)?.name}</p>
+        <div className="grid2">
+          {Object.entries(PIP_PRESETS).map(([k, v]) => (
+            <button key={k} className="tile" title={v.hint} onClick={() => set((x) => void Object.assign(x, v.v))}>{v.label}</button>
+          ))}
+        </div>
+        <label className="field"><span>Start (m:ss.mmm)</span>
+          <input key={`${c.id}-${c.start}`} defaultValue={fmtClock(c.start)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} onBlur={(e) => {
+            const v = parseClock(e.target.value);
+            if (v === null) return void (e.target.value = fmtClock(c.start));
+            set((x) => void (x.start = Math.max(0, v)));
+          }} />
+        </label>
+        <Slider label="Length" value={c.duration} min={0.2} max={Math.max(30, c.duration)} step={0.1} onChange={(v) => set((x) => void (x.duration = v), 'pd')} suffix="s" />
+      </Section>
+      <Section title="Position & look">
+        {free && (
+          <>
+            <Slider label="Left ↔ right" value={c.x} min={0} max={1} step={0.005} onChange={(v) => set((x) => void (x.x = v), 'px')} fmt={(v) => `${Math.round(v * 100)}%`} />
+            <Slider label="Top ↕ bottom" value={c.y} min={0} max={1} step={0.005} onChange={(v) => set((x) => void (x.y = v), 'py')} fmt={(v) => `${Math.round(v * 100)}%`} />
+            <Slider label="Size" value={c.scale} min={0.08} max={1} step={0.005} onChange={(v) => set((x) => void (x.scale = v), 'ps')} fmt={(v) => `${Math.round(v * 100)}%`} />
+            <Slider label="Rotate" value={c.rotate} min={-30} max={30} step={0.5} onChange={(v) => set((x) => void (x.rotate = v), 'pr')} suffix="°" />
+            {c.shape === 'rect' && <Slider label="Rounded corners" value={c.radius} min={0} max={0.5} step={0.01} onChange={(v) => set((x) => void (x.radius = v), 'prad')} fmt={(v) => `${Math.round(v * 200)}%`} />}
+          </>
+        )}
+        {c.shape === 'half' && <Seg options={[['left', 'Left half'], ['right', 'Right half']] as const} value={c.x < 0.5 ? 'left' : 'right'} onChange={(v) => set((x) => void (x.x = v === 'left' ? 0.25 : 0.75))} />}
+        <Seg options={[['rect', 'Window'], ['circle', 'Circle'], ['full', 'Full screen'], ['half', 'Half']] as const} value={c.shape} onChange={(v) => set((x) => void (x.shape = v))} />
+        <Slider label="Opacity" value={c.opacity} min={0.1} max={1} onChange={(v) => set((x) => void (x.opacity = v), 'po')} fmt={(v) => `${Math.round(v * 100)}%`} />
+        {free && <Slider label="Border" value={c.border} min={0} max={16} step={1} onChange={(v) => set((x) => void (x.border = v), 'pb')} suffix=" px" />}
+        {free && c.border > 0 && <label className="field"><span>Border colour</span><input type="color" value={c.borderColor} onChange={(e) => set((x) => void (x.borderColor = e.target.value), 'pbc')} /></label>}
+        {free && <Toggle label="Shadow" value={c.shadow} onChange={(v) => set((x) => void (x.shadow = v))} />}
+        <Slider label="Slow zoom" value={c.zoom ?? 0} min={0} max={0.3} step={0.01} onChange={(v) => set((x) => void (x.zoom = v), 'pz')} fmt={(v) => (v ? `+${Math.round(v * 100)}%` : 'off')} />
+        <Slider label="Fade in" value={c.fadeIn} min={0} max={2} onChange={(v) => set((x) => void (x.fadeIn = v), 'pfi')} suffix="s" />
+        <Slider label="Fade out" value={c.fadeOut} min={0} max={2} onChange={(v) => set((x) => void (x.fadeOut = v), 'pfo')} suffix="s" />
+        {asset?.kind === 'video' && <Slider label="Clip sound" value={c.volume} min={0} max={1.5} onChange={(v) => set((x) => void (x.volume = v), 'pv')} fmt={(v) => (v ? `${Math.round(v * 100)}%` : 'muted')} />}
+        <div className="row wrap">
+          <button className="btn sm" onClick={() => splitAtPlayhead()}><Icon name="scissors" /> Split at playhead</button>
+          <button className="btn sm ghost danger" onClick={deleteSelection}><Icon name="trash" /> Remove</button>
+        </div>
+      </Section>
+    </>
+  );
+}
+
 function ProjectSummary() {
 
   const p = useProject();
@@ -810,6 +866,8 @@ export function Inspector() {
         {sel?.kind === 'keyword' && <KeywordInspector id={sel.id} />}
 
         {sel?.kind === 'audio' && <AudioClipInspector key={sel.id} id={sel.id} />}
+
+        {sel?.kind === 'pip' && <PipInspector key={sel.id} id={sel.id} />}
 
       </div>
 

@@ -1,3 +1,4 @@
+import { activePips, drawPip, pipAsClip } from '../lib/pip';
 import type { Asset, CaptionLine, Clip, EffectLayer, Overlay, Project, Transition } from '../types';
 import { clipEnd, projectLength } from '../store';
 import { clamp, easeInOut, hash } from '../lib/util';
@@ -45,6 +46,7 @@ export function imagesNeededAt(m: RenderModel, t: number): string[] {
     c.regions?.forEach((r) => ids.push(r.maskId));
   }
   for (const o of m.project.overlays) if (o.assetId && t >= o.start && t <= o.start + o.duration) ids.push(o.assetId);
+  for (const c of activePips(m.project, t)) if (m.assets.get(c.assetId)?.kind === 'image') ids.push(c.assetId);
   return ids;
 }
 
@@ -303,6 +305,10 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
   setEffectQuality(m.draft ? 0.5 : 1);
   ctx.save();
   drawVisuals(ctx, m, t, src, W, H);
+  for (const c of activePips(p, t)) {
+    const a = m.assets.get(c.assetId);
+    if (a) drawPip(ctx, c, t, (a.kind === 'video' ? src.clip(pipAsClip(c), a, c.trimIn + (t - c.start)) : src.image(a.id)) as never, W, H);
+  }
   for (const fx of p.effects) {
     if (fx.kind === 'none') continue;
     const k = effectAmount(fx, t, p.clips, m.length);

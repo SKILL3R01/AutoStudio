@@ -15,6 +15,7 @@ export interface Buffers {
 export async function loadBuffers(p: Project): Promise<Buffers> {
   const ids = new Set<string>();
   p.audio.forEach((c) => c.assetId && ids.add(c.assetId));
+  (p.pips ?? []).forEach((c) => c.volume > 0 && p.assets.find((a) => a.id === c.assetId)?.kind === 'video' && ids.add(c.assetId));
   p.clips.forEach((c) => {
     const a = p.assets.find((x) => x.id === c.assetId);
     if (a?.kind === 'video' && c.volume > 0) ids.add(c.assetId);
@@ -190,6 +191,13 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     else play(buf, start, dur, c.trimIn, g, undefined, rate);
   });
 
+  for (const c of want('clips') ? p.pips ?? [] : []) {
+    if (c.volume <= 0 || p.videoTracks.find((t) => t.id === c.trackId)?.muted) continue;
+    const g = ctx.createGain();
+    g.connect(master);
+    fades(g, c.volume, c.start, c.start + c.duration, c.fadeIn, c.fadeOut);
+    play(bufs.assets.get(c.assetId), c.start, c.duration, c.trimIn, g);
+  }
   return { nodes, master };
 }
 

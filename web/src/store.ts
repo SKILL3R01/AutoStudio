@@ -5,7 +5,7 @@ import { saveProject } from './lib/db';
 import { snapshot } from './lib/history';
 
 /** `voice` selections use the segment index as id. */
-export type Selection = { kind: 'clip' | 'overlay' | 'audio' | 'keyword'; id: string } | null;
+export type Selection = { kind: 'clip' | 'overlay' | 'audio' | 'keyword' | 'pip'; id: string } | null;
 
 interface EditorState {
   project: Project | null;
@@ -107,6 +107,7 @@ export const projectLength = (p: Project) =>
     p.clips.length ? p.length : 0,
     ...p.audio.map(clipEndOf),
     ...p.overlays.map((o) => o.start + o.duration),
+    ...(p.pips ?? []).map((o) => o.start + o.duration),
     ...p.typo.map((b) => b.end),
   );
 

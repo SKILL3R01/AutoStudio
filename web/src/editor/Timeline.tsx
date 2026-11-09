@@ -1,6 +1,8 @@
 import { useMenu } from './ContextMenu';
 import { addTrack, bindWords, captionDrift, moveAudioClip, newAudioClip, resolveOverlap, resyncCaptions, unbindWords } from '../lib/audiotracks';
 import { insertAssetAt } from './MediaPanel';
+import { addVideoTrack, newPip } from '../lib/pip';
+import type { PipClip } from '../types';
 import { toast } from '../components/Toast';
 import type { AudioTrack } from '../types';
 import { durationFlags, moveClip } from '../lib/timeline';
@@ -248,15 +250,15 @@ export function Timeline() {
   const setSnap = useEditor((s) => s.setSnap);
   const uiMode = useUi((u) => u.mode);
   /** Move an item, drag its right edge (`resize`) or its left edge (`trimStart`). Edges snap (Shift = no snap). */
-  const moveItem = (key: 'audio' | 'overlays' | 'typo', id: string, e: React.PointerEvent, mode: 'move' | 'resize' | 'trimStart' = 'move') => {
+  const moveItem = (key: 'audio' | 'overlays' | 'typo' | 'pips', id: string, e: React.PointerEvent, mode: 'move' | 'resize' | 'trimStart' = 'move') => {
     const item = (p[key] as { id: string; start: number; duration?: number; end?: number; trimIn?: number; rate?: number }[]).find((x) => x.id === id)!;
     const s0 = item.start, d0 = item.duration ?? 0, e0 = item.end ?? 0, tin0 = item.trimIn ?? 0, rate = item.rate ?? 1;
     const len0 = item.end !== undefined ? e0 - s0 : d0;
     const words0 = key === 'typo' ? p.typo.find((b) => b.id === id)!.words.map((w) => [w.start, w.end]) : [];
-    const kind = key === 'overlays' ? 'overlay' : key === 'typo' ? 'keyword' : 'audio';
+    const kind = key === 'overlays' ? 'overlay' : key === 'typo' ? 'keyword' : key === 'pips' ? 'pip' : 'audio';
     const st = useEditor.getState();
     const pts = st.snap ? snapPoints(p, st.time, id) : [];
-    const srcLen = key === 'audio' ? (assets.get(p.audio.find((c) => c.id === id)!.assetId)?.duration ?? Infinity) : Infinity;
+    const srcLen = key === 'audio' || key === 'pips' ? ((key === 'audio' ? assets.get(p.audio.find((c) => c.id === id)!.assetId) : assets.get(p.pips.find((c) => c.id === id)!.assetId))?.duration ?? Infinity) : Infinity;
     const clickT = s0 + (e.clientX - (e.currentTarget as HTMLElement).getBoundingClientRect().left) / zoom;
     startDrag(e, zoom, (dt, ev) => update((d) => {
       const snap = (t: number) => (pts.length && !ev.shiftKey ? snapTime(t, pts, zoom) : t);
@@ -267,6 +269,12 @@ export function Timeline() {
         const a = snap(raw), b = snap(raw + len0) - len0;
         const want = a !== raw && (b === raw || Math.abs(a - raw) <= Math.abs(b - raw)) ? a : b;
         const shift = Math.max(-s0, want - s0);
+        if (key === 'pips') {
+          const row = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest('[data-vtrack]') as HTMLElement | null;
+          it.start = s0 + shift;
+          if (row?.dataset.vtrack) it.trackId = row.dataset.vtrack;
+          return;
+        }
         if (key === 'audio') {
           // Drag up / down onto another audio track.
           const row = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest('[data-track]') as HTMLElement | null;
@@ -277,13 +285,13 @@ export function Timeline() {
         if (it.end !== undefined) it.end = e0 + shift;
         it.words?.forEach((w, k) => ((w.start = words0[k][0] + shift), (w.end = words0[k][1] + shift)));
       } else if (mode === 'trimStart') {
-        const lo = key === 'audio' ? s0 - tin0 / rate : 0;
+        const lo = key === 'audio' || key === 'pips' ? s0 - tin0 / rate : 0;
         const ns = Math.min(s0 + d0 - 0.2, Math.max(lo, snap(s0 + dt)));
         it.start = ns;
         it.duration = d0 - (ns - s0);
-        if (key === 'audio') it.trimIn = Math.max(0, tin0 + (ns - s0) * rate);
+        if (key === 'audio' || key === 'pips') it.trimIn = Math.max(0, tin0 + (ns - s0) * rate);
       } else if (it.end !== undefined) it.end = Math.max(it.start + 0.2, snap(e0 + dt));
-      else it.duration = Math.min(key === 'audio' ? (srcLen - tin0) / rate : Infinity, Math.max(0.2, snap(s0 + d0 + dt) - s0));
+      else it.duration = Math.min(key === 'audio' || (key === 'pips' && Number.isFinite(srcLen)) ? (srcLen - tin0) / rate : Infinity, Math.max(0.2, snap(s0 + d0 + dt) - s0));
     }, `${mode}-${id}`), () => {
       const st2 = useEditor.getState();
       if (e.shiftKey || e.ctrlKey || e.metaKey) return st2.toggleMulti(id);
@@ -362,9 +370,17 @@ export function Timeline() {
     if (!a) return;
     e.preventDefault();
     const t = Math.max(0, (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom);
-    if (target === 'video') {
+    if (target === 'video' || target.startsWith('v:')) {
       if (a.kind === 'audio') return toast('Drop audio on an audio track', 'info');
-      return update((d) => insertAssetAt(d, a.id, t));
+      if (target === 'video') return update((d) => insertAssetAt(d, a.id, t));
+      const tid = target.slice(2);
+      return update((d) => {
+        const c = newPip(tid, a.id, t, a.kind === 'video' ? Math.min(a.duration ?? 4, 8) : 4, 'corner');
+        const busy = d.pips.some((o) => o.trackId === tid && o.start < c.start + c.duration && o.start + o.duration > c.start);
+        if (busy) c.trackId = addVideoTrack(d);
+        d.pips.push(c);
+        useEditor.getState().select({ kind: 'pip', id: c.id });
+      });
     }
     if (a.kind === 'image') return toast('Drop images on the Video track', 'info');
     let moved = '';
@@ -376,9 +392,28 @@ export function Timeline() {
     });
     if (moved) toast(`That spot was taken — added on “${moved}”`, 'info');
   };
-  const base = ROWS[tlSize];
+  const [rowH, setRowH] = useState<Record<string, number>>(() => JSON.parse(localStorage.getItem('tlRows') || '{}'));
+  const base = { ...ROWS[tlSize], ...rowH };
+  /** Drag the bottom edge of a row header to resize it (text, typography, video, captions, FX, overlay tracks). */
+  const resizeRow = (key: string, e: React.PointerEvent, h0: number) => {
+    e.stopPropagation();
+    const y0 = e.clientY;
+    const move = (ev: PointerEvent) => setRowH((r) => {
+      const n = { ...r, [key]: Math.round(Math.min(220, Math.max(18, h0 + ev.clientY - y0))) };
+      localStorage.setItem('tlRows', JSON.stringify(n));
+      return n;
+    });
+    const up = () => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up));
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  const [more, setMoreAt] = useState<DOMRect | null>(null);
+  const setMore = (v: false) => void (v === false && setMoreAt(null));
   const trackH = (t: AudioTrack) => t.height ?? base.audio;
-  const rows = `${base.ruler}px ${base.text}px ${base.typo}px ${base.video}px ${base.caps}px ${p.audioTracks.map((t) => `${trackH(t)}px`).join(' ')} ${base.fx}px`;
+  const vtracks = [...p.videoTracks].reverse();
+  const vh = (id: string) => (base as Record<string, number>)[id] ?? Math.round(base.video * 0.7);
+  const rows = `${base.ruler}px ${base.text}px ${base.typo}px ${vtracks.map((t) => `${vh(t.id)}px`).join(' ')} ${base.video}px ${base.caps}px ${p.audioTracks.map((t) => `${trackH(t)}px`).join(' ')} ${base.fx}px`;
+  const grip = (key: string, h: number) => <i className="trk-resize" onPointerDown={(e) => resizeRow(key, e, h)} title="Drag to resize this row" />;
   const setTrack = (id: string, fn: (t: AudioTrack) => void) => update((d) => fn(d.audioTracks.find((t) => t.id === id)!));
 
   return (
@@ -395,9 +430,19 @@ export function Timeline() {
         <button className="icon-btn" disabled={sel?.kind !== 'clip' || assets.get(p.clips.find((c) => c.id === sel.id)?.assetId ?? '')?.kind !== 'video'} onClick={detachSelectedAudio} title="Detach audio: move a video clip's sound to an audio track"><Icon name="unlink" /></button>
         <span className="tl-sep" />
         <button className={`icon-btn ${snapOn ? 'on' : ''}`} onClick={() => setSnap(!snapOn)} title={`Snapping ${snapOn ? 'on' : 'off'} (N) — hold Shift while dragging to ignore`}><Icon name="magnet" /></button>
-        <button className="btn ghost sm" onClick={insertBlank} title="Insert a blank (black) section at the playhead"><Icon name="plus" /> Blank</button>
-        {uiMode === 'pro' && <button className="btn ghost sm" onClick={() => update((d) => void addTrack(d, 'other'))} title="Add an audio track"><Icon name="plus" /> Track</button>}
-        <button className="btn ghost sm" onClick={clearTimeline} title="Empty the timeline (keeps media and captions)"><Icon name="trash" /> Clear</button>
+        <span className="tl-more">
+          <button className={`btn ghost sm ${more ? 'on' : ''}`} onClick={(e) => setMoreAt(more ? null : e.currentTarget.getBoundingClientRect())} title="More timeline actions">More ▾</button>
+          {more && (
+            <div className="ctx-menu tl-more-menu" style={{ left: more.left, bottom: window.innerHeight - more.top + 4 }} onMouseLeave={() => setMore(false)}>
+              <button onClick={() => (setMore(false), insertBlank())}><Icon name="plus" size={13} /> Blank section at playhead</button>
+              {uiMode === 'pro' && <button onClick={() => (setMore(false), update((d) => void addVideoTrack(d)))}><Icon name="layers" size={13} /> Add video track (PiP / B-roll)</button>}
+              {uiMode === 'pro' && <button onClick={() => (setMore(false), update((d) => void addTrack(d, 'other')))}><Icon name="music" size={13} /> Add audio track</button>}
+              <button onClick={() => (setMore(false), setRowH({}), localStorage.removeItem('tlRows'))}><Icon name="undo" size={13} /> Reset row sizes</button>
+              <hr />
+              <button onClick={() => (setMore(false), clearTimeline())}><Icon name="trash" size={13} /> Clear timeline…</button>
+            </div>
+          )}
+        </span>
         <select className="tl-size" value={tlSize} onChange={(e) => setTlSize(e.target.value as TlSize)} title="Timeline size">
           <option value="compact">Compact</option><option value="comfortable">Comfortable</option><option value="large">Large</option>
         </select>
@@ -420,10 +465,20 @@ export function Timeline() {
       <div className="tl-body">
         <div className="tl-labels" style={{ gridTemplateRows: rows }}>
           <span />
-          <span title="Text overlays"><Icon name="text" size={13} /> Text</span>
-          <span title="Typography"><Icon name="keywords" size={13} /> Typo</span>
-          <span title="Video / images"><Icon name="film" size={13} /> Video</span>
-          <span title="Captions"><Icon name="captions" size={13} /> Caps</span>
+          <span className="row-head" title="Text overlays"><Icon name="text" size={13} /> Text{grip('text', base.text)}</span>
+          <span className="row-head" title="Typography"><Icon name="keywords" size={13} /> Typo{grip('typo', base.typo)}</span>
+          {vtracks.map((t) => (
+            <span key={t.id} className={`trk-head ${t.muted ? 'muted' : ''}`}>
+              <b title="Video overlay track (picture-in-picture / B-roll)">{t.name}</b>
+              <span className="trk-btns">
+                <button className={t.muted ? 'on' : ''} onClick={() => update((d) => void (d.videoTracks.find((x) => x.id === t.id)!.muted = !t.muted))} title="Hide this track">M</button>
+                {uiMode === 'pro' && !p.pips.some((c) => c.trackId === t.id) && <button onClick={() => update((d) => void (d.videoTracks = d.videoTracks.filter((x) => x.id !== t.id)))} title="Remove empty track">×</button>}
+              </span>
+              {grip(t.id, vh(t.id))}
+            </span>
+          ))}
+          <span className="row-head" title="Main video / images"><Icon name="film" size={13} /> Video{grip('video', base.video)}</span>
+          <span className="row-head" title="Captions"><Icon name="captions" size={13} /> Caps{grip('caps', base.caps)}</span>
           {p.audioTracks.map((t) => (
             <span key={t.id} className={`trk-head ${t.muted ? 'muted' : ''}`}>
               <b title={t.name}>{t.id === p.narrationTrackId ? '★ ' : ''}{t.name}</b>
@@ -436,7 +491,7 @@ export function Timeline() {
               <i className="trk-resize" onPointerDown={(e) => resizeTrack(t.id, e, trackH(t))} title="Drag to resize this track" />
             </span>
           ))}
-          <span title="Effects"><Icon name="sfx" size={13} /> FX</span>
+          <span className="row-head" title="Effects"><Icon name="sfx" size={13} /> FX{grip('fx', base.fx)}</span>
         </div>
         <div className="tl-scroll" ref={scroller} onWheel={(e) => {
           if (e.ctrlKey) {
@@ -463,6 +518,14 @@ export function Timeline() {
                 </div>
               ))}
             </div>
+            {vtracks.map((t) => (
+              <div key={t.id} className={`track t-vov ${t.muted ? 'muted' : ''}`} data-vtrack={t.id} onDragOver={allowDrop} onDragLeave={dropLeave} onDrop={(e) => dropAsset(e, `v:${t.id}`)}>
+                {p.pips.filter((c) => c.trackId === t.id && inView(c.start, c.start + c.duration)).map((c) => (
+                  <PipBlock key={c.id} c={c} zoom={zoom} sel={sel?.id === c.id || multi.includes(c.id)} name={assets.get(c.assetId)?.name ?? ''} kind={assets.get(c.assetId)?.kind}
+                    onDown={(e, mode) => moveItem('pips', c.id, e, mode)} onMenu={(e) => openMenu(e, { kind: 'pip', id: c.id }, c.start + (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom)} />
+                ))}
+              </div>
+            ))}
             <div className="track t-video" onDragOver={allowDrop} onDragLeave={dropLeave} onDrop={(e) => dropAsset(e, 'video')}>
               {p.clips.map((c, i) => {
                 const end = clipEnd(p, i);
@@ -549,3 +612,17 @@ function FadeRamp({ dir, w }: { dir: 'in' | 'out'; w: number }) {
   );
 }
 
+
+/** An overlay clip (picture-in-picture / B-roll) on a video overlay track. */
+function PipBlock({ c, zoom, sel, name, kind, onDown, onMenu }: { c: PipClip; zoom: number; sel: boolean; name: string; kind?: string; onDown: (e: React.PointerEvent, mode?: 'move' | 'resize' | 'trimStart') => void; onMenu: (e: React.MouseEvent) => void }) {
+  const thumb = useThumb(c.assetId, kind === 'video' ? 'video' : 'image');
+  const w = Math.max(8, c.duration * zoom);
+  return (
+    <div className={`item pip ${sel ? 'sel' : ''}`} style={{ left: c.start * zoom, width: w, backgroundImage: thumb && w > 18 ? `url(${thumb})` : undefined }}
+      onPointerDown={(e) => onDown(e)} onContextMenu={onMenu} title={`${name} · overlay ${c.shape === 'full' ? '(full-screen B-roll)' : c.shape} — drag to move (also to another video track)`}>
+      <div className="resize left" onPointerDown={(e) => onDown(e, 'trimStart')} />
+      <span className="aclip-name">{c.shape === 'full' ? '▣ ' : c.shape === 'circle' ? '◯ ' : '▢ '}{name}</span>
+      <div className="resize" onPointerDown={(e) => onDown(e, 'resize')} />
+    </div>
+  );
+}
