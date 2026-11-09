@@ -16,6 +16,9 @@ export interface VoiceSample {
   createdAt: number;
   /** The user confirmed this is their voice, or that they have permission to clone it. */
   consent: true;
+  /** Profile settings used whenever this voice is picked. */
+  settings?: { exaggeration: number; cfg: number; language?: string };
+  notes?: string;
 }
 
 const INDEX = 'voices:index';
@@ -146,4 +149,32 @@ export async function joinParagraphs(parts: Blob[], pause = 0.45): Promise<Blob>
     at += src.length + (i < bufs.length - 1 ? gap : 0);
   }
   return encodeWav(out);
+}
+
+/** Change a saved voice profile (name, settings, notes). */
+export async function updateVoice(id: string, patch: Partial<VoiceSample>) {
+  const list = await listVoices();
+  await set(INDEX, list.map((v) => (v.id === id ? { ...v, ...patch, id } : v)));
+}
+
+/** A voice profile as one portable file (sample audio + settings). */
+export async function exportVoice(id: string): Promise<Blob | null> {
+  const v = (await listVoices()).find((x) => x.id === id);
+  const b = await voiceBlob(id);
+  if (!v || !b) return null;
+  const bytes = new Uint8Array(await b.arrayBuffer());
+  let bin = '';
+  for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode(...bytes.subarray(k, k + 0x8000));
+  return new Blob([JSON.stringify({ kind: 'autostudio-voice', version: 1, profile: v, mime: b.type, audio: btoa(bin) })], { type: 'application/json' });
+}
+
+export async function importVoice(file: File): Promise<VoiceSample> {
+  const j = JSON.parse(await file.text());
+  if (j.kind !== 'autostudio-voice' || !j.audio) throw new Error('This is not an AutoStudio voice file');
+  const bin = atob(j.audio);
+  const bytes = new Uint8Array(bin.length);
+  for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+  const v: VoiceSample = { ...j.profile, id: 'v_' + Math.random().toString(36).slice(2, 10), createdAt: Date.now() };
+  await saveVoice(v, new Blob([bytes], { type: j.mime || 'audio/wav' }));
+  return v;
 }

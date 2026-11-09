@@ -1,3 +1,4 @@
+import { download } from '../lib/util';
 import { mainVoiceAsset, narrationTrack, unbindWords } from '../lib/audiotracks';
 import { addVoiceTake, probe } from '../lib/project';
 import { offsetWords } from '../audio/mix';
@@ -8,14 +9,14 @@ import { FilePick, Section, Seg, Select, Slider, Toggle } from '../components/ui
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { engineHas, useEngine } from '../lib/engine';
-import { KOKORO_VOICES, transcribeLocal } from '../ai/vision';
+import { KOKORO_VOICES, speakDraft, transcribeLocal } from '../ai/vision';
 import { uid } from '../lib/util';
 import { useRecorder, toMonoWav } from './recorder';
 import { FX_PRESETS, defaultFx, makeupFor, type VoiceFx } from '../audio/enhance';
 import { paceAndPitch } from '../audio/pitch';
 import { encodeWav } from '../audio/silence';
 import { media } from '../render/media';
-import { checkSample, deleteVoice, detectLanguage, joinParagraphs, listVoices, paragraphsOf, saveVoice, speakParagraph, voiceBlob, type Backend, type GenSettings, type VoiceSample } from './library';
+import { checkSample, deleteVoice, detectLanguage, exportVoice, importVoice, joinParagraphs, listVoices, paragraphsOf, saveVoice, speakParagraph, updateVoice, voiceBlob, type Backend, type GenSettings, type VoiceSample } from './library';
 
 const LANGS: [string, string][] = [['auto', 'Auto (from the script)'], ['en', 'English'], ['ar', 'Arabic'], ['fr', 'French'], ['es', 'Spanish'], ['de', 'German'], ['it', 'Italian'], ['pt', 'Portuguese'], ['tr', 'Turkish'], ['hi', 'Hindi'], ['ru', 'Russian'], ['ja', 'Japanese'], ['zh', 'Chinese']];
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -120,13 +121,34 @@ function VoiceLibrary({ voices, reload, selected, onSelect }: { voices: VoiceSam
         <button className={`voice-item ${!selected ? 'on' : ''}`} onClick={() => onSelect(undefined)}><Icon name="mic" size={14} /> Default voice <span className="hint">(no cloning)</span></button>
         {voices.map((v) => (
           <div key={v.id} className={`voice-item ${selected === v.id ? 'on' : ''}`} onClick={() => onSelect(v.id)}>
-            <Icon name="mic" size={14} /> {v.name} <span className="hint">{v.duration.toFixed(0)} s</span>
+            <Icon name="mic" size={14} /> {v.name} <span className="hint">{v.duration.toFixed(0)} s{v.settings ? ' · settings saved' : ''}</span>
             <span className="grow" />
             <button className="icon-btn" title="Listen" onClick={(e) => (e.stopPropagation(), void play(v.id))}><Icon name="play" size={13} /></button>
+            <button className="icon-btn" title="Rename" onClick={async (e) => {
+              e.stopPropagation();
+              const n = prompt('Profile name', v.name)?.trim();
+              if (n) (await updateVoice(v.id, { name: n }), reload());
+            }}><Icon name="text" size={13} /></button>
+            <button className="icon-btn" title="Export this voice profile (to use on another PC)" onClick={async (e) => {
+              e.stopPropagation();
+              const b = await exportVoice(v.id);
+              if (b) download(b, `${v.name.replace(/[^\p{L}\p{N} _-]/gu, '')}.autostudio-voice.json`);
+            }}><Icon name="download" size={13} /></button>
             <button className="icon-btn" title="Delete" onClick={async (e) => (e.stopPropagation(), confirm(`Delete “${v.name}”?`) && (await deleteVoice(v.id), selected === v.id && onSelect(undefined), reload()))}><Icon name="trash" size={13} /></button>
           </div>
         ))}
       </div>
+      <FilePick accept=".json,application/json" className="btn sm ghost" onFiles={async ([f]) => {
+        if (!f) return;
+        try {
+          const v = await importVoice(f);
+          reload();
+          onSelect(v.id);
+          toast(`Imported “${v.name}”`, 'ok');
+        } catch (e) {
+          toast((e as Error).message, 'error');
+        }
+      }}><Icon name="upload" /> Import a voice profile</FilePick>
       <audio ref={audio} hidden />
       <div className="card">
         <b>Add a voice to clone</b>
@@ -199,6 +221,20 @@ export function VoicePanel() {
   const preview = useRef<HTMLAudioElement>(null);
   const rec = useRecorder();
   useEffect(() => void (voiceId ? localStorage.setItem('voiceStudio.voice', voiceId) : localStorage.removeItem('voiceStudio.voice')), [voiceId]);
+  useEffect(() => {
+    const st = voices.find((v) => v.id === voiceId)?.settings;
+    if (st) (setEx(st.exaggeration), setCfg(st.cfg), st.language && setLang(st.language));
+  }, [voiceId, voices.length]);
+  const saveProfileSettings = async () => {
+    if (!voiceId) return;
+    await updateVoice(voiceId, { settings: { exaggeration: ex, cfg, language: lang } });
+    reload();
+    toast('Saved these settings to the voice profile — they load whenever you pick it', 'ok');
+  };
+  const previewDraft = async () => {
+    const { wav } = await speakDraft('Hi! This is how I sound for your next video.', draftVoice);
+    if (preview.current) (preview.current.src = URL.createObjectURL(wav)), void preview.current.play();
+  };
   useEffect(() => window.autostudio?.voice?.onProgress((pr) => pr.id && setDone((d) => ({ ...d, chunk: pr.pct }))), []);
   useEffect(() => {
     if (!window.autostudio?.voice && colab) setBackend('colab');
@@ -273,7 +309,10 @@ export function VoicePanel() {
         <Seg options={[['local', 'Cloned voice (this PC)'], ['draft', 'Instant draft (English)'], ...(colab ? [['colab', 'Colab (turbo)'] as [Backend, string]] : [])] as [Backend, string][]} value={backend} onChange={setBackend} />
         {backend === 'draft' && (
           <>
-            <Select label="Draft voice" value={draftVoice} options={KOKORO_VOICES} onChange={setDraftVoice} />
+            <div className="row">
+              <Select label={`Draft voice (${KOKORO_VOICES.length})`} value={draftVoice} options={KOKORO_VOICES} onChange={setDraftVoice} />
+              <button className="icon-btn" title="Listen to this voice" onClick={() => void previewDraft()}><Icon name="play" /></button>
+            </div>
             <p className="hint">Natural preset voices (Kokoro, ~90 MB once) — English only, no cloning, about real-time on most PCs. Great for testing pacing before the final cloned voice.</p>
           </>
         )}
@@ -287,6 +326,7 @@ export function VoicePanel() {
         <Select label="Language" value={lang} options={LANGS} onChange={setLang} />
         <Slider label="Expressiveness" value={ex} min={0.25} max={1} step={0.05} onChange={setEx} fmt={(v) => (v < 0.4 ? 'calm' : v > 0.7 ? 'dramatic' : 'natural')} />
         <Slider label="Pace / guidance" value={cfg} min={0.2} max={0.8} step={0.05} onChange={setCfg} fmt={(v) => (v < 0.4 ? 'slower, steadier' : v > 0.6 ? 'faster' : 'balanced')} />
+        {voiceId && backend !== 'draft' && <button className="btn sm ghost" onClick={() => void saveProfileSettings()} title="Store expressiveness, pace and language with this voice"><Icon name="check" /> Save settings to “{voices.find((v) => v.id === voiceId)?.name}”</button>}
         <Toggle label="Create captions when done (on this PC)" value={captions} onChange={setCaptions} />
         {busy ? (
           <>

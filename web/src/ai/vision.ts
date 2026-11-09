@@ -116,7 +116,12 @@ export async function transcribeLocal(audio: Blob, model: 'base' | 'small' = 'ba
 
 /** Natural preset English voices (Kokoro) — instant drafts, no install. */
 export const KOKORO_VOICES: [string, string][] = [
-  ['af_heart', 'Heart (US, female)'], ['af_bella', 'Bella (US, female)'], ['af_nicole', 'Nicole (US, soft)'], ['am_michael', 'Michael (US, male)'],
-  ['am_fenrir', 'Fenrir (US, deep)'], ['am_puck', 'Puck (US, lively)'], ['bf_emma', 'Emma (UK, female)'], ['bm_george', 'George (UK, male)'],
+  ['af_heart', 'US · female · Heart'], ['af_bella', 'US · female · Bella'], ['af_nicole', 'US · female · Nicole (soft)'], ['af_sarah', 'US · female · Sarah'],
+  ['af_sky', 'US · female · Sky'], ['af_nova', 'US · female · Nova'], ['af_alloy', 'US · female · Alloy'], ['af_aoede', 'US · female · Aoede'],
+  ['af_jessica', 'US · female · Jessica'], ['af_kore', 'US · female · Kore'], ['af_river', 'US · female · River'],
+  ['am_michael', 'US · male · Michael'], ['am_fenrir', 'US · male · Fenrir (deep)'], ['am_puck', 'US · male · Puck (lively)'], ['am_adam', 'US · male · Adam'],
+  ['am_echo', 'US · male · Echo'], ['am_eric', 'US · male · Eric'], ['am_liam', 'US · male · Liam'], ['am_onyx', 'US · male · Onyx'], ['am_santa', 'US · male · Santa'],
+  ['bf_emma', 'UK · female · Emma'], ['bf_alice', 'UK · female · Alice'], ['bf_isabella', 'UK · female · Isabella'], ['bf_lily', 'UK · female · Lily'],
+  ['bm_george', 'UK · male · George'], ['bm_daniel', 'UK · male · Daniel'], ['bm_fable', 'UK · male · Fable'], ['bm_lewis', 'UK · male · Lewis'],
 ];
 export const speakDraft = (text: string, voice = 'af_heart', speed = 1) => call<{ wav: Blob; seconds: number }>({ type: 'kokoro', text, voice, speed });
