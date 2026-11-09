@@ -282,6 +282,11 @@ export function Timeline() {
       else d.length = Math.round(want * 10) / 10;
     }, 'end'));
   };
+  /** Empty the timeline (visuals, text, typography, music, SFX). Media, voiceover and captions stay; Undo restores. */
+  const clearTimeline = () => {
+    if (!confirm('Clear the timeline? Clips, text, typography, music and sound effects are removed. Your media, voiceover and captions stay. (Undo brings everything back)')) return;
+    update((d) => void ((d.clips = []), (d.overlays = []), (d.typo = []), (d.music = []), (d.sfx = []), (d.effects = d.effects.filter((e) => !e.scope || e.scope.kind === 'all'))));
+  };
   const insertBlank = () => update((d) => {
     const t = useEditor.getState().time;
     d.clips.push(blankClip(d.clips.length ? t : 0));
@@ -317,6 +322,7 @@ export function Timeline() {
         <span className="tl-sep" />
         <button className={`icon-btn ${snapOn ? 'on' : ''}`} onClick={() => setSnap(!snapOn)} title={`Snapping ${snapOn ? 'on' : 'off'} (N)`}><Icon name="magnet" /></button>
         <button className="btn ghost sm" onClick={insertBlank} title="Insert a blank (black) section at the playhead"><Icon name="plus" /> Blank</button>
+        <button className="btn ghost sm" onClick={clearTimeline} title="Empty the timeline (keeps media, voiceover and captions)"><Icon name="trash" /> Clear</button>
         {selCount > 1 && <span className="chip">{selCount} clips selected</span>}
         <div className="grow" />
         <button className="icon-btn" onClick={() => setZoom(Math.max(1, zoom / 1.5))} title="Zoom out">−</button>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useEditor } from '../store';
 import { useProject } from './hooks';
-import { Section, Seg, Select, Slider } from '../components/ui';
+import { FilePick, Section, Seg, Select, Slider } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { chat, useLlm } from '../lib/llm';
@@ -40,6 +40,11 @@ export function extractShader(text: string): string {
   return fenced.slice(i, end > 0 ? end : undefined).trim();
 }
 
+/** "My effects": saved effects available in every project (localStorage), with file import / export. */
+const LIB_KEY = 'myEffects';
+export const loadLibrary = (): CustomEffect[] => JSON.parse(globalThis.localStorage?.getItem(LIB_KEY) ?? '[]');
+const saveLibrary = (l: CustomEffect[]) => localStorage.setItem(LIB_KEY, JSON.stringify(l));
+
 export function EffectsLab() {
   const p = useProject();
   const update = useEditor((s) => s.update);
@@ -49,6 +54,35 @@ export function EffectsLab() {
   const [desc, setDesc] = useState('');
   const [busy, setBusy] = useState(false);
   const list = p.customEffects ?? [];
+  const [library, setLibrary] = useState<CustomEffect[]>(loadLibrary);
+  const toLibrary = (c: CustomEffect) => {
+    const next = [structuredClone(c), ...library.filter((x) => x.id !== c.id)];
+    setLibrary(next);
+    saveLibrary(next);
+  };
+  const removeFromLibrary = (id: string) => {
+    const next = library.filter((x) => x.id !== id);
+    setLibrary(next);
+    saveLibrary(next);
+  };
+  const exportLibrary = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify({ autostudioEffects: 1, effects: library }, null, 1)], { type: 'application/json' }));
+    a.download = 'my-effects.autostudio-fx.json';
+    a.click();
+  };
+  const importLibrary = async (f: File) => {
+    try {
+      const j = JSON.parse(await f.text());
+      const got: CustomEffect[] = (j.effects ?? []).filter((x: CustomEffect) => x && x.id && x.name && (x.code || x.particles));
+      const next = [...got, ...library.filter((x) => !got.some((g) => g.id === x.id))];
+      setLibrary(next);
+      saveLibrary(next);
+      toast(`Imported ${got.length} effect${got.length === 1 ? '' : 's'}`, 'ok');
+    } catch {
+      toast('That file is not an AutoStudio effects file', 'error');
+    }
+  };
 
   const save = (c: CustomEffect, apply = true) => update((d) => {
     d.customEffects = [...(d.customEffects ?? []).filter((x) => x.id !== c.id), c];
@@ -92,8 +126,30 @@ export function EffectsLab() {
           </div>
         </div>
       ))}
+      {!edit && library.length > 0 && (
+        <div className="card">
+          <b>My effects <span className="hint">(every project)</span></b>
+          {library.map((c) => (
+            <div key={c.id} className="row between card-row">
+              <span><Icon name={c.kind === 'shader' ? 'bolt' : 'effects'} size={13} /> {c.name}</span>
+              <div className="row">
+                {!list.some((x) => x.id === c.id) && <button className="btn sm ghost" onClick={() => save(structuredClone(c))}>Add</button>}
+                <button className="btn sm ghost" onClick={() => {
+                  const name = prompt('Rename effect', c.name);
+                  if (name) toLibrary({ ...c, name });
+                }}>Rename</button>
+                <button className="icon-btn" title="Remove from My effects" onClick={() => confirm(`Remove “${c.name}” from My effects?`) && removeFromLibrary(c.id)}><Icon name="trash" size={13} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {!edit && (
         <>
+          <div className="row wrap">
+            <button className="btn sm ghost" disabled={!library.length} onClick={exportLibrary}><Icon name="download" /> Export my effects</button>
+            <FilePick accept=".json" className="btn sm ghost" onFiles={([f]) => f && importLibrary(f)}><Icon name="upload" /> Import</FilePick>
+          </div>
           <div className="row wrap">
             <button className="btn sm" onClick={() => newParticles()}><Icon name="plus" /> Particles</button>
             <button className="btn sm" onClick={() => newShader()}><Icon name="plus" /> Code shader</button>
@@ -140,7 +196,7 @@ export function EffectsLab() {
             </>
           )}
           <div className="row">
-            <button className="btn sm primary" disabled={edit.kind === 'shader' && !!error} onClick={() => (save(edit), setEdit(null), toast('Effect saved and added — preview plays it live', 'ok'))}><Icon name="check" /> Save & apply</button>
+            <button className="btn sm primary" disabled={edit.kind === 'shader' && !!error} onClick={() => (save(edit), toLibrary(edit), setEdit(null), toast('Saved to My effects (every project) and added here', 'ok'))}><Icon name="check" /> Save & apply</button>
             <button className="btn sm ghost" onClick={() => (save(edit, false), toast('Preview updated', 'info'))} disabled={edit.kind === 'shader' && !!error}>Update preview</button>
             <button className="btn sm ghost" onClick={() => setEdit(null)}>Cancel</button>
           </div>
