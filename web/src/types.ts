@@ -140,6 +140,8 @@ export interface Clip {
   regions?: Region[];
   /** The user chose to ignore the too-short / too-long warning for this clip. */
   ignoreDuration?: boolean;
+  /** Framing per output format: the point of the image kept in frame (0..1) and an extra zoom. */
+  focus?: Partial<Record<Aspect, { x: number; y: number; zoom?: number }>>;
 }
 
 export const REGION_EFFECTS = ['sway', 'ripple', 'glow', 'flicker', 'shimmer', 'hue', 'blink', 'sparkle', 'pop'] as const;
@@ -442,6 +444,9 @@ export interface Project {
   narrationTrackId: string;
   videoTracks: VideoTrack[];
   pips: PipClip[];
+  /** Shorts made from a long video: the original project and the range they came from. */
+  sourceProjectId?: string;
+  sourceRange?: [number, number];
   /** Master audio fade in/out in seconds. */
   audioFade: { in: number; out: number };
   clips: Clip[];

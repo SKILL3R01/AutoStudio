@@ -697,3 +697,23 @@ pre.code-err { white-space: pre-wrap; font-size: 11.5px; margin: 0; }
 .media-list .mactions .icon-btn { width: 28px; height: 28px; background: var(--panel); color: var(--text); border: 1px solid var(--line2); }
 .media-list .badge { font-size: 9.5px; }
 .media-list .media-item.row-item .mmeta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* v3.3: formats + framing */
+.format-switch .seg button { padding: 3px 8px; font-size: 12px; }
+.framing-pad { position: relative; width: 100%; background: #000 center / 100% 100% no-repeat; border-radius: 6px; cursor: crosshair; overflow: hidden; }
+.framing-pad::after { content: ''; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); pointer-events: none; }
+.framing-box { position: absolute; z-index: 1; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); outline: 2px solid var(--accent); border-radius: 2px; pointer-events: none; }
+.framing-pad .framing-box { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55); }
+.framing-pad::after { display: none; }
+
+.safe { position: absolute; inset: 0; pointer-events: none; font-size: 10px; color: rgba(255, 255, 255, 0.85); }
+.safe .zone { position: absolute; background: rgba(255, 80, 80, 0.18); border: 1px dashed rgba(255, 120, 120, 0.7); display: grid; place-items: center; text-transform: uppercase; letter-spacing: 0.06em; }
+.safe .safe-box { position: absolute; border: 1px dashed rgba(255, 255, 255, 0.6); border-radius: 3px; }
+.safe.tall .zone.top { left: 0; right: 0; top: 0; height: 8%; }
+.safe.tall .zone.right { right: 0; top: 40%; width: 15%; height: 42%; }
+.safe.tall .zone.bottom { left: 0; right: 0; bottom: 0; height: 18%; }
+.safe.tall .safe-box { left: 6%; right: 17%; top: 10%; bottom: 20%; }
+.safe.wide .safe-box.action { inset: 5%; }
+.safe.wide .safe-box.title { inset: 10%; border-color: rgba(255, 220, 120, 0.7); }
+.safe.wide .zone.endscreen { right: 5%; bottom: 8%; width: 32%; height: 34%; background: rgba(120, 160, 255, 0.12); border-color: rgba(140, 170, 255, 0.6); }
+.safe.feed .safe-box { inset: 8% 6%; }

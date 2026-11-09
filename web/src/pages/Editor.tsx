@@ -17,6 +17,8 @@ import { Splitter, usePanelSize } from '../editor/Splitter';
 import { AutoEditDialog } from '../editor/AutoEditDialog';
 import { Wizard } from '../editor/Wizard';
 import { ContextMenu } from '../editor/ContextMenu';
+import { FormatSwitch } from '../editor/Framing';
+import { ShortsDialog } from '../editor/ShortsDialog';
 import { updateThumbnail } from '../lib/thumbnail';
 import { buildLines } from '../lib/captions';
 import type { Project } from '../types';
@@ -61,7 +63,7 @@ export function Editor({ id }: { id: string }) {
 function Workspace() {
   const p = useEditor((s) => s.project!);
   const { update, undo, redo, past, future } = useEditor();
-  const [dialog, setDialog] = useState<'import' | 'export' | 'keys' | 'auto' | null>(null);
+  const [dialog, setDialog] = useState<'import' | 'export' | 'keys' | 'auto' | 'shorts' | null>(null);
   useEffect(() => {
     const h = (e: Event) => setDialog((e as CustomEvent<'import' | 'export' | 'auto'>).detail);
     window.addEventListener('autostudio:dialog', h);
@@ -83,10 +85,13 @@ function Workspace() {
         <button className="icon-btn" disabled={!past.length} onClick={undo} title="Undo (Ctrl+Z)"><Icon name="undo" /></button>
         <button className="icon-btn" disabled={!future.length} onClick={redo} title="Redo (Ctrl+Shift+Z)"><Icon name="redo" /></button>
         <div className="grow" />
+        <FormatSwitch />
         {vo && <span className="chip"><Icon name="mic" size={13} /> {vo.name}</span>}
         <span className="chip"><Icon name="film" size={13} /> {p.clips.length} clips</span>
         <button className="icon-btn" onClick={() => setDialog('keys')} title="Keyboard shortcuts (?)"><Icon name="keyboard" /></button>
         <button className="btn sm" onClick={() => setDialog('auto')} title="Voiceover → scenes → a visual per scene → timeline"><Icon name="wand" /> Auto-edit</button>
+        {p.export.aspect !== '9:16' && <button className="btn sm" onClick={() => setDialog('shorts')} title="Make a vertical Short from a part of this video"><Icon name="film" /> Make Short</button>}
+        {p.sourceProjectId && <button className="btn sm ghost" onClick={() => navigate({ page: 'editor', id: p.sourceProjectId! })} title="Open the long video this Short was made from"><Icon name="back" /> Long version</button>}
         <button className="btn sm" onClick={() => setDialog('import')}><Icon name="upload" /> Add media</button>
         <button className="btn sm primary" onClick={() => setDialog('export')}><Icon name="export" /> Export</button>
       </div>
@@ -103,6 +108,7 @@ function Workspace() {
       <Timeline />
       {dialog === 'import' && <ImportDialog onClose={() => setDialog(null)} />}
       {dialog === 'export' && <ExportDialog onClose={() => setDialog(null)} />}
+      {dialog === 'shorts' && <ShortsDialog onClose={() => setDialog(null)} />}
       {dialog === 'keys' && <ShortcutsDialog onClose={() => setDialog(null)} />}
       {dialog === 'auto' && <AutoEditDialog onClose={() => setDialog(null)} />}
       {p.wizardStep !== undefined && <Wizard />}

@@ -1,3 +1,4 @@
+import { FramingSection } from './Framing';
 import { denoise } from '../audio/denoise';
 import { processClipAudio } from './actions';
 import { SilenceDialog } from './SilenceDialog';
@@ -333,6 +334,8 @@ function ClipInspector({ id }: { id: string }) {
       )}
 
       {asset.kind === 'image' && <AiVideoSection clip={clip} i={i} asset={asset} />}
+
+      <FramingSection clipId={clip.id} />
 
       <Section title="Depth & animated details" hint="Make the image come alive: 3D depth motion, and effects on a part of the image you click.">
 

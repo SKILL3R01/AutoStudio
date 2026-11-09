@@ -278,7 +278,7 @@ export function Preview() {
         }}>
         <div className="frame" style={{ width: W * fitScale, height: H * fitScale }}>
           <canvas ref={canvas} width={W} height={H} onPointerDown={onPointerDown} onDoubleClick={() => useEditor.getState().setPlaying(!playing)} />
-          {guides && <div className={`guides ${m.project.export.aspect === '9:16' ? 'tall' : ''}`} />}
+          {guides && <SafeArea aspect={m.project.export.aspect} />}
           {dropping && <div className="preview-drop">Drop to add at {fmtTime(time)}</div>}
           {sel && (
             <div className="sel-box" style={{ left: `${(sel.x - sel.w / 2) * 100}%`, top: `${(sel.y - sel.h / 2) * 100}%`, width: `${sel.w * 100}%`, height: `${sel.h * 100}%`, transform: `rotate(${selRotation}deg)` }}>
@@ -304,4 +304,20 @@ export function Preview() {
       </div>
     </div>
   );
+}
+
+/** Safe-area guides for the current format: title / action safe for 16:9, the Shorts / TikTok / Reels button and caption zones for 9:16, feed crop for 1:1 and 4:5. */
+function SafeArea({ aspect }: { aspect: string }) {
+  if (aspect === '9:16') {
+    return (
+      <div className="safe tall">
+        <div className="zone top" title="Top bar (search / Live)">top bar</div>
+        <div className="zone right" title="Like / comment / share buttons">buttons</div>
+        <div className="zone bottom" title="Channel name, description and music">title &amp; caption</div>
+        <div className="safe-box" />
+      </div>
+    );
+  }
+  if (aspect === '16:9') return <div className="safe wide"><div className="safe-box action" title="Action safe (5 %)" /><div className="safe-box title" title="Title safe (10 %)" /><div className="zone endscreen" title="YouTube end-screen elements (last 20 s)">end screen</div></div>;
+  return <div className="safe feed"><div className="safe-box" title="Keep text inside — feeds crop to 4:5 / 1:1" /></div>;
 }

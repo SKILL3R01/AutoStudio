@@ -1,4 +1,5 @@
 import { activePips, drawPip, pipAsClip } from '../lib/pip';
+import { focusShift } from '../lib/framing';
 import type { Asset, CaptionLine, Clip, EffectLayer, Overlay, Project, Transition } from '../types';
 import { clipEnd, projectLength } from '../store';
 import { clamp, easeInOut, hash } from '../lib/util';
@@ -140,11 +141,14 @@ function drawClip(g: CanvasRenderingContext2D, m: RenderModel, i: number, t: num
     g.filter = `blur(${Math.round(W / 40)}px) ${color === 'none' ? '' : color} brightness(0.6)`;
     g.drawImage(d, (W - w * cover * 1.1) / 2, (H - h * cover * 1.1) / 2, w * cover * 1.1, h * cover * 1.1);
   }
-  const s = clip.fit === 'contain' ? contain : cover;
+  // Framing: the focus point chosen for this output format (cover only) shifts / zooms the crop.
+  const f = clip.fit === 'contain' ? undefined : clip.focus?.[p.export.aspect];
+  const s = clip.fit === 'contain' ? contain : cover * Math.max(1, f?.zoom ?? 1);
+  const fs = f ? focusShift(w, h, W, H, s, f) : { dx: 0, dy: 0 };
   g.filter = color;
   g.translate(W / 2 + x.dx * W, H / 2 + x.dy * H);
   g.scale(x.scale, x.scale);
-  g.drawImage(d, (-w * s) / 2, (-h * s) / 2, w * s, h * s);
+  g.drawImage(d, (-w * s) / 2 + fs.dx, (-h * s) / 2 + fs.dy, w * s, h * s);
   g.restore();
   drawVignette(g, W, H, grade.vignette ?? 0);
 }
