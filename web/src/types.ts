@@ -1,7 +1,7 @@
 import type { ParticleSpec } from './render/particles';
 import type { VoiceFx } from './audio/enhance';
 import type { PenFont } from './render/strokefont';
-import type { Credit } from './lib/freemedia';
+import type { Credit } from './lib/stocklinks';
 export type AssetKind = 'image' | 'video' | 'audio';
 
 export interface Asset {

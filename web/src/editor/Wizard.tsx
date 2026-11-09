@@ -82,7 +82,7 @@ export function Wizard() {
         )}
         {step === 2 && (
           <>
-            <p>Auto-edit splits the narration into scenes and finds a visual for each — your media first, then free media — and you review every scene.</p>
+            <p>Auto-edit splits the narration into scenes and finds a visual for each — your media first, then AI images or placeholders — and you review every scene.</p>
             <div className="row wrap">
               <button className="btn sm primary" onClick={() => openDialog('auto')}><Icon name="wand" /> Auto-edit</button>
               <button className="btn sm" onClick={() => openDialog('import')}><Icon name="upload" /> Add my media</button>

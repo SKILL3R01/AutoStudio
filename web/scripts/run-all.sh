@@ -3,7 +3,7 @@
 #   bash scripts/run-all.sh [out-dir=../.shots/all]
 #   SUITES="v3 review"  run only these suites
 #   STRICT=1            exit 1 when a suite prints an unexpected problem (CI release gate)
-#   OFFLINE=1           skip suites that need the internet / big model downloads (phaseF, describe)
+#   OFFLINE=1           skip suites that need the internet / big model downloads (describe)
 cd "$(dirname "$0")/.."
 OUT=${1:-../.shots/all}
 mkdir -p "$OUT"
@@ -18,7 +18,7 @@ FAILED=0
 EXPECTED='no button \(no voiceover\?\)|"no modal"|"apply disabled"|"no toast"|getAllPromptList|chrome-extension|Receiving end does not exist'
 run() { # name url steps [ui-mode]
   if [ -n "$SUITES" ] && [[ " $SUITES " != *" $1 "* ]]; then return; fi
-  if [ -n "$OFFLINE" ] && [[ " phaseF describe " == *" $1 "* ]]; then return; fi
+  if [ -n "$OFFLINE" ] && [[ " describe " == *" $1 "* ]]; then return; fi
   echo "=== $1"
   UI_MODE=${4:-pro} timeout 240 node scripts/cdp-shot.mjs "$2" "$OUT/$1" "scripts/$3" >"$OUT/$1.log" 2>&1 || echo "[eval] \"suite error or timeout (exit $?)\"" >>"$OUT/$1.log"
   local bad
@@ -41,7 +41,6 @@ run prompts "http://localhost:5173/#demo" steps-prompts.json
 run growth "http://localhost:5173/#demo" steps-growth.json
 run handdrawn "http://localhost:5173/" steps-handdrawn.json
 run phaseE "http://localhost:5173/#demo" steps-phaseE.json
-run phaseF "http://localhost:5173/#demo" steps-phaseF.json
 run describe "http://localhost:5173/#demo" steps-describe.json
 run typostudio "http://localhost:5173/#demo" steps-typostudio.json
 run timeline "http://localhost:5173/#demo" steps-timeline.json

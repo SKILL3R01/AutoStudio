@@ -1,3 +1,4 @@
+import { keywordsFrom, siteLinks } from '../lib/stocklinks';
 import { useState } from 'react';
 import { useEditor, clipEnd } from '../store';
 import { useProject, useThumb } from './hooks';
@@ -117,6 +118,10 @@ export function MediaPanel() {
       <Seg options={[['all', 'All'], ['unused', 'Unused']] as const} value={filter} onChange={setFilter} />
       <div className="media-grid">
         {visuals.map((a) => <MediaItem key={a.id} a={a} uses={uses.get(a.id) ?? 0} match={scores?.get(a.id)} onInsert={() => insert(a)} onReplace={() => replace(a)} canReplace={selection?.kind === 'clip'} />)}
+      </div>
+      <p className="hint">Need more? Download from a stock site, then Import:</p>
+      <div className="row wrap">
+        {siteLinks(query || keywordsFrom(p.words.filter((w) => Math.abs(w.start - time) < 4).map((w) => w.text).join(' ')) || 'nature', 'video').map((l) => <a key={l.label} className="btn sm ghost" href={l.url} target="_blank" rel="noreferrer"><Icon name="link" /> {l.label}</a>)}
       </div>
       {open && <ImportDialog onClose={() => setOpen(false)} />}
     </Section>

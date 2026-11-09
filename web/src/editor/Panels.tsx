@@ -7,7 +7,6 @@ import { Icon } from '../components/icons';
 import { CaptionsPanel } from './CaptionsPanel';
 import { KeywordsPanel } from './KeywordsPanel';
 import { MediaPanel } from './MediaPanel';
-import { FreeMediaPanel } from './FreeMediaPanel';
 import { VoicePanel } from '../voice/VoicePanel';
 import { useUi } from '../lib/uimode';
 import { EffectsLab } from './EffectsLab';
@@ -21,14 +20,14 @@ import { blankClip, importAudio, probe, setVoiceStart } from '../lib/project';
 import { uid } from '../lib/util';
 
 export const TABS = [
-  ['media', 'Media', 'media'], ['stock', 'Free media', 'download'], ['motion', 'Motion', 'motion'], ['transitions', 'Transitions', 'transition'], ['captions', 'Captions', 'captions'],
+  ['media', 'Media', 'media'], ['motion', 'Motion', 'motion'], ['transitions', 'Transitions', 'transition'], ['captions', 'Captions', 'captions'],
   ['keywords', 'Typography', 'keywords'], ['text', 'Text', 'text'], ['voice', 'Voice', 'mic'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['color', 'Colour', 'image'], ['ai', 'AI', 'wand'],
 ] as const;
 export type Tab = (typeof TABS)[number][0];
 
 /** Simple mode: five areas instead of twelve panels. */
 const GROUPS: { id: string; name: string; icon: string; hint: string; tabs: Tab[] }[] = [
-  { id: 'media', name: 'Media', icon: 'media', hint: 'Your media and free media', tabs: ['media', 'stock'] },
+  { id: 'media', name: 'Media', icon: 'media', hint: 'Your images, video and audio', tabs: ['media'] },
   { id: 'voice', name: 'Voice', icon: 'mic', hint: 'Voiceover, music and sound effects', tabs: ['voice', 'music', 'sfx'] },
   { id: 'text', name: 'Text', icon: 'captions', hint: 'Captions, typography and titles', tabs: ['captions', 'keywords', 'text'] },
   { id: 'style', name: 'Style', icon: 'effects', hint: 'Motion, transitions, colour and effects', tabs: ['motion', 'transitions', 'color', 'effects'] },
@@ -86,7 +85,6 @@ export function Sidebar() {
         )}
         <div className="panel-body">
           {tab === 'media' && <MediaPanel />}
-          {tab === 'stock' && <FreeMediaPanel />}
           {tab === 'voice' && <VoicePanel />}
           {tab === 'motion' && <MotionPanel />}
           {tab === 'transitions' && <TransitionsPanel />}

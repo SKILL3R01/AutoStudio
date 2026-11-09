@@ -1,9 +1,9 @@
 /**
  * Auto-edit from a voiceover: split the narration into scenes (sentence / pause boundaries, optional beat snapping),
- * find a visual for each scene (your media via CLIP, free media, AI images, or a placeholder), then build the timeline.
+ * find a visual for each scene (your media via CLIP, AI images, or a placeholder), then build the timeline.
  */
 import { blankClip, defaultClip } from './project';
-import type { FreeItem, Credit } from './freemedia';
+import type { Credit } from './stocklinks';
 import type { Clip, Motion, Project, Word } from '../types';
 
 export interface PlannedScene {
@@ -12,7 +12,7 @@ export interface PlannedScene {
   text: string;
 }
 
-export type CandidateSource = 'mine' | 'free' | 'ai' | 'blank';
+export type CandidateSource = 'mine' | 'ai' | 'blank';
 export interface Candidate {
   key: string;
   source: CandidateSource;
@@ -20,8 +20,6 @@ export interface Candidate {
   thumb?: string;
   /** Existing project asset (mine / ai). */
   assetId?: string;
-  /** Not downloaded yet (free). */
-  free?: FreeItem;
   /** 0–100 match for "mine". */
   match?: number;
 }
@@ -110,7 +108,7 @@ export function buildClips(scenes: PlannedScene[], assetFor: (i: number) => stri
 }
 
 /** Replace the project's clips with the auto-edit (one undo step in the caller). */
-export function applyAutoEdit(p: Project, clips: Clip[], credits: Credit[]) {
+export function applyAutoEdit(p: Project, clips: Clip[], credits: Credit[] = []) {
   p.clips = clips;
   if (credits.length) p.credits = [...(p.credits ?? []).filter((c) => !credits.some((n) => n.assetId === c.assetId)), ...credits];
 }

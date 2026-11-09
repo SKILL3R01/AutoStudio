@@ -6,14 +6,14 @@ import { detectBeats } from '../audio/beats';
 import { applyAutoEdit, assignUnique, buildClips, planScenes, type AutoOptions, type AutoScene, type Candidate } from '../lib/autoedit';
 import { indexMedia, matchPercent, decodeVec, dot, searchable, unindexed } from '../lib/mediasearch';
 import { clipEmbedText, transcribeLocal } from '../ai/vision';
-import { downloadFree, keywordsFrom, searchAll, type Credit, type FreeSource } from '../lib/freemedia';
+import { keywordsFrom } from '../lib/stocklinks';
 import { chatJson, useLlm } from '../lib/llm';
 import { engineHas, fetchResult, runJob, useEngine } from '../lib/engine';
 import { STYLE_PRESETS, buildPrompt, stampName } from '../lib/scenes';
 import { confirmHeavyAi } from '../lib/perf';
 import { probe } from '../lib/project';
 import { fmtTime } from '../lib/util';
-import { Seg, Select, Slider, Toggle } from '../components/ui';
+import { Select, Slider, Toggle } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import type { Asset, Word } from '../types';
@@ -36,10 +36,6 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
   const engine = useEngine((s) => s.status);
   const [o, setO] = useState<AutoOptions>({ target: 4, snapBeats: p.music.length > 0, motion: 'vary', transitions: 'mixed' });
   const [useMine, setUseMine] = useState(searchable(p).length > 0);
-  const [useFree, setUseFree] = useState(true);
-  const [freeKind, setFreeKind] = useState<'image' | 'video'>('image');
-  const [freeSource, setFreeSource] = useState<FreeSource>('wikimedia');
-  const [allowCredit, setAllowCredit] = useState(false);
   const [aiQueries, setAiQueries] = useState(llm === 'ready');
   const [style, setStyle] = useState(STYLE_PRESETS[0][0]);
   const [scenes, setScenes] = useState<AutoScene[] | null>(null);
@@ -88,13 +84,7 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
     return out;
   };
 
-  const freeCandidates = async (q: string, n = 3): Promise<Candidate[]> => {
-    // All sources at once; then the other media type (images <-> video); searchAll itself retries simpler words.
-    const sources: FreeSource[] = freeSource === 'openverse' ? ['openverse', 'wikimedia', 'nasa'] : ['wikimedia', 'openverse', 'nasa', 'usgs'];
-    let list = (await searchAll(q, freeKind, allowCredit, sources)).items;
-    if (!list.length) list = (await searchAll(q, freeKind === 'image' ? 'video' : 'image', allowCredit, sources)).items;
-    return list.slice(0, n).map((f) => ({ key: f.id, source: 'free', label: `${f.title.slice(0, 40)} · ${f.license}`, thumb: f.thumb, free: f }));
-  };;
+;
 
   const plan = async () => {
     try {
@@ -131,20 +121,6 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
           });
         }
       }
-      if (useFree) {
-        for (const [i, s] of out.entries()) {
-          if (s.pick !== 'blank') continue;
-          setBusy(`Searching free ${freeKind === 'video' ? 'video' : 'images'} ${i + 1} / ${out.length}: “${s.query}”…`);
-          try {
-            const c = await freeCandidates(s.query);
-            s.candidates.splice(s.candidates.length - 1, 0, ...c);
-            if (c[0]) s.pick = c[0].key;
-          } catch (e) {
-            toast((e as Error).message, 'error');
-            break;
-          }
-        }
-      }
       setScenes(out);
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -154,22 +130,7 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
   };
 
   const setScene = (i: number, fn: (s: AutoScene) => void) => setScenes((list) => list && list.map((s, k) => (k === i ? (() => { const c = { ...s, candidates: [...s.candidates] }; fn(c); return c; })() : s)));
-  const researchScene = async (i: number) => {
-    const s = scenes![i];
-    setBusy(`Searching “${s.query}”…`);
-    try {
-      const c = await freeCandidates(s.query, 6);
-      setScene(i, (x) => {
-        x.candidates = [...x.candidates.filter((k) => k.source !== 'free'), ...c];
-        x.candidates.push(...x.candidates.splice(x.candidates.findIndex((k) => k.source === 'blank'), 1));
-        if (c[0]) x.pick = c[0].key;
-      });
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setBusy('');
-    }
-  };
+
 
   /** One Colab job for every scene still on a placeholder (or all scenes). */
   const aiImages = async (all: boolean) => {
@@ -208,27 +169,18 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
     if (empty && !confirm(`${empty} of ${scenes.length} scenes have no visual yet and will be black placeholders. Build anyway? (You can fill them later — right-click a clip → Replace, or use AI images.)`)) return;
     if (p.clips.length && !confirm(`Replace your ${p.clips.length} clips with ${scenes.length} auto-edited scenes? (Undo brings them back)`)) return;
     const assetFor: (string | undefined)[] = [];
-    const credits: Credit[] = [];
     const newAssets: Asset[] = [];
     try {
       for (const [i, s] of scenes.entries()) {
         const c = s.candidates.find((k) => k.key === s.pick);
         if (!c || c.source === 'blank') continue;
         if (c.assetId) assetFor[i] = c.assetId;
-        else if (c.free) {
-          setBusy(`Downloading ${i + 1} / ${scenes.length}…`);
-          const blob = await downloadFree(c.free);
-          const ext = (blob.type.split('/')[1] ?? 'bin').replace('jpeg', 'jpg').replace(/;.*/, '');
-          const a = await probe(blob, `${stampName(s.start, ext).replace(/\.[^.]+$/, '')}_${c.free.title.replace(/[^\p{L}\p{N} _-]/gu, '').slice(0, 30).trim()}.${ext}`, c.free.kind === 'video' ? 'video' : 'image');
-          newAssets.push(a);
-          assetFor[i] = a.id;
-          credits.push({ assetId: a.id, title: c.free.title, creator: c.free.creator, license: c.free.license, page: c.free.page, required: c.free.credit });
-        }
+
       }
       update((d) => {
         d.assets.push(...newAssets);
         const kinds = new Map(d.assets.map((a) => [a.id, a.kind]));
-        applyAutoEdit(d, buildClips(scenes, (i) => assetFor[i], (id) => kinds.get(id) === 'video', o), credits);
+        applyAutoEdit(d, buildClips(scenes, (i) => assetFor[i], (id) => kinds.get(id) === 'video', o));
       });
       const blanks = scenes.length - assetFor.filter(Boolean).length;
       toast(`Timeline built: ${scenes.length} scenes${blanks ? ` (${blanks} placeholders to fill)` : ''} — Undo restores the old edit`, 'ok');
@@ -259,14 +211,6 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
             <Toggle label={`Cut on the music's beats${p.music.length ? '' : ' (add music first)'}`} value={o.snapBeats && p.music.length > 0} onChange={(v) => setO({ ...o, snapBeats: v })} />
             <h4>Where visuals come from (in order)</h4>
             <Toggle label={`1. My media — best match by description (${searchable(p).length} items, runs on this PC)`} value={useMine} onChange={setUseMine} />
-            <Toggle label="2. Free media for the rest (public domain / CC0)" value={useFree} onChange={setUseFree} />
-            {useFree && (
-              <div className="row wrap">
-                <Seg options={[['image', 'Images'], ['video', 'Video']] as const} value={freeKind} onChange={setFreeKind} />
-                <select value={freeSource} onChange={(e) => setFreeSource(e.target.value as FreeSource)}><option value="wikimedia">Wikimedia Commons</option><option value="openverse">Openverse (images)</option></select>
-                <Toggle label="Allow CC BY (credit)" value={allowCredit} onChange={setAllowCredit} />
-              </div>
-            )}
             <Toggle label={`Write visual searches with my AI assistant${llm === 'ready' ? '' : ' (connect LLM)'}`} value={aiQueries && llm === 'ready'} onChange={setAiQueries} />
             <p className="hint">After planning you can also generate AI images on Colab for any scene, or keep placeholders to fill with Google Flow.</p>
             <div className="row">
@@ -294,15 +238,14 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
                   <div className="scene-text">
                     <span>{s.text || <em className="hint">(no narration)</em>}</span>
                     <div className="row">
-                      <input value={s.query} onChange={(e) => setScene(i, (x) => void (x.query = e.target.value))} onKeyDown={(e) => e.key === 'Enter' && researchScene(i)} />
-                      <button className="icon-btn" disabled={!!busy} onClick={() => researchScene(i)} title="Search free media again"><Icon name="undo" /></button>
+                      <input value={s.query} onChange={(e) => setScene(i, (x) => void (x.query = e.target.value))} />
                     </div>
                   </div>
                   <div className="scene-cands">
                     {s.candidates.map((c) => (
                       <button key={c.key} className={`cand ${s.pick === c.key ? 'on' : ''} ${c.source}`} onClick={() => setScene(i, (x) => void (x.pick = c.key))} title={c.label}>
                         <Thumb c={c} />
-                        <span>{c.source === 'mine' ? `${c.match}%` : c.source === 'free' ? (c.free?.credit ? 'credit' : 'free') : c.source === 'ai' ? 'AI' : '—'}</span>
+                        <span>{c.source === 'mine' ? `${c.match}%` : c.source === 'ai' ? 'AI' : '—'}</span>
                       </button>
                     ))}
                   </div>
