@@ -11,6 +11,7 @@ import { indexMedia, matchPercent, queryVector, rank, unindexed } from '../lib/m
 import { useVision } from '../ai/vision';
 import { confirmHeavyAi } from '../lib/perf';
 import { toast } from '../components/Toast';
+import { makeProxy, needsProxy } from '../lib/proxy';
 
 function MediaItem({ a, uses, onInsert, onReplace, canReplace, match }: { a: Asset; uses: number; onInsert: () => void; onReplace: () => void; canReplace: boolean; match?: number }) {
   const thumb = useThumb(a.id, a.kind);
@@ -87,6 +88,26 @@ export function MediaPanel() {
   return (
     <Section title={`Media (${visuals.length})`}>
       <button className="btn primary" onClick={() => setOpen(true)}><Icon name="upload" /> Import media…</button>
+      {p.assets.some(needsProxy) && (
+        <div className="card notice">
+          <b>{p.assets.filter(needsProxy).length} large video{p.assets.filter(needsProxy).length > 1 ? 's' : ''} (above 1080p)</b>
+          <p className="hint">Make 720p working copies for smooth editing. The preview uses them; export always uses your original files.</p>
+          <button className="btn sm" disabled={!!busy} onClick={async () => {
+            const list = p.assets.filter(needsProxy);
+            try {
+              for (const [i, a] of list.entries()) {
+                const id = await makeProxy(a, (f) => setBusy(`Working copy ${i + 1} / ${list.length}: ${Math.round(f * 100)}%`));
+                update((d) => void (d.assets.find((x) => x.id === a.id)!.proxyId = id));
+              }
+              toast('Working copies ready — preview is lighter now', 'ok');
+            } catch (e) {
+              toast((e as Error).message, 'error');
+            } finally {
+              setBusy('');
+            }
+          }}><Icon name="bolt" /> Make 720p working copies</button>
+        </div>
+      )}
       <div className="row">
         <input value={query} placeholder="Find by describing it — e.g. “man walking at sunset”" onChange={(e) => (setQuery(e.target.value), !e.target.value && setScores(null))} onKeyDown={(e) => e.key === 'Enter' && search()} />
         <button className="icon-btn" disabled={!!busy} onClick={search} title="Search your media by description (runs on this PC)"><Icon name="cursor" /></button>

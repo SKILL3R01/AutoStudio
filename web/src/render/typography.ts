@@ -51,6 +51,18 @@ export const palOf = (b: TypoBlock) => ({ ...(TYPO_PALETTES[b.palette] ?? TYPO_P
 export const pairOf = (b: TypoBlock) => ({ ...(FONT_PAIRS[b.fontPair] ?? FONT_PAIRS['spartan-pacifico']), ...b.style?.fonts });
 
 let beatTimes: number[] = [];
+/** Subtitle band to keep clear of (fraction of the height, centre), when subtitles are on. */
+let band: number | null = null;
+
+/** Move a block centred at `cy` (half-height `hh`) out of the subtitle band, towards the free side of the frame. */
+export function avoidBand(cy: number, hh: number, H: number, b = band): number {
+  if (b === null) return cy;
+  const bc = b * H, bh = H * 0.09;
+  if (cy + hh < bc - bh || cy - hh > bc + bh) return cy;
+  const up = bc - bh - hh - H * 0.01, down = bc + bh + hh + H * 0.01;
+  if (b >= 0.5) return Math.max(hh + H * 0.02, up);
+  return Math.min(H - hh - H * 0.02, down);
+}
 const snapBeat = (t: number) => {
   let best = t, d = 0.3;
   for (const x of beatTimes) if (Math.abs(x - t) < d) (d = Math.abs(x - t)), (best = x);
@@ -223,8 +235,9 @@ export function blockBox(b: TypoBlock, W: number, H: number) {
   return { x: b.x, y: b.y, w: (L.w * s) / W + 0.02, h: (L.h * s) / H + 0.02 };
 }
 
-export function drawTypography(ctx: CanvasRenderingContext2D, blocks: TypoBlock[], t: number, W: number, H: number, beats: number[] = []) {
+export function drawTypography(ctx: CanvasRenderingContext2D, blocks: TypoBlock[], t: number, W: number, H: number, beats: number[] = [], subtitleBand: number | null = null) {
   beatTimes = beats;
+  band = subtitleBand;
   for (const b of blocks) if (t >= b.start - 0.05 && t <= b.end + 0.3 && b.words.length) drawBlock(ctx, b, t, W, H);
 }
 
@@ -247,7 +260,8 @@ function drawBlock(ctx: CanvasRenderingContext2D, b: TypoBlock, t: number, W: nu
     ctx.fillRect(0, 0, W, H);
   }
   const half = (L.w * s) / 2, halfH = (L.h * s) / 2;
-  ctx.translate(clamp(b.x * W, Math.min(W / 2, half + W * 0.02), Math.max(W / 2, W - half - W * 0.02)), clamp(b.y * H, Math.min(H / 2, halfH + H * 0.02), Math.max(H / 2, H - halfH - H * 0.02)) - (exitMode === 'slideOut' ? ex * H * 0.08 : 0));
+  const cy = avoidBand(clamp(b.y * H, Math.min(H / 2, halfH + H * 0.02), Math.max(H / 2, H - halfH - H * 0.02)), halfH, H);
+  ctx.translate(clamp(b.x * W, Math.min(W / 2, half + W * 0.02), Math.max(W / 2, W - half - W * 0.02)), cy - (exitMode === 'slideOut' ? ex * H * 0.08 : 0));
   ctx.rotate((b.rotate * Math.PI) / 180);
   ctx.scale(s, s);
   if (b.bg === 'card') {

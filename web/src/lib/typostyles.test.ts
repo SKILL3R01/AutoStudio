@@ -30,3 +30,24 @@ describe('typography styles', () => {
     expect(pairOf(b).script).toEqual(FONT_PAIRS['spartan-pacifico'].script);
   });
 });
+
+import { avoidBand } from '../render/typography';
+describe('typography next to subtitles', () => {
+  it('moves blocks out of the subtitle band, towards the free side', () => {
+    const H = 1000;
+    expect(avoidBand(500, 100, H, 0.82)).toBe(500);
+    expect(avoidBand(780, 100, H, 0.82)).toBeLessThan(820 - 90 - 100 + 1);
+    expect(avoidBand(160, 60, H, 0.15)).toBeGreaterThan(150 + 90 + 60 - 1);
+    expect(avoidBand(780, 100, H, null)).toBe(780);
+  });
+});
+
+import { needsProxy } from './proxy';
+describe('working copies', () => {
+  it('only for videos above 1080p without one', () => {
+    expect(needsProxy({ id: 'a', name: 'a', kind: 'video', mime: 'video/mp4', height: 2160 })).toBe(true);
+    expect(needsProxy({ id: 'a', name: 'a', kind: 'video', mime: 'video/mp4', height: 1080 })).toBe(false);
+    expect(needsProxy({ id: 'a', name: 'a', kind: 'video', mime: 'video/mp4', height: 2160, proxyId: 'p' })).toBe(false);
+    expect(needsProxy({ id: 'a', name: 'a', kind: 'image', mime: 'image/png', height: 4000 })).toBe(false);
+  });
+});

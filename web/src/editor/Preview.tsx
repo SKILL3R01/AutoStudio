@@ -1,3 +1,4 @@
+import { syncProxies } from '../lib/proxy';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../store';
 import { useModel } from './hooks';
@@ -100,6 +101,7 @@ export function Preview() {
     return () => clearInterval(id);
   }, [playing]);
   const aKey = useMemo(() => audioKey(m.project), [m.project]);
+  useEffect(() => syncProxies(m.project), [m.project.assets]);
   const stageRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
   useEffect(() => {

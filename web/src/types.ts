@@ -12,6 +12,8 @@ export interface Asset {
   duration?: number;
   width?: number;
   height?: number;
+  /** 720p working copy used by the preview only (export always uses the original). */
+  proxyId?: string;
 }
 
 export type MotionEasing = 'easeInOut' | 'linear' | 'easeIn' | 'easeOut';

@@ -62,6 +62,12 @@
     - Measured on an i7-8700 CPU: ~25 s load, roughly 3.5–7× real time.
   - **Library** (`voice/library.ts`): "My voices" samples live in IndexedDB (`voice:*`). Paragraph audio is cached by a SHA-256 of text + settings (`tts:*`), so edits only regenerate changed paragraphs. Colab `tts` is the "turbo" backend.
   - **Enhance** (`audio/enhance.ts`): `voiceChain` sits in `buildMix` (preview = export). `measureLufs` uses BS.1770-style gating, and `makeupFor` targets −14 LUFS. Pace / pitch is WSOLA in `audio/pitch.ts`.
+- Instant drafts: Kokoro via `kokoro-js` 1.2.1. A package.json `overrides` entry dedupes it onto our transformers v4. It runs in `ai/worker.ts` (`kokoro`): WebGPU fp32, else q8 on the CPU. Voice Studio backend `draft`.
+- Working copies: `lib/proxy.ts` (mediabunny `Conversion` → 720p, no audio) sets `Asset.proxyId`. The preview uses it via `media.setProxies`; export always decodes the original.
+- Typography avoids the subtitle band: `avoidBand` in `render/typography.ts`, fed by `renderFrame` when subtitles are on.
+- Release gate: `.github/workflows/release.yml` runs `STRICT=1 OFFLINE=1 bash scripts/run-all.sh`. Each suite has a 240 s limit, expected noise is listed in `EXPECTED`, and `SUITES="a b"` runs a subset.
+  - Don't edit sources while suites run: Vite HMR reloads pages mid-test.
+  - After adding a dependency, restart Vite with `--force` and warm it up first (otherwise a dep re-optimisation reloads pages).
 - Typography studio v2.0 (`editor/TypoStudio.tsx`, at the top of the Typography panel):
   - The library is `lib/typostyles.ts`: `TYPO_DESIGNS` (21 built-ins), plus "My styles" in localStorage `typoDesigns`, applied with `applyDesign` / `designOf`.
   - `TypoBlock.style` (colours, per-role fonts, caps, glow) is merged by `palOf` / `pairOf` in `render/typography.ts`.

@@ -72,6 +72,13 @@ class MediaCache {
   }
 
   /** A muted <video> element used for preview frames. */
+  /** asset id → proxy blob id (preview only). */
+  proxies = new Map<string, string>();
+  setProxies(map: Map<string, string>) {
+    for (const [id, px] of map) if (this.proxies.get(id) !== px) this.videos.delete(id);
+    this.proxies = map;
+  }
+
   video(id: string): HTMLVideoElement {
     let v = this.videos.get(id);
     if (!v) {
@@ -80,7 +87,7 @@ class MediaCache {
       v.playsInline = true;
       v.preload = 'auto';
       this.videos.set(id, v);
-      void this.url(id).then((u) => u && (v!.src = u));
+      void this.url(this.proxies.get(id) ?? id).then((u) => u && (v!.src = u));
       v.addEventListener('seeked', () => this.listeners.forEach((l) => l()));
       v.addEventListener('loadeddata', () => this.listeners.forEach((l) => l()));
     }

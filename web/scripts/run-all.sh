@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Run every headless UI suite against the dev server (:5173) with the fake back-ends, and summarise problems.
 #   bash scripts/run-all.sh [out-dir=../.shots/all]
+#   SUITES="v3 review"  run only these suites
+#   STRICT=1            exit 1 when a suite prints an unexpected problem (CI release gate)
+#   OFFLINE=1           skip suites that need the internet / big model downloads (phaseF, describe)
 cd "$(dirname "$0")/.."
 OUT=${1:-../.shots/all}
 mkdir -p "$OUT"
@@ -10,10 +13,17 @@ node scripts/fake-engine.mjs 1237 >"$OUT/fake-engine.log" 2>&1 &
 node scripts/fake-youtube.mjs 1238 >"$OUT/fake-youtube.log" 2>&1 &
 trap 'kill $(jobs -p) 2>/dev/null' EXIT
 sleep 2
-run() { # name url steps
+FAILED=0
+# Lines some suites print by design (e.g. the demo has no voiceover, toasts that vanished before the check).
+EXPECTED='no button \(no voiceover\?\)|"no modal"|"apply disabled"|"no toast"|getAllPromptList|chrome-extension|Receiving end does not exist'
+run() { # name url steps [ui-mode]
+  if [ -n "$SUITES" ] && [[ " $SUITES " != *" $1 "* ]]; then return; fi
+  if [ -n "$OFFLINE" ] && [[ " phaseF describe " == *" $1 "* ]]; then return; fi
   echo "=== $1"
-  UI_MODE=${4:-pro} node scripts/cdp-shot.mjs "$2" "$OUT/$1" "scripts/$3" >"$OUT/$1.log" 2>&1
-  grep -v '^\[shot\]' "$OUT/$1.log" | grep -iE 'error|disabled|no (toast|modal|button|input|result|blocks|sound)|exception|cannot|undefined' | grep -v 'chrome-extension' | head -5
+  UI_MODE=${4:-pro} timeout 240 node scripts/cdp-shot.mjs "$2" "$OUT/$1" "scripts/$3" >"$OUT/$1.log" 2>&1 || echo "[eval] \"suite error or timeout (exit $?)\"" >>"$OUT/$1.log"
+  local bad
+  bad=$(grep -v '^\[shot\]' "$OUT/$1.log" | grep -iE 'error|disabled|no (toast|modal|button|input|result|blocks|sound)|exception|cannot|undefined' | grep -vE "$EXPECTED" | head -5)
+  if [ -n "$bad" ]; then echo "$bad"; FAILED=1; fi
 }
 run v3 "http://localhost:5173/#demo" steps-v3.json
 run review "http://localhost:5173/#projects" steps-review-v3.json
@@ -32,3 +42,4 @@ run describe "http://localhost:5173/#demo" steps-describe.json
 run typostudio "http://localhost:5173/#demo" steps-typostudio.json
 run wizard "http://localhost:5173/" steps-wizard.json simple
 echo "=== done"
+if [ -n "$STRICT" ] && [ "$FAILED" = 1 ]; then echo "UI suites reported problems"; exit 1; fi
