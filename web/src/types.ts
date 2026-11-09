@@ -138,6 +138,8 @@ export interface Clip {
   /** Asset id of a grayscale depth map (white = near). */
   depthId?: string;
   regions?: Region[];
+  /** The user chose to ignore the too-short / too-long warning for this clip. */
+  ignoreDuration?: boolean;
 }
 
 export const REGION_EFFECTS = ['sway', 'ripple', 'glow', 'flicker', 'shimmer', 'hue', 'blink', 'sparkle', 'pop'] as const;

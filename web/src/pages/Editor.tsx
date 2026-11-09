@@ -15,6 +15,7 @@ import { ShortcutsDialog, useShortcuts } from '../editor/shortcuts';
 import { Splitter, usePanelSize } from '../editor/Splitter';
 import { AutoEditDialog } from '../editor/AutoEditDialog';
 import { Wizard } from '../editor/Wizard';
+import { ContextMenu } from '../editor/ContextMenu';
 import { updateThumbnail } from '../lib/thumbnail';
 import { buildLines } from '../lib/captions';
 import type { Project } from '../types';
@@ -104,6 +105,7 @@ function Workspace() {
       {dialog === 'keys' && <ShortcutsDialog onClose={() => setDialog(null)} />}
       {dialog === 'auto' && <AutoEditDialog onClose={() => setDialog(null)} />}
       {p.wizardStep !== undefined && <Wizard />}
+      <ContextMenu />
     </div>
   );
 }

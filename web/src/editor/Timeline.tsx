@@ -1,3 +1,7 @@
+import { useMenu } from './ContextMenu';
+import { durationFlags, moveClip } from '../lib/timeline';
+import { useUi, type TlSize } from '../lib/uimode';
+import type { Selection } from '../store';
 import { memo, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor, clipEnd, projectLength } from '../store';
@@ -16,26 +20,30 @@ import { blankClip, setVoiceStart } from '../lib/project';
 import { voiceEnd } from '../store';
 
 /** Pointer-drag helper reporting the horizontal delta in seconds. */
-function startDrag(e: React.PointerEvent, zoom: number, onMove: (dt: number) => void, onClick?: () => void) {
+function startDrag(e: React.PointerEvent, zoom: number, onMove: (dt: number, ev: PointerEvent) => void, onClick?: () => void, onDrop?: (dt: number, ev: PointerEvent) => void) {
+  if (e.button === 2) return; // right-click opens the quick menu
   e.stopPropagation();
   const x0 = e.clientX;
   let moved = false;
   const move = (ev: PointerEvent) => {
-    if (Math.abs(ev.clientX - x0) > 3) moved = true;
-    if (moved) onMove((ev.clientX - x0) / zoom);
+    if (Math.abs(ev.clientX - x0) > 4) moved = true;
+    if (moved) onMove((ev.clientX - x0) / zoom, ev);
   };
-  const up = () => {
+  const up = (ev: PointerEvent) => {
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', up);
     if (!moved) onClick?.();
+    else onDrop?.((ev.clientX - x0) / zoom, ev);
   };
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);
 }
 
 const stamp = stampFor;
+const openMenu = (e: React.MouseEvent, target: NonNullable<Selection>, time: number) => useMenu.getState().open(e, target, time);
 
-const ClipBlock = memo(function ClipBlock({ clip, i, end, zoom, selected, kind, name }: { clip: Clip; i: number; end: number; zoom: number; selected: boolean; kind?: 'image' | 'video' | 'audio'; name?: string }) {
+const ClipBlock = memo(function ClipBlock({ clip, i, end, zoom, selected, kind, name, flag }: { clip: Clip; i: number; end: number; zoom: number; selected: boolean; kind?: 'image' | 'video' | 'audio'; name?: string; flag?: 'short' | 'long' }) {
+  const [drag, setDrag] = useState(0);
   const thumb = useThumb(clip.assetId, kind);
   const start = i === 0 ? 0 : clip.start;
   const w = Math.max(2, (end - start) * zoom);
@@ -47,20 +55,32 @@ const ClipBlock = memo(function ClipBlock({ clip, i, end, zoom, selected, kind, 
     const hi = (i + 1 < p0.clips.length ? p0.clips[i + 1].start : projectLength(p0)) - 0.1;
     const st = useEditor.getState();
     const pts = st.snap ? snapPoints(p0, st.time, clip.id) : [];
-    startDrag(e, zoom, (dt) => update((p) => void (p.clips[i].start = Math.min(hi, Math.max(lo, pts.length ? snapTime(t0 + dt, pts, zoom) : t0 + dt))), `edge-${clip.id}`));
+    // Hold Shift to drag without snapping.
+    startDrag(e, zoom, (dt, ev) => update((p) => void (p.clips[i].start = Math.min(hi, Math.max(lo, pts.length && !ev.shiftKey ? snapTime(t0 + dt, pts, zoom) : t0 + dt))), `edge-${clip.id}`));
   };
   return (
     <div
-      className={`clip ${selected ? 'sel' : ''} ${kind === 'video' ? 'video' : ''} ${clip.fill ? 'blank' : ''}`}
-      style={{ left: start * zoom, width: w, backgroundImage: thumb && w > 18 ? `url(${thumb})` : undefined, backgroundColor: clip.fill }}
-      title={`${clip.fill ? 'Blank section' : name} · ${fmtTime(start)} → ${fmtTime(end)}`}
+      className={`clip ${selected ? 'sel' : ''} ${kind === 'video' ? 'video' : ''} ${clip.fill ? 'blank' : ''} ${flag ? `flag-${flag}` : ''} ${drag ? 'dragging' : ''}`}
+      style={{ left: start * zoom + drag, width: w, backgroundImage: thumb && w > 18 ? `url(${thumb})` : undefined, backgroundColor: clip.fill }}
+      title={`${clip.fill ? 'Blank section' : name} · ${fmtTime(start)} → ${fmtTime(end)} · ${(end - start).toFixed(2)} s${flag === 'short' ? ' · shorter than 1 s' : flag === 'long' ? ' · longer than 20 s' : ''} — drag to move, right-click for options`}
+      onContextMenu={(e) => openMenu(e, { kind: 'clip', id: clip.id }, start + (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom)}
       onPointerDown={(e) => {
         const shift = e.shiftKey || e.ctrlKey || e.metaKey;
-        startDrag(e, zoom, () => {}, () => {
+        const clickT = start + (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom;
+        startDrag(e, zoom, (dt) => setDrag(dt * zoom), () => {
           const st = useEditor.getState();
           if (shift && st.selection?.kind === 'clip' && st.selection.id !== clip.id) return st.toggleMulti(clip.id);
-          st.select(selected ? null : { kind: 'clip', id: clip.id });
-          st.seek(start + 0.001);
+          st.select({ kind: 'clip', id: clip.id });
+          st.seek(clickT);
+        }, (dt) => {
+          // Drop: move the clip to where it was dropped (durations kept, no gaps or overlaps).
+          setDrag(0);
+          const st = useEditor.getState();
+          const p0 = st.project!;
+          const len = projectLength(p0);
+          const target = Math.max(0, Math.min(len - 0.01, clickT + dt));
+          const to = Math.max(0, p0.clips.findIndex((_c, k) => target < (k + 1 < p0.clips.length ? p0.clips[k + 1].start : len)));
+          if (to !== i) st.update((d) => void (d.clips = moveClip(d.clips, i, to, len)));
         });
       }}
     >
@@ -293,6 +313,9 @@ export function Timeline() {
     d.clips.sort((a, b) => a.start - b.start);
   });
   const ve = voiceEnd(p);
+  const flags = new Map(durationFlags(p, length).map((f) => [f.id, f.kind]));
+  const tlSize = useUi((u) => u.tlSize);
+  const setTlSize = useUi((u) => u.setTlSize);
   const resize = (e: React.PointerEvent) => {
     const y0 = e.clientY, h0 = shownHeight;
     const move = (ev: PointerEvent) => {
@@ -307,7 +330,7 @@ export function Timeline() {
   const selCount = (sel ? 1 : 0) + multi.length;
 
   return (
-    <div className="timeline" style={{ height: shownHeight }}>
+    <div className={`timeline size-${tlSize}`} style={{ height: shownHeight }}>
       <div className="tl-resize" onPointerDown={resize} title="Drag to resize" />
       <div className="tl-tools">
         <button className="icon-btn" onClick={splitAtPlayhead} title="Split at playhead (S): the selected music, text or narration, otherwise the clip"><Icon name="scissors" /></button>
@@ -323,6 +346,10 @@ export function Timeline() {
         <button className={`icon-btn ${snapOn ? 'on' : ''}`} onClick={() => setSnap(!snapOn)} title={`Snapping ${snapOn ? 'on' : 'off'} (N)`}><Icon name="magnet" /></button>
         <button className="btn ghost sm" onClick={insertBlank} title="Insert a blank (black) section at the playhead"><Icon name="plus" /> Blank</button>
         <button className="btn ghost sm" onClick={clearTimeline} title="Empty the timeline (keeps media, voiceover and captions)"><Icon name="trash" /> Clear</button>
+        <select className="tl-size" value={tlSize} onChange={(e) => setTlSize(e.target.value as TlSize)} title="Timeline size">
+          <option value="compact">Compact</option><option value="comfortable">Comfortable</option><option value="large">Large</option>
+        </select>
+        {flags.size > 0 && <span className="chip warn" title="Clips shorter than 1 s or longer than 20 s — right-click a clip to ignore">⚠ {flags.size} clip{flags.size > 1 ? 's' : ''} to check</span>}
         {selCount > 1 && <span className="chip">{selCount} clips selected</span>}
         <div className="grow" />
         <button className="icon-btn" onClick={() => setZoom(Math.max(1, zoom / 1.5))} title="Zoom out">−</button>
@@ -356,7 +383,7 @@ export function Timeline() {
             {p.voiceStart > 0 && <div className="outro-zone intro" style={{ left: 0, width: p.voiceStart * zoom }} title="Intro (before the narration)" />}
             <div className="track t-text">
               {p.overlays.filter((o) => inView(o.start, o.start + o.duration)).map((o) => (
-                <div key={o.id} className={`item overlay ${sel?.id === o.id ? 'sel' : ''}`} style={{ left: o.start * zoom, width: Math.max(8, o.duration * zoom) }} onPointerDown={(e) => moveItem('overlays', o.id, e)}>
+                <div key={o.id} className={`item overlay ${sel?.id === o.id ? 'sel' : ''}`} style={{ left: o.start * zoom, width: Math.max(8, o.duration * zoom) }} onPointerDown={(e) => moveItem('overlays', o.id, e)} onContextMenu={(e) => openMenu(e, { kind: 'overlay', id: o.id }, o.start)}>
                   <div className="resize left" onPointerDown={(e) => moveItem('overlays', o.id, e, 'trimStart')} />
                   {o.assetId ? '🖼' : 'T'} {o.text}
                   <div className="resize" onPointerDown={(e) => moveItem('overlays', o.id, e, 'resize')} />
@@ -365,7 +392,7 @@ export function Timeline() {
             </div>
             <div className="track t-kw">
               {p.captions.typography !== false && p.typo.filter((k) => inView(k.start, k.end)).map((k) => (
-                <div key={k.id} className={`item kw ${sel?.id === k.id ? 'sel' : ''}`} style={{ left: k.start * zoom, width: Math.max(10, (k.end - k.start) * zoom) }} onPointerDown={(e) => moveItem('typo', k.id, e)}>
+                <div key={k.id} className={`item kw ${sel?.id === k.id ? 'sel' : ''}`} style={{ left: k.start * zoom, width: Math.max(10, (k.end - k.start) * zoom) }} onPointerDown={(e) => moveItem('typo', k.id, e)} onContextMenu={(e) => openMenu(e, { kind: 'keyword', id: k.id }, k.start)}>
                   {k.words.map((w) => w.text).join(' ')}
                   <div className="resize" onPointerDown={(e) => moveItem('typo', k.id, e, 'resize')} />
                 </div>
@@ -375,7 +402,7 @@ export function Timeline() {
               {p.clips.map((c, i) => {
                 const end = clipEnd(p, i);
                 return inView(i === 0 ? 0 : c.start, end) ? (
-                  <ClipBlock key={c.id} clip={c} i={i} end={end} zoom={zoom} selected={sel?.id === c.id || multi.includes(c.id)} kind={assets.get(c.assetId)?.kind} name={assets.get(c.assetId)?.name} />
+                  <ClipBlock key={c.id} clip={c} i={i} end={end} zoom={zoom} selected={sel?.id === c.id || multi.includes(c.id)} kind={assets.get(c.assetId)?.kind} name={assets.get(c.assetId)?.name} flag={flags.get(c.id)} />
                 ) : null;
               })}
               {p.clips.map((c, i) => (i > 0 && inView(c.start - 1, c.start + 1) ? (
@@ -401,7 +428,9 @@ export function Timeline() {
             </div>
             <div className="track t-music">
               {p.music.map((m) => (
-                <div key={m.id} className={`item music ${sel?.id === m.id ? 'sel' : ''}`} style={{ left: m.start * zoom, width: Math.max(8, m.duration * zoom) }} onPointerDown={(e) => moveItem('music', m.id, e)}>
+                <div key={m.id} className={`item music ${sel?.id === m.id ? 'sel' : ''}`} style={{ left: m.start * zoom, width: Math.max(8, m.duration * zoom) }} onPointerDown={(e) => moveItem('music', m.id, e)} onContextMenu={(e) => openMenu(e, { kind: 'music', id: m.id }, m.start)}>
+                  {m.fadeIn > 0 && <i className="fade-ramp in" style={{ width: Math.min(m.duration, m.fadeIn) * zoom }} />}
+                  {m.fadeOut > 0 && <i className="fade-ramp out" style={{ width: Math.min(m.duration, m.fadeOut) * zoom }} />}
                   <div className="resize left" onPointerDown={(e) => moveItem('music', m.id, e, 'trimStart')} />
                   ♫ {assets.get(m.assetId)?.name}{m.rate && m.rate !== 1 ? ` · ${m.rate}×` : ''}
                   <div className="resize" onPointerDown={(e) => moveItem('music', m.id, e, 'resize')} />

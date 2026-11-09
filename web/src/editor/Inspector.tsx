@@ -1,3 +1,4 @@
+import { fmtClock, parseClock, setClipStart } from '../lib/timeline';
 import { useState } from 'react';
 
 import { useEditor, clipEnd, findAsset, projectLength } from '../store';
@@ -194,6 +195,25 @@ function ClipInspector({ id }: { id: string }) {
 
         <p className="hint">{asset.name} · {asset.width}×{asset.height} · {fmtTime(start)} → {fmtTime(clipEnd(p, i))}</p>
 
+        {i > 0 && (
+          <label className="field"><span>Start (m:ss.mmm)</span>
+            <input key={`${clip.id}-${clip.start}`} defaultValue={fmtClock(clip.start)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} onBlur={(e) => {
+              const v = parseClock(e.target.value);
+              if (v === null) return void (e.target.value = fmtClock(clip.start));
+              update((d) => setClipStart(d, i, v, projectLength(d)));
+            }} />
+          </label>
+        )}
+        {(() => {
+          const d = clipEnd(p, i) - start;
+          if (clip.ignoreDuration || (d >= 1 && d <= 20)) return null;
+          return (
+            <div className="row between warn-row">
+              <span className="warn">⚠ {d < 1 ? `Only ${d.toFixed(2)} s on screen (under 1 s)` : `${d.toFixed(1)} s on screen (over 20 s)`}</span>
+              <button className="btn sm ghost" onClick={() => update((x) => void (x.clips[i].ignoreDuration = true))}>Ignore</button>
+            </div>
+          );
+        })()}
         {i > 0 && <Slider label="Starts at" value={clip.start} min={i > 1 ? p.clips[i - 1].start + 0.1 : 0.1} max={clipEnd(p, i) - 0.1} step={0.01} onChange={(v) => set((c) => void (c.start = v), 'start')} suffix="s" />}
 
         <Select label="Motion" value={clip.motion} options={MOTIONS.map((m) => [m, MOTION_LABELS[m]] as [typeof m, string])} onChange={(v) => set((c) => void (c.motion = v))} />

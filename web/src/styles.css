@@ -590,3 +590,23 @@ pre.code-err { white-space: pre-wrap; font-size: 11.5px; margin: 0; }
 .colors .field { flex: 1; min-width: 60px; }
 .panels button.chip { background: var(--panel2); color: var(--dim); border: 1px solid var(--line2); font: inherit; font-size: 11.5px; padding: 3px 10px; border-radius: 999px; cursor: pointer; }
 .panels button.chip.on { color: var(--text); border-color: var(--accent); background: rgba(139, 108, 255, 0.15); }
+
+/* v2.3: timeline size, flags, menu, fades */
+.timeline.size-comfortable .tl-labels, .timeline.size-comfortable .tl-inner { grid-template-rows: 26px 30px 32px 78px 26px 56px 34px 28px; }
+.timeline.size-large .tl-labels, .timeline.size-large .tl-inner { grid-template-rows: 30px 38px 40px 104px 32px 70px 44px 34px; }
+.timeline.size-comfortable .clip .edge, .timeline.size-large .clip .edge { width: 10px; }
+.clip.dragging { opacity: 0.75; z-index: 5; box-shadow: 0 0 0 2px var(--accent); cursor: grabbing; }
+.clip.flag-short, .clip.flag-long { box-shadow: inset 0 0 0 2px #fbbf24; }
+.clip.flag-short::after, .clip.flag-long::after { content: '⚠'; position: absolute; right: 3px; top: 1px; font-size: 11px; color: #fbbf24; text-shadow: 0 0 3px #000; }
+.fade-ramp { position: absolute; top: 0; bottom: 0; pointer-events: none; }
+.fade-ramp.in { left: 0; background: linear-gradient(to top right, rgba(0, 0, 0, 0.45) 50%, transparent 50%); }
+.fade-ramp.out { right: 0; background: linear-gradient(to top left, rgba(0, 0, 0, 0.45) 50%, transparent 50%); }
+.tl-size { font-size: 12px; padding: 2px 6px; }
+.ctx-menu { position: fixed; z-index: 100; min-width: 210px; background: var(--panel); border: 1px solid var(--line2); border-radius: 8px; padding: 4px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; }
+.ctx-menu > button { display: flex; gap: 8px; align-items: center; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 5px; cursor: pointer; text-align: left; }
+.ctx-menu > button:hover:not(:disabled) { background: var(--panel2); }
+.ctx-menu > button:disabled { opacity: 0.4; cursor: default; }
+.ctx-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+.ctx-sub { padding: 4px 10px; }
+.ctx-sub .chip { font-size: 11px; padding: 2px 7px; background: var(--panel2); border: 1px solid var(--line2); color: var(--text); border-radius: 999px; cursor: pointer; }
+.ctx-sub .chip.on { border-color: var(--accent); }

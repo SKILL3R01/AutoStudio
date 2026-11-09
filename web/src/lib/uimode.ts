@@ -3,9 +3,12 @@ import { create } from 'zustand';
 
 export type UiMode = 'simple' | 'pro';
 
-export const useUi = create<{ mode: UiMode; setMode: (m: UiMode) => void }>((set) => ({
+export type TlSize = 'compact' | 'comfortable' | 'large';
+export const useUi = create<{ mode: UiMode; setMode: (m: UiMode) => void; tlSize: TlSize; setTlSize: (s: TlSize) => void }>((set) => ({
   mode: (globalThis.localStorage?.getItem('uiMode') as UiMode | null) ?? 'simple',
   setMode: (mode) => (localStorage.setItem('uiMode', mode), set({ mode })),
+  tlSize: (globalThis.localStorage?.getItem('tlSize') as TlSize | null) ?? 'comfortable',
+  setTlSize: (tlSize) => (localStorage.setItem('tlSize', tlSize), set({ tlSize })),
 }));
 
 /** Sections folded by default in Simple mode (always one click away). */
