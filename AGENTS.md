@@ -37,9 +37,12 @@
   - `autostudio://engine?url=…`: the Electron protocol handler turns it into `#engine=`.
   - `http://localhost:5173/#engine=…`: for the browser version.
   - `App.tsx` handles `#engine=` in both cases.
-- Timeline length = `voiceStart` (intro) + narration + `tail` (outro).
-  - Use `setVoiceStart()` to move the narration; it shifts captions, typography and SFX with it.
-  - Blank sections are clips with `fill`.
+- Audio tracks (v3.0, `lib/audiotracks.ts`): `project.audioTracks` (voice / music / sfx / other; volume, mute, solo, height, voice `fx`) + `project.audio` (clips: file `assetId` or synth `sound`, start / duration / trimIn / rate / fades / duck / curve) + `narrationTrackId`.
+  - Old `voiceover` (+ `splits`) / `music` / `sfx` / `voiceStart` / `tail` are migrated on load by `migrateAudio` (in `normalizeProject`).
+  - New voices go through `addVoiceTake` (never replace: a new voice track becomes the narration, the old one is muted). Other audio: `placeAudio`.
+  - Captions / typography follow a moved narration clip (`moveAudioClip`, `shiftWords`). Transcription uses `narrationAudio()` (mix.ts) + `offsetWords`.
+- Timeline length = the end of the last item on any track (`projectLength`). `p.length` is the end of the main video track (the last clip runs to it). Blank sections are clips with `fill`.
+- Selection kinds: clip / overlay / audio / keyword; `multi` holds ids of any kind (Ctrl+A `selectAll`, mixed copy / paste in `edit.ts`).
 - Filename times:
   - 2 parts = m-s; 3 parts = m-s-fraction; 4 parts = h-m-s-fraction.
   - The fraction is tenths with 1 digit, hundredths with 2, ms with 3 (`src/lib/timecode.ts`).
@@ -88,14 +91,10 @@
   - A project with no clips opens in the workspace (not the import screen) while the wizard is active.
 - Version history: `lib/history.ts`. Snapshots of the project JSON are taken after autosave (≥ 2 min apart, last 30 kept) under `history:<id>`. Restore lives in `pages/HistoryDialog.tsx` (Projects → ⋯).
 - Fast preview (`usePerf().fastPreview`): while playing, the preview runs at ×0.6 resolution and `RenderModel.draft` halves particle effects (`setEffectQuality`). Export never sets `draft`.
-- Auto-edit: planning in `lib/autoedit.ts` (`planScenes`, `assignUnique`, `buildClips`, `applyAutoEdit`). The UI is `editor/AutoEditDialog.tsx`; it combines CLIP matches, free media, Colab imagegen and LLM queries.
+- Auto-edit: planning in `lib/autoedit.ts` (`planScenes`, `assignUnique`, `buildClips`, `applyAutoEdit`). The UI is `editor/AutoEditDialog.tsx`; it combines CLIP matches on your media, Colab imagegen and LLM queries.
 - Media search: CLIP ViT-B/32 (8-bit, WASM) runs in `ai/worker.ts` (`clipImages` / `clipText`).
   - Vectors are base64 Float32 in `project.embeddings`, handled by `lib/mediasearch.ts` (`indexMedia`, `rank`). The UI is in `editor/MediaPanel.tsx`.
-- Free media: `lib/freemedia.ts`.
-  - Sources: the Wikimedia Commons API (CORS `origin=*`; WebM transcodes for video) and the Openverse API (anonymous, rate-limited).
-  - Results are filtered by licence. Credits go to `project.credits`, which the readiness check uses.
-  - The desktop app downloads blocked hosts through `autostudio.fetchMedia` (main process; https and media types only, capped at 250 MB).
-  - The UI is `editor/FreeMediaPanel.tsx`.
+- Free-media search was removed in v3.0 (results did not match scripts). `lib/stocklinks.ts` keeps `keywordsFrom` and Pexels / Pixabay `siteLinks`; old `project.credits` are kept but unused.
 - Colour grading: `render/grade.ts`.
   - `combineGrades` merges the project and clip grades. `needsGpu` decides between the WebGL2 pass (`gradeDrawable`, with a 3D LUT texture) and plain `ctx.filter`.
   - `parseCube` reads `.cube` files; LUTs are stored in `project.luts` as 8-bit RGB, base64.
@@ -137,14 +136,13 @@
   - `scripts/steps-depth2.json`: depth maps
   - `scripts/steps-phaseA.json`: settings, collapsed panels, effect ranges, typography animation + handles
   - `scripts/steps-silence.json`: synthetic voice with pauses → Remove silences → length shrinks
-  - `scripts/steps-phaseB.json`: duplicate, ripple delete, snapping toggle, split voice → cut a part → undo
+  - `scripts/steps-phaseB.json`: duplicate, ripple delete, snapping toggle, split a voice clip (S) → delete a part → undo, Ctrl+A
   - `scripts/steps-tryai.json`: TryAIToday adapter against `node scripts/fake-tryai.mjs` (port 1236)
   - `scripts/steps-aivideo.json`: Animate with AI against `node scripts/fake-engine.mjs` (port 1237)
   - `scripts/steps-prompts.json`: Prompt Studio fill + hand-off
   - `scripts/steps-growth.json`: every Growth tab against `node scripts/fake-youtube.mjs` (port 1238; sign-in stubbed)
   - `scripts/steps-handdrawn.json`: pen-font + outline gallery, looks grid
   - `scripts/steps-phaseE.json`: GPU look + pen title → MP4 export
-  - `scripts/steps-phaseF.json`: free media from Wikimedia (images / video / sound) + insert
   - `scripts/steps-describe.json`: describe-search on the demo (downloads CLIP on first run)
   - `scripts/steps-autoedit.json`: Auto-edit on the demo (CLIP matching → build)
   - `scripts/run-all.sh` needs the dev server (`npx vite --port 5173 --strictPort`); if every suite fails on the first step, the server is down.

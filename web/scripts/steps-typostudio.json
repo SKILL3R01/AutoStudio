@@ -33,7 +33,7 @@
   "eval": "[...document.querySelectorAll('.panels .chip')].map(c => c.textContent).join(',') + ' \u00b7 my styles: ' + (JSON.parse(localStorage.getItem('typoDesigns') || '[]').map(d => d.name).join(','))"
  },
  {
-  "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.end-handle').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 5.3 * z })); window.dispatchEvent(new PointerEvent('pointerup')); return 'seek'; })()"
+  "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.main-end').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 5.3 * z })); window.dispatchEvent(new PointerEvent('pointerup')); return 'seek'; })()"
  },
  {
   "wait": 1500

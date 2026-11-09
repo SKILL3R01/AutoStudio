@@ -9,7 +9,7 @@
   { "wait": 800 },
   { "eval": "(() => { const l = [...document.querySelectorAll('.panels .look')]; const t = l.find(b => b.textContent.includes('Teal')); t.scrollIntoView(); t.click(); return l.length + ' looks, applied Teal & orange'; })()" },
   { "wait": 600 },
-  { "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 7 * parseFloat(document.querySelector('.end-handle').style.left) / 18 })); window.dispatchEvent(new PointerEvent('pointerup')); return 'seek 7s'; })()" },
+  { "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 7 * parseFloat(document.querySelector('.main-end').style.left) / 18 })); window.dispatchEvent(new PointerEvent('pointerup')); return 'seek 7s'; })()" },
   { "wait": 1500 },
   { "eval": "document.querySelectorAll('.panels .look img').length + ' thumbnails'" },
   { "shot": "look" }

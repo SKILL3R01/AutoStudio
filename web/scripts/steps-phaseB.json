@@ -60,22 +60,25 @@
   "eval": "document.querySelectorAll('.t-video .clip').length + ' clips \u00b7 ' + document.querySelector('.tc i').textContent"
  },
  {
-  "eval": "(() => { const b = [...document.querySelectorAll('.tl-tools button')].find(b => b.textContent.includes('Split voice')); if (!b) return 'no split-voice button'; return 'ok'; })()"
+  "eval": "(() => { const c = document.querySelector('[data-track=trk_voice] .aclip'); if (!c) return 'no voice clip'; const r = c.getBoundingClientRect(); c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + r.width * 0.45, clientY: r.top + 8, button: 0 })); window.dispatchEvent(new PointerEvent('pointerup', { clientX: r.left + r.width * 0.45, clientY: r.top + 8 })); return 'voice clip selected'; })()"
  },
  {
-  "eval": "(() => { const v = document.querySelector('.voice-clip'); const r = v.getBoundingClientRect(); const tcLen = (() => { const m = document.querySelector('.tc i').textContent.match(/(\\d+):(\\d+(?:\\.\\d+)?)/); return +m[1] * 60 + +m[2]; })(); const zoom = parseFloat(document.querySelector('.end-handle').style.left) / tcLen; const seekTo = (t) => { const ru = document.querySelector('.ruler'); const rr = ru.getBoundingClientRect(); ru.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: rr.left + t * zoom })); window.dispatchEvent(new PointerEvent('pointerup')); }; const sp = () => [...document.querySelectorAll('.tl-tools button')].find(b => b.textContent.includes('Split voice')).click(); seekTo(6.5); sp(); seekTo(9); sp(); return 'split at 6.5 and 9, zoom ' + zoom.toFixed(1); })()"
+  "wait": 400
  },
  {
-  "wait": 600
- },
- {
-  "eval": "document.querySelectorAll('.voice-seg').length + ' segments'"
- },
- {
-  "eval": "(() => { const v = document.querySelector('.voice-clip'); const r = v.getBoundingClientRect(); const tcLen = (() => { const m = document.querySelector('.tc i').textContent.match(/(\\d+):(\\d+(?:\\.\\d+)?)/); return +m[1] * 60 + +m[2]; })(); const zoom = parseFloat(document.querySelector('.end-handle').style.left) / tcLen; v.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 7.5 * zoom })); window.dispatchEvent(new PointerEvent('pointerup')); return 'segment clicked'; })()"
+  "eval": "window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', bubbles: true })); 's'"
  },
  {
   "wait": 600
+ },
+ {
+  "eval": "document.querySelectorAll('[data-track=trk_voice] .aclip').length + ' voice clips'"
+ },
+ {
+  "eval": "(() => { const cs = document.querySelectorAll('[data-track=trk_voice] .aclip'); const c = cs[cs.length - 1]; const r = c.getBoundingClientRect(); c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 10, clientY: r.top + 8, button: 0 })); window.dispatchEvent(new PointerEvent('pointerup', { clientX: r.left + 10, clientY: r.top + 8 })); return 'second part selected'; })()"
+ },
+ {
+  "wait": 500
  },
  {
   "eval": "(document.querySelector('.inspector')?.innerText ?? '').split(String.fromCharCode(10)).join(' / ').slice(0, 220)"
@@ -84,16 +87,13 @@
   "shot": "voice-seg"
  },
  {
-  "eval": "[...document.querySelectorAll('.inspector button')].find(b => b.textContent.includes('Cut this part')).click(); 'cut'"
+  "eval": "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true })); 'delete'"
  },
  {
-  "wait": 3000
+  "wait": 600
  },
  {
-  "eval": "[...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | ')"
- },
- {
-  "eval": "document.querySelectorAll('.voice-seg').length + ' segments; length ' + document.querySelector('.tc i').textContent"
+  "eval": "document.querySelectorAll('[data-track=trk_voice] .aclip').length + ' voice clips after delete'"
  },
  {
   "eval": "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, shiftKey: false, bubbles: true })); 'z'"
@@ -102,7 +102,10 @@
   "wait": 600
  },
  {
-  "eval": "'after undo: ' + document.querySelectorAll('.voice-seg').length + ' segments; length ' + document.querySelector('.tc i').textContent"
+  "eval": "'after undo: ' + document.querySelectorAll('[data-track=trk_voice] .aclip').length + ' voice clips'"
+ },
+ {
+  "eval": "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true })); [...document.querySelectorAll('.tl-tools .chip')].map(c => c.textContent).join(' | ')"
  },
  {
   "shot": "after"

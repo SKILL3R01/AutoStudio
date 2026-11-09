@@ -8,7 +8,7 @@
   { "wait": 600 },
   { "eval": "(() => { const f = [...document.querySelectorAll('.inspector .field')].find(x => x.textContent.startsWith('Hand-drawn')); const s = f.querySelector('select'); const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; set.call(s, 'pen'); s.dispatchEvent(new Event('change', { bubbles: true })); return 'pen on'; })()" },
   { "wait": 400 },
-  { "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.end-handle').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 1.0 * z })); window.dispatchEvent(new PointerEvent('pointerup')); return 'seek 1.0s'; })()" },
+  { "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.main-end').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 1.0 * z })); window.dispatchEvent(new PointerEvent('pointerup')); return 'seek 1.0s'; })()" },
   { "wait": 1500 },
   { "shot": "pen-mid" },
   { "eval": "[...document.querySelectorAll('.ed-top button')].find(b => b.textContent.includes('Export')).click(); 'dialog'" },
