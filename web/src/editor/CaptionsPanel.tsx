@@ -1,3 +1,5 @@
+import { narrationAudio, offsetWords } from '../audio/mix';
+import { narrationClips } from '../lib/audiotracks';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor, projectLength } from '../store';
 import { useLines, useProject } from './hooks';
@@ -5,7 +7,6 @@ import { FilePick, LogBox, Section, Seg, Select, Slider, Toggle } from '../compo
 import { CAPTION_FONTS, CAPTION_STYLES, drawCaptionLine, type CaptionStyle } from '../render/captions';
 import { parseCaptionFile, spreadWords, toSrt, toVtt } from '../lib/captions';
 import { runJob, useEngine } from '../lib/engine';
-import { media } from '../render/media';
 import { download } from '../lib/util';
 import type { CaptionSettings, Word } from '../types';
 import { toast } from '../components/Toast';
@@ -54,12 +55,13 @@ export function CaptionsPanel() {
   const [where, setWhere] = useState<'base' | 'small' | 'engine'>(engine === 'ready' ? 'engine' : 'base');
   const vision = useVision();
   const transcribe = async () => {
-    if (!p.voiceover) return toast('Add a voiceover first (Audio panel).', 'error');
+    if (!narrationClips(p).length) return toast('Add a voice first (Voice or Audio panel).', 'error');
     if (where !== 'engine' && !confirmHeavyAi()) return;
     setBusy(true);
     setLog([where === 'engine' ? 'Uploading voiceover…' : `Transcribing on this PC (Whisper ${where}) — the model downloads once…`]);
     try {
-      const blob = await media.blob(p.voiceover.assetId);
+      const na = (await narrationAudio(p))!;
+      const blob = na.blob;
       let words: Word[];
       if (where === 'engine') {
         const f = new FormData();
@@ -73,6 +75,7 @@ export function CaptionsPanel() {
         words = (await transcribeLocal(blob!, where, lang)).words;
         setLog((l) => [...l, `Done in ${Math.round((Date.now() - t0) / 1000)} s`]);
       }
+      words = offsetWords(words, na.offset);
       update((d) => {
         d.words = words;
         d.lines = [];

@@ -1,9 +1,10 @@
 import { voiceChain } from './enhance';
 import type { Project } from '../types';
-import { clipEnd, projectLength, voiceEnd } from '../store';
+import { clipEnd, projectLength } from '../store';
+import { audibleTrack, clipEndOf, narrationClips } from '../lib/audiotracks';
 import { media } from '../render/media';
 import { sfxBuffer } from './sfx';
-import { analyzeLevels, speechRangesFromLevels } from './silence';
+import { analyzeLevels, encodeWav, speechRangesFromLevels } from './silence';
 
 export interface Buffers {
   assets: Map<string, AudioBuffer>;
@@ -13,8 +14,7 @@ export interface Buffers {
 /** Decode every buffer the mix needs. */
 export async function loadBuffers(p: Project): Promise<Buffers> {
   const ids = new Set<string>();
-  if (p.voiceover) ids.add(p.voiceover.assetId);
-  p.music.forEach((m) => ids.add(m.assetId));
+  p.audio.forEach((c) => c.assetId && ids.add(c.assetId));
   p.clips.forEach((c) => {
     const a = p.assets.find((x) => x.id === c.assetId);
     if (a?.kind === 'video' && c.volume > 0) ids.add(c.assetId);
@@ -25,7 +25,7 @@ export async function loadBuffers(p: Project): Promise<Buffers> {
     if (b) assets.set(id, b);
   }));
   const sfx = new Map<string, AudioBuffer>();
-  await Promise.all([...new Set(p.sfx.map((s) => s.sound))].map(async (n) => {
+  await Promise.all([...new Set(p.audio.filter((c) => c.sound).map((c) => c.sound!))].map(async (n) => {
     const b = await sfxBuffer(n);
     if (b) sfx.set(n, b);
   }));
@@ -33,17 +33,23 @@ export async function loadBuffers(p: Project): Promise<Buffers> {
 }
 
 /**
- * Time ranges with speech, used to duck background music. Pauses are detected from the voiceover audio itself
- * (so ducking works without captions); captions are the fallback when the voice buffer is unavailable.
+ * Time ranges with speech, used to duck background music. Pauses are detected from the narration clips' audio
+ * (so ducking works without captions); captions are the fallback when the voice buffers are unavailable.
  */
 export function speechRanges(p: Project, bufs?: Buffers): [number, number][] {
-  const vo = p.voiceover && bufs?.assets.get(p.voiceover.assetId);
-  if (vo) {
-    const off = p.voiceStart ?? 0;
-    return speechRangesFromLevels(analyzeLevels(vo)).map((r) => [r.start + off, r.end + off] as [number, number]);
+  const narr = narrationClips(p).filter((c) => audibleTrack(p, c.trackId));
+  const withBuf = narr.filter((c) => bufs?.assets.get(c.assetId));
+  if (narr.length && withBuf.length === narr.length) {
+    return narr.flatMap((c) => {
+      const rate = c.rate ?? 1;
+      return speechRangesFromLevels(analyzeLevels(bufs!.assets.get(c.assetId)!))
+        .map((r) => [c.start + (r.start - c.trimIn) / rate, c.start + (r.end - c.trimIn) / rate] as [number, number])
+        .filter(([s, e]) => e > c.start && s < clipEndOf(c))
+        .map(([s, e]) => [Math.max(s, c.start), Math.min(e, clipEndOf(c))] as [number, number]);
+    });
   }
   const src = p.words.length ? p.words.map((w) => [w.start, w.end] as [number, number]) : p.lines.map((l) => [l.start, l.end] as [number, number]);
-  if (!src.length) return p.voiceover ? [[p.voiceStart ?? 0, voiceEnd(p)]] : [];
+  if (!src.length) return narr.map((c) => [c.start, clipEndOf(c)] as [number, number]);
   const out: [number, number][] = [];
   for (const r of src) {
     const last = out[out.length - 1];
@@ -109,21 +115,30 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     }
   };
 
-  if (p.voiceover && want('voice')) {
-    const g = ctx.createGain();
-    g.gain.value = p.voiceover.volume;
-    g.connect(master);
-    // Voice enhance (EQ / de-ess / compression / room / loudness) sits between the voice and its volume.
-    const input = voiceChain(ctx, p.voiceover.fx, g);
-    play(bufs.assets.get(p.voiceover.assetId), p.voiceStart ?? 0, Infinity, 0, input);
-  }
-
   const speech = speechRanges(p, bufs);
-  for (const m of want('music') ? p.music : []) {
+  // One bus per track: volume, then (voice tracks) the enhance chain.
+  const buses = new Map<string, AudioNode>();
+  const busFor = (trackId: string) => {
+    let b = buses.get(trackId);
+    if (!b) {
+      const t = p.audioTracks.find((x) => x.id === trackId)!;
+      const g = ctx.createGain();
+      g.gain.value = t.volume ?? 1;
+      g.connect(master);
+      b = t.fx ? voiceChain(ctx, t.fx, g) : g;
+      buses.set(trackId, b);
+    }
+    return b;
+  };
+  for (const m of p.audio) {
+    const t = p.audioTracks.find((x) => x.id === m.trackId);
+    if (!t || !audibleTrack(p, t.id)) continue;
+    const stem: Stem = m.trackId === p.narrationTrackId || t.kind === 'voice' ? 'voice' : t.kind === 'sfx' ? 'sfx' : 'music';
+    if (!want(stem)) continue;
     const g = ctx.createGain();
     // Volume curve (points drawn by the user) sits after ducking / fades.
     const curve = ctx.createGain();
-    g.connect(curve).connect(master);
+    g.connect(curve).connect(busFor(t.id));
     if (m.curve?.length) {
       const pts = [...m.curve].sort((a, b) => a.t - b.t);
       const valAt = (t: number) => {
@@ -142,7 +157,7 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     const end = m.start + m.duration;
     g.gain.setValueAtTime(m.fadeIn > 0 && from < m.start + m.fadeIn ? v * Math.max(0, (from - m.start) / m.fadeIn) : v, at);
     if (m.fadeIn > 0) set(m.start + m.fadeIn, v);
-    if (m.duck) {
+    if (m.duck && m.trackId !== p.narrationTrackId) {
       const duck = v * (m.duckDepth ?? 0.35);
       const attack = m.duckAttack ?? 0.25, release = m.duckRelease ?? 0.4;
       for (const [s, e] of speech) {
@@ -157,7 +172,8 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
       set(end - m.fadeOut, v);
       set(end, 0);
     }
-    play(bufs.assets.get(m.assetId), m.start, m.duration, m.trimIn, g, undefined, m.rate ?? 1);
+    const buf = m.sound ? bufs.sfx.get(m.sound) : bufs.assets.get(m.assetId);
+    play(buf, m.start, m.sound ? Math.min(m.duration, buf?.duration ?? 0) : m.duration, m.trimIn, g, undefined, m.rate ?? 1);
   }
 
   (want('clips') ? p.clips : []).forEach((c, i) => {
@@ -174,13 +190,6 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     else play(buf, start, dur, c.trimIn, g, undefined, rate);
   });
 
-  for (const s of want('sfx') ? p.sfx : []) {
-    const g = ctx.createGain();
-    g.gain.value = s.volume;
-    g.connect(master);
-    const buf = bufs.sfx.get(s.sound);
-    play(buf, s.start, buf?.duration ?? 0, 0, g);
-  }
   return { nodes, master };
 }
 
@@ -192,3 +201,18 @@ export async function renderMix(p: Project, sampleRate = 48000, only?: Set<Stem>
   buildMix(ctx, p, bufs, 0, 0, len, only);
   return ctx.startRendering();
 }
+
+/** The narration as heard (all unmuted voice clips in place) as a 16 kHz WAV, plus its timeline offset — for transcription. */
+export async function narrationAudio(p: Project): Promise<{ blob: Blob; offset: number } | null> {
+  const narr = p.audio.filter((c) => (c.trackId === p.narrationTrackId || p.audioTracks.find((t) => t.id === c.trackId)?.kind === 'voice') && audibleTrack(p, c.trackId));
+  if (!narr.length) return null;
+  const start = Math.min(...narr.map((c) => c.start)), end = Math.max(...narr.map(clipEndOf));
+  const sr = 16000;
+  const bufs = await loadBuffers(p);
+  const ctx = new OfflineAudioContext(1, Math.max(1, Math.ceil((end - start) * sr)), sr);
+  buildMix(ctx, { ...p, audioFade: { in: 0, out: 0 } }, bufs, start, 0, end, new Set<Stem>(['voice']));
+  return { blob: encodeWav(await ctx.startRendering()), offset: start };
+}
+
+/** Shift transcribed words from narration-file time to timeline time. */
+export const offsetWords = <T extends { start: number; end: number }>(words: T[], offset: number): T[] => words.map((w) => ({ ...w, start: w.start + offset, end: w.end + offset }));

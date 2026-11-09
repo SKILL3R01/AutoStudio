@@ -1,10 +1,11 @@
+import { clipEndOf, narrationEnd } from './lib/audiotracks';
 import { create } from 'zustand';
 import type { Project } from './types';
 import { saveProject } from './lib/db';
 import { snapshot } from './lib/history';
 
 /** `voice` selections use the segment index as id. */
-export type Selection = { kind: 'clip' | 'overlay' | 'music' | 'sfx' | 'keyword' | 'voice'; id: string } | null;
+export type Selection = { kind: 'clip' | 'overlay' | 'audio' | 'keyword'; id: string } | null;
 
 interface EditorState {
   project: Project | null;
@@ -97,18 +98,19 @@ export const useEditor = create<EditorState>((set, get) => ({
 }));
 
 /** Narration end on the timeline (0 without a voiceover). */
-export const voiceEnd = (p: Project) => {
-  const vo = p.voiceover && p.assets.find((a) => a.id === p.voiceover!.assetId);
-  return vo?.duration ? (p.voiceStart ?? 0) + vo.duration : 0;
-};
+export const voiceEnd = (p: Project) => narrationEnd(p);
 
-/** Total length: intro + narration + outro, or the explicit length when there is no voiceover. */
-export const projectLength = (p: Project) => {
-  const ve = voiceEnd(p);
-  return Math.max(0.1, ve ? ve + (p.tail ?? 0) : p.length);
-};
+/** Total length = the end of the last item on any track (main video, overlays, audio, text). */
+export const projectLength = (p: Project) =>
+  Math.max(
+    0.1,
+    p.clips.length ? p.length : 0,
+    ...p.audio.map(clipEndOf),
+    ...p.overlays.map((o) => o.start + o.duration),
+    ...p.typo.map((b) => b.end),
+  );
 
-/** Clip i spans [clips[i].start, clips[i+1].start) — the last one runs to the project end. */
-export const clipEnd = (p: Project, i: number) => (i + 1 < p.clips.length ? p.clips[i + 1].start : projectLength(p));
+/** Clip i spans [clips[i].start, clips[i+1].start) — the last one runs to the end of the main track (`p.length`). */
+export const clipEnd = (p: Project, i: number) => (i + 1 < p.clips.length ? p.clips[i + 1].start : Math.max(p.length, p.clips[i].start + 0.1));
 
 export const findAsset = (p: Project, id: string) => p.assets.find((a) => a.id === id);

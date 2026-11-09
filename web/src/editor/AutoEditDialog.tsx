@@ -1,3 +1,5 @@
+import { narrationAudio, offsetWords } from '../audio/mix';
+import { narrationClips } from '../lib/audiotracks';
 import { useState } from 'react';
 import { useEditor, findAsset, projectLength } from '../store';
 import { useThumb } from './hooks';
@@ -34,7 +36,9 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
   const update = useEditor((s) => s.update);
   const llm = useLlm((s) => s.status);
   const engine = useEngine((s) => s.status);
-  const [o, setO] = useState<AutoOptions>({ target: 4, snapBeats: p.music.length > 0, motion: 'vary', transitions: 'mixed' });
+  const musicClip = p.audio.find((c) => c.assetId && p.audioTracks.find((t) => t.id === c.trackId)?.kind === 'music');
+  const hasMusic = !!musicClip;
+  const [o, setO] = useState<AutoOptions>({ target: 4, snapBeats: hasMusic, motion: 'vary', transitions: 'mixed' });
   const [useMine, setUseMine] = useState(searchable(p).length > 0);
   const [aiQueries, setAiQueries] = useState(llm === 'ready');
   const [style, setStyle] = useState(STYLE_PRESETS[0][0]);
@@ -44,8 +48,9 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
   const length = projectLength(p);
 
   const transcribe = async () => {
-    const blob = p.voiceover && (await media.blob(p.voiceover.assetId));
-    if (!blob) return;
+    const na = await narrationAudio(p);
+    if (!na) return;
+    const blob = na.blob;
     const useEngineAsr = engine === 'ready' && engineHas('transcribe');
     if (!useEngineAsr && !confirmHeavyAi()) return;
     setBusy(useEngineAsr ? 'Transcribing on your Colab engine…' : 'Transcribing on this PC (first time downloads ~80 MB)…');
@@ -58,6 +63,7 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
         f.append('language', 'auto');
         words = (await runJob('transcribe', f, (j) => setBusy(`Transcribing… ${j.logs[j.logs.length - 1] ?? ''}`))).data.words;
       } else words = (await transcribeLocal(blob, 'base', 'auto')).words;
+      words = offsetWords(words, na.offset);
       update((d) => void ((d.words = words), (d.lines = []), (d.captions.enabled = true), (d.captions.wordLevel = true)));
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -90,7 +96,7 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
     try {
       setBusy('Planning scenes…');
       let beats: number[] = [];
-      const m = p.music[0];
+      const m = musicClip;
       if (o.snapBeats && m) {
         const buf = await media.audioBuffer(m.assetId);
         if (buf) beats = detectBeats(buf).map((b) => b + m.start - m.trimIn).filter((b) => b >= m.start && b <= m.start + m.duration);
@@ -197,7 +203,7 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
     <div className="modal-bg" onClick={onClose}>
       <div className="modal xwide autoedit" onClick={(e) => e.stopPropagation()}>
         <div className="row between"><h3>Auto-edit from voiceover</h3><button className="icon-btn" onClick={onClose}><Icon name="x" /></button></div>
-        {!p.voiceover && !words.length ? <p className="warn">Add a voiceover first (Audio panel or Add media).</p> : !words.length ? (
+        {!narrationClips(p).length && !words.length ? <p className="warn">Add a voiceover first (Audio panel or Add media).</p> : !words.length ? (
           <div className="card notice">
             <b>The voiceover needs a transcript</b>
             <p className="hint">Scenes follow the narration's sentences and pauses.</p>
@@ -208,7 +214,7 @@ export function AutoEditDialog({ onClose }: { onClose: () => void }) {
           <>
             <p className="hint">{words.length} words · {fmtTime(length)}. Splits the narration into scenes, finds a visual for each, and builds the timeline. You review every scene before anything changes.</p>
             <Slider label="Scene length" value={o.target} min={2} max={10} step={0.5} onChange={(v) => setO({ ...o, target: v })} suffix="s" />
-            <Toggle label={`Cut on the music's beats${p.music.length ? '' : ' (add music first)'}`} value={o.snapBeats && p.music.length > 0} onChange={(v) => setO({ ...o, snapBeats: v })} />
+            <Toggle label={`Cut on the music's beats${hasMusic ? '' : ' (add music first)'}`} value={o.snapBeats && hasMusic} onChange={(v) => setO({ ...o, snapBeats: v })} />
             <h4>Where visuals come from (in order)</h4>
             <Toggle label={`1. My media — best match by description (${searchable(p).length} items, runs on this PC)`} value={useMine} onChange={setUseMine} />
             <Toggle label={`Write visual searches with my AI assistant${llm === 'ready' ? '' : ' (connect LLM)'}`} value={aiQueries && llm === 'ready'} onChange={setAiQueries} />

@@ -1,3 +1,5 @@
+import { narrationAudio, offsetWords } from '../audio/mix';
+import { narrationClips } from '../lib/audiotracks';
 import { useState } from 'react';
 import { useEditor } from '../store';
 import { useProject } from './hooks';
@@ -6,7 +8,6 @@ import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { importAudio } from '../lib/project';
 import { transcribeLocal, useVision } from '../ai/vision';
-import { media } from '../render/media';
 import { TEMPLATES, applyTemplate } from '../lib/templates';
 import { readiness } from '../lib/growth';
 import { confirmHeavyAi } from '../lib/perf';
@@ -27,14 +28,14 @@ export function Wizard() {
   const step = p.wizardStep ?? 0;
   const go = (n: number) => update((d) => void (d.wizardStep = n));
   const close = () => update((d) => void (d.wizardStep = undefined));
-  const done = [!!p.voiceover, p.words.length > 0 || p.lines.length > 0, p.clips.length > 0, !!p.templateId, false];
+  const done = [narrationClips(p).length > 0, p.words.length > 0 || p.lines.length > 0, p.clips.length > 0, !!p.templateId, false];
 
   const captions = async () => {
-    if (!p.voiceover || !confirmHeavyAi()) return;
+    if (!narrationClips(p).length || !confirmHeavyAi()) return;
     setBusy('Creating captions on this PC (first time downloads ~80 MB)…');
     try {
-      const blob = await media.blob(p.voiceover.assetId);
-      const { words } = await transcribeLocal(blob!, 'base', 'auto');
+      const na = (await narrationAudio(p))!;
+      const words = offsetWords((await transcribeLocal(na.blob, 'base', 'auto')).words, na.offset);
       update((d) => void ((d.words = words), (d.lines = []), (d.captions.enabled = true), (d.captions.wordLevel = true)));
       toast(`${words.length} words captioned`, 'ok');
     } catch (e) {
@@ -68,7 +69,7 @@ export function Wizard() {
               <button className="btn sm primary" onClick={() => openTab('voice')}><Icon name="mic" /> Open Voice Studio</button>
               <FilePick accept="audio/*" className="btn sm" onFiles={async (fs) => {
                 const next = await importAudio(useEditor.getState().project!, fs, { asVoiceover: true });
-                update((d) => Object.assign(d, { assets: next.assets, voiceover: next.voiceover }));
+                update((d) => Object.assign(d, { assets: next.assets, audio: next.audio, audioTracks: next.audioTracks, narrationTrackId: next.narrationTrackId }));
               }}><Icon name="upload" /> Upload voice file</FilePick>
             </div>
           </>
@@ -76,8 +77,8 @@ export function Wizard() {
         {step === 1 && (
           <>
             <p>Captions come from the voice, on this PC — no engine needed. You can restyle them later in Text → Captions.</p>
-            <button className="btn sm primary" disabled={!p.voiceover || !!busy} onClick={captions}><Icon name="captions" /> Create captions</button>
-            {!p.voiceover && <p className="hint">Add a voiceover first (step 1).</p>}
+            <button className="btn sm primary" disabled={!narrationClips(p).length || !!busy} onClick={captions}><Icon name="captions" /> Create captions</button>
+            {!narrationClips(p).length && <p className="hint">Add a voiceover first (step 1).</p>}
           </>
         )}
         {step === 2 && (

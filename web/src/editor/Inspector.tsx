@@ -1,3 +1,4 @@
+import { mainVoiceAsset, moveAudioClip, voiceStartOf } from '../lib/audiotracks';
 import type { Motion } from '../types';
 import { fmtClock, parseClock, setClipStart } from '../lib/timeline';
 import { useState } from 'react';
@@ -12,7 +13,7 @@ import { Icon } from '../components/icons';
 
 import { toast } from '../components/Toast';
 
-import { MOTIONS, TRANSITIONS, REGION_EFFECTS, TYPO_TEMPLATES, TYPO_ENTERS, TYPO_EXITS, type TypoEnter, type TypoExit, type Framing, type MotionEasing, type Overlay, type Region, type MusicItem, type SfxItem, type TypoBlock, type TypoBg, type TypoRole, type TypoTemplate } from '../types';
+import { MOTIONS, TRANSITIONS, REGION_EFFECTS, TYPO_TEMPLATES, TYPO_ENTERS, TYPO_EXITS, type TypoEnter, type TypoExit, type Framing, type MotionEasing, type Overlay, type Region, type AudioClip, type TypoBlock, type TypoBg, type TypoRole, type TypoTemplate } from '../types';
 
 import { FONT_PAIRS, TEMPLATE_LABELS, TYPO_PALETTES } from '../lib/typography';
 
@@ -26,9 +27,8 @@ import { fetchResult, runJob, useEngine } from '../lib/engine';
 
 import { media } from '../render/media';
 
-import { deleteVoiceSegment, detachSelectedAudio, splitAtPlayhead, splitVoiceAtPlayhead } from './actions';
+import { detachSelectedAudio, splitAtPlayhead } from './actions';
 
-import { removeVoiceSplit, voiceSegments } from './edit';
 
 import { AiVideoSection } from './AiVideo';
 
@@ -406,7 +406,7 @@ function ClipInspector({ id }: { id: string }) {
 
           <FilePick accept="image/*,video/*" onFiles={replace} className="btn sm">Replace…</FilePick>
 
-          <button className="btn sm" onClick={splitAtPlayhead}><Icon name="scissors" /> Split</button>
+          <button className="btn sm" onClick={() => splitAtPlayhead()}><Icon name="scissors" /> Split</button>
 
           <button className="btn sm" disabled={engine !== 'ready'} onClick={upscale} title="Real-ESRGAN ×2 on your Colab"><Icon name="upscale" /> Upscale ×2</button>
 
@@ -666,47 +666,57 @@ function KeywordInspector({ id }: { id: string }) {
 
 
 
-function MusicInspector({ id }: { id: string }) {
-
+function AudioClipInspector({ id }: { id: string }) {
   const p = useProject();
-
   const update = useEditor((s) => s.update);
-
-  const m = p.music.find((x) => x.id === id);
-
+  const m = p.audio.find((x) => x.id === id);
   if (!m) return null;
-
-  const set = (fn: (x: MusicItem) => void, k?: string) => update((d) => fn(d.music.find((x) => x.id === id)!), k && `${k}${id}`);
-
+  const t = p.audioTracks.find((x) => x.id === m.trackId);
+  const isNarr = m.trackId === p.narrationTrackId;
+  const asset = findAsset(p, m.assetId);
+  const set = (fn: (x: AudioClip) => void, k?: string) => update((d) => fn(d.audio.find((x) => x.id === id)!), k && `${k}${id}`);
+  const words = isNarr ? (p.words.length ? p.words : p.lines.flatMap((l) => l.words)).filter((w) => w.start >= m.start - 0.05 && w.end <= m.start + m.duration + 0.05) : [];
   return (
-
-    <Section title={`Music · ${findAsset(p, m.assetId)?.name ?? ''}`}>
-
-      <Slider label="Volume" value={m.volume} min={0} max={1.5} onChange={(v) => set((x) => void (x.volume = v), 'mv')} fmt={(v) => `${Math.round(v * 100)}%`} />
-
-      <Slider label="Start" value={m.start} min={0} max={projectLength(p)} step={0.1} onChange={(v) => set((x) => void (x.start = v), 'ms')} suffix="s" />
-
-      <Slider label="Trim in" value={m.trimIn} min={0} max={Math.max(0, (findAsset(p, m.assetId)?.duration ?? 1) - 1)} step={0.1} onChange={(v) => set((x) => void (x.trimIn = v), 'mt')} suffix="s" />
-
-      <Slider label="Fade in" value={m.fadeIn} min={0} max={5} onChange={(v) => set((x) => void (x.fadeIn = v), 'mfi')} suffix="s" />
-
-      <Slider label="Fade out" value={m.fadeOut} min={0} max={8} onChange={(v) => set((x) => void (x.fadeOut = v), 'mfo')} suffix="s" />
-
-      <Toggle label="Duck under voice (dips while someone speaks, rises in the pauses)" value={m.duck} onChange={(v) => set((x) => void (x.duck = v))} />
-
-      {m.duck && (
-
-        <>
-
-          <div className="row wrap">
-            {([['Gentle', 0.6, 0.35, 0.6], ['Podcast', 0.35, 0.25, 0.4], ['Strong', 0.15, 0.15, 0.3]] as const).map(([n, depth, a, r]) => (
-              <button key={n} className={`chip ${m.duckDepth === depth ? 'on' : ''}`} onClick={() => set((x) => void ((x.duck = true), (x.duckDepth = depth), (x.duckAttack = a), (x.duckRelease = r)))}>{n}</button>
-            ))}
-          </div>
-          <Slider label="Duck level" value={m.duckDepth ?? 0.35} min={0} max={1} onChange={(v) => set((x) => void (x.duckDepth = v), 'mdd')} fmt={(v) => `${Math.round(v * 100)}%`} />
+    <>
+      <Section title={`${t?.name ?? 'Audio'} · ${asset?.name ?? m.sound ?? ''}`}>
+        <p className="hint">{fmtTime(m.start)} → {fmtTime(m.start + m.duration)} · {m.duration.toFixed(2)} s{isNarr ? ' · ★ narration (captions follow it)' : ''}</p>
+        {words.length > 0 && <p className="hint">“{words.map((w) => w.text).join(' ').slice(0, 200)}”</p>}
+        <label className="field"><span>Start (m:ss.mmm)</span>
+          <input key={`${m.id}-${m.start}`} defaultValue={fmtClock(m.start)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} onBlur={(e) => {
+            const v = parseClock(e.target.value);
+            if (v === null) return void (e.target.value = fmtClock(m.start));
+            update((d) => moveAudioClip(d, id, v));
+          }} />
+        </label>
+        <Select label="Track" value={m.trackId} options={p.audioTracks.map((x) => [x.id, `${x.id === p.narrationTrackId ? '★ ' : ''}${x.name}`] as [string, string])} onChange={(v) => set((x) => void (x.trackId = v))} />
+        <Slider label="Volume" value={m.volume} min={0} max={2} onChange={(v) => set((x) => void (x.volume = v), 'mv')} fmt={(v) => `${Math.round(v * 100)}%`} />
+        {asset && <Slider label="Trim in" value={m.trimIn} min={0} max={Math.max(0, (asset.duration ?? 1) - 0.2)} step={0.05} onChange={(v) => set((x) => void (x.trimIn = v), 'mt')} suffix="s" />}
+        <Slider label="Fade in" value={m.fadeIn} min={0} max={Math.min(8, m.duration / 2)} onChange={(v) => set((x) => void (x.fadeIn = v), 'mfi')} suffix="s" />
+        <Slider label="Fade out" value={m.fadeOut} min={0} max={Math.min(10, m.duration / 2)} onChange={(v) => set((x) => void (x.fadeOut = v), 'mfo')} suffix="s" />
+        <div className="row wrap">
+          <button className="btn sm" onClick={() => (useEditor.getState().seek(m.start), useEditor.getState().setPlaying(true))}><Icon name="play" /> Play</button>
+          <button className="btn sm" onClick={() => splitAtPlayhead()}><Icon name="scissors" /> Split at playhead</button>
+          <button className="btn sm ghost danger" onClick={deleteSelection}><Icon name="trash" /> Remove</button>
+        </div>
+      </Section>
+      {!isNarr && (
+        <Section title="Under the narration">
+          <Toggle label="Duck under the narration (dips while it speaks, rises in the pauses)" value={!!m.duck} onChange={(v) => set((x) => void (x.duck = v))} />
+          {m.duck && (
+            <>
+              <div className="row wrap">
+                {([['Gentle', 0.6, 0.35, 0.6], ['Podcast', 0.35, 0.25, 0.4], ['Strong', 0.15, 0.15, 0.3]] as const).map(([n, depth, a, r]) => (
+                  <button key={n} className={`chip ${m.duckDepth === depth ? 'on' : ''}`} onClick={() => set((x) => void ((x.duck = true), (x.duckDepth = depth), (x.duckAttack = a), (x.duckRelease = r)))}>{n}</button>
+                ))}
+              </div>
+              <Slider label="Duck level" value={m.duckDepth ?? 0.35} min={0} max={1} onChange={(v) => set((x) => void (x.duckDepth = v), 'mdd')} fmt={(v) => `${Math.round(v * 100)}%`} />
+              <Slider label="Dip before" value={m.duckAttack ?? 0.25} min={0.05} max={1.5} step={0.05} onChange={(v) => set((x) => void (x.duckAttack = v), 'mda')} suffix="s" />
+              <Slider label="Back up after" value={m.duckRelease ?? 0.4} min={0.05} max={3} step={0.05} onChange={(v) => set((x) => void (x.duckRelease = v), 'mdr')} suffix="s" />
+            </>
+          )}
           <div className="card">
             <b>Volume curve</b>
-            <p className="hint">Add points at the playhead to shape the music over time (100 % = normal).</p>
+            <p className="hint">Add points at the playhead to shape the level over time (100 % = normal).</p>
             {(m.curve ?? []).map((pt, k) => (
               <div key={k} className="row between">
                 <code>{fmtClock(pt.t)}</code>
@@ -718,68 +728,32 @@ function MusicInspector({ id }: { id: string }) {
               <button className="btn sm ghost" onClick={() => set((x) => void (x.curve = [...(x.curve ?? []), { t: useEditor.getState().time, v: 1 }].sort((a, b) => a.t - b.t)))}><Icon name="plus" /> Point at playhead</button>
               <button className="btn sm ghost" onClick={() => {
                 const pp = useEditor.getState().project!;
-                const vs = pp.voiceStart ?? 0, ve = voiceEnd(pp), end = m.start + m.duration;
+                const vs = voiceStartOf(pp), ve = voiceEnd(pp), end = m.start + m.duration;
                 set((x) => void (x.curve = [{ t: m.start, v: 1.4 }, { t: Math.max(m.start, vs - 0.5), v: 1.4 }, { t: vs + 0.5, v: 1 }, { t: Math.max(vs + 0.6, ve - 0.5), v: 1 }, { t: Math.min(end, ve + 0.5), v: 1.4 }]));
               }}>Intro / outro louder</button>
               {m.curve?.length ? <button className="btn sm ghost" onClick={() => set((x) => void (x.curve = undefined))}>Clear curve</button> : null}
             </div>
           </div>
-
-          <Slider label="Dip before" value={m.duckAttack ?? 0.25} min={0.05} max={1.5} step={0.05} onChange={(v) => set((x) => void (x.duckAttack = v), 'mda')} suffix="s" />
-
-          <Slider label="Back up after" value={m.duckRelease ?? 0.4} min={0.05} max={3} step={0.05} onChange={(v) => set((x) => void (x.duckRelease = v), 'mdr')} suffix="s" />
-
-          <p className="hint">Pauses are detected from the voiceover audio itself — press play to hear it.</p>
-
-        </>
-
+        </Section>
       )}
-
-      <button className="btn sm ghost danger" onClick={deleteSelection}><Icon name="trash" /> Remove</button>
-
-    </Section>
-
+      {t && (
+        <Section title={`Track · ${t.name}`}>
+          <Slider label="Track volume" value={t.volume} min={0} max={2} onChange={(v) => update((d) => void (d.audioTracks.find((x) => x.id === t.id)!.volume = v), `tv${t.id}`)} fmt={(v) => `${Math.round(v * 100)}%`} />
+          <div className="row wrap">
+            <Toggle label="Mute" value={!!t.muted} onChange={(v) => update((d) => void (d.audioTracks.find((x) => x.id === t.id)!.muted = v))} />
+            {t.kind === 'voice' && !isNarr && <button className="btn sm" onClick={() => update((d) => void ((d.narrationTrackId = t.id), (d.audioTracks.find((x) => x.id === t.id)!.muted = false)))}>★ Make narration track</button>}
+          </div>
+        </Section>
+      )}
+    </>
   );
-
 }
-
-
-
-function SfxInspector({ id }: { id: string }) {
-
-  const p = useProject();
-
-  const update = useEditor((s) => s.update);
-
-  const s = p.sfx.find((x) => x.id === id);
-
-  if (!s) return null;
-
-  const set = (fn: (x: SfxItem) => void, k?: string) => update((d) => fn(d.sfx.find((x) => x.id === id)!), k && `${k}${id}`);
-
-  return (
-
-    <Section title={`Sound · ${s.sound.startsWith('asset:') ? findAsset(p, s.sound.slice(6))?.name : s.sound}`}>
-
-      <Slider label="Volume" value={s.volume} min={0} max={1.5} onChange={(v) => set((x) => void (x.volume = v), 'sv')} fmt={(v) => `${Math.round(v * 100)}%`} />
-
-      <Slider label="At" value={s.start} min={0} max={projectLength(p)} step={0.01} onChange={(v) => set((x) => void (x.start = v), 'ss')} suffix="s" />
-
-      <button className="btn sm ghost danger" onClick={deleteSelection}><Icon name="trash" /> Remove</button>
-
-    </Section>
-
-  );
-
-}
-
-
 
 function ProjectSummary() {
 
   const p = useProject();
 
-  const vo = p.voiceover && findAsset(p, p.voiceover.assetId);
+  const vo = mainVoiceAsset(p) ? findAsset(p, mainVoiceAsset(p)!) : undefined;
 
   return (
 
@@ -813,80 +787,6 @@ function ProjectSummary() {
 
 
 
-function VoiceSegmentInspector({ index }: { index: number }) {
-
-  const p = useProject();
-
-  const update = useEditor((s) => s.update);
-
-  const vo = p.voiceover && findAsset(p, p.voiceover.assetId);
-
-  if (!vo || !p.voiceover) return null;
-
-  const segs = voiceSegments(p, vo.duration ?? 0);
-
-  const sg = segs[index];
-
-  if (!sg) return null;
-
-  const off = p.voiceStart ?? 0;
-
-  const words = (p.words.length ? p.words : p.lines.flatMap((l) => l.words)).filter((w) => w.start >= sg.start + off - 0.05 && w.end <= sg.end + off + 0.05);
-
-  return (
-
-    <>
-
-      <Section title={`Narration part ${index + 1} of ${segs.length}`}>
-
-        <dl className="specs">
-
-          <dt>From</dt><dd>{fmtTime(sg.start + off)}</dd>
-
-          <dt>To</dt><dd>{fmtTime(sg.end + off)}</dd>
-
-          <dt>Length</dt><dd>{(sg.end - sg.start).toFixed(2)} s</dd>
-
-        </dl>
-
-        {words.length > 0 && <p className="hint">“{words.map((w) => w.text).join(' ').slice(0, 220)}”</p>}
-
-        <div className="row wrap">
-
-          <button className="btn sm" onClick={() => (useEditor.getState().seek(sg.start + off), useEditor.getState().setPlaying(true))}><Icon name="play" /> Play</button>
-
-          <button className="btn sm" onClick={splitVoiceAtPlayhead}><Icon name="scissors" /> Split at playhead</button>
-
-          <button className="btn sm danger" disabled={segs.length < 2} onClick={() => void deleteVoiceSegment(index)}><Icon name="ripple" /> Cut this part out</button>
-
-        </div>
-
-        {segs.length < 2 && <p className="hint">Move the playhead and click <b>Split</b> to divide the narration, then select a part to cut it. Captions, typography, SFX and clips after it move earlier.</p>}
-
-        <div className="row wrap">
-
-          {index > 0 && <button className="btn sm ghost" onClick={() => update((d) => removeVoiceSplit(d, index - 1))}>Join with previous</button>}
-
-          {index < segs.length - 1 && <button className="btn sm ghost" onClick={() => update((d) => removeVoiceSplit(d, index))}>Join with next</button>}
-
-        </div>
-
-      </Section>
-
-      <Section title="Voiceover">
-
-        <Slider label="Volume" value={p.voiceover.volume} min={0} max={2} onChange={(v) => update((d) => void (d.voiceover!.volume = v), 'vvol')} fmt={(v) => `${Math.round(v * 100)}%`} />
-
-      </Section>
-
-    </>
-
-  );
-
-}
-
-
-
 export function Inspector() {
 
   const sel = useEditor((s) => s.selection);
@@ -909,11 +809,7 @@ export function Inspector() {
 
         {sel?.kind === 'keyword' && <KeywordInspector id={sel.id} />}
 
-        {sel?.kind === 'music' && <MusicInspector id={sel.id} />}
-
-        {sel?.kind === 'sfx' && <SfxInspector id={sel.id} />}
-
-        {sel?.kind === 'voice' && <VoiceSegmentInspector index={+sel.id} />}
+        {sel?.kind === 'audio' && <AudioClipInspector key={sel.id} id={sel.id} />}
 
       </div>
 

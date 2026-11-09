@@ -57,10 +57,8 @@ export async function duplicateProject(id: string, newId: string) {
   }
   const r = (x: string) => remap.get(x) ?? x;
   copy.clips.forEach((c) => (c.assetId = r(c.assetId)));
-  copy.music.forEach((m) => (m.assetId = r(m.assetId)));
+  copy.audio.forEach((m) => m.assetId && (m.assetId = r(m.assetId)));
   copy.overlays.forEach((o) => o.assetId && (o.assetId = r(o.assetId)));
-  copy.sfx.forEach((s) => s.sound.startsWith('asset:') && (s.sound = `asset:${r(s.sound.slice(6))}`));
-  if (copy.voiceover) copy.voiceover.assetId = r(copy.voiceover.assetId);
   await saveProject(copy);
   const t = await get<Blob>(`thumb:${id}`);
   if (t) await saveThumb(newId, t);

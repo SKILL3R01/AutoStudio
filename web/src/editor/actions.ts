@@ -5,67 +5,60 @@ import { cutBuffer, encodeWav } from '../audio/silence';
 import { probe } from '../lib/project';
 import { toast } from '../components/Toast';
 import {
-  applyCuts, clipboardEnd, copyItems, detachAudio, pasteItems, rippleDeleteClips, splitClipAt, splitMusic, splitOverlay, splitVoice, voiceSegments,
+  applyCuts, clipboardEnd, copyItems, detachAudio, pasteItems, rippleDeleteClips, splitAudio, splitClipAt, splitOverlay,
   type ClipboardData,
 } from './edit';
 
 let clipboard: ClipboardData | null = null;
 export const hasClipboard = () => !!clipboard;
 
-const voiceDuration = () => {
-  const p = useEditor.getState().project!;
-  return (p.voiceover && findAsset(p, p.voiceover.assetId)?.duration) || 0;
-};
-
-/** S: split the selected music / text / narration at the playhead, otherwise the clip under the playhead. */
-export function splitAtPlayhead() {
+/** S: split the selected audio / text at the playhead, otherwise the clip under the playhead. */
+export function splitAtPlayhead(at?: number) {
   const { project: p, time, selection: sel, update } = useEditor.getState();
   if (!p) return;
+  const t = at ?? time;
   let ok = false;
   update((d) => {
-    if (sel?.kind === 'music') ok = splitMusic(d, sel.id, time);
-    else if (sel?.kind === 'overlay') ok = splitOverlay(d, sel.id, time);
-    else if (sel?.kind === 'voice') ok = splitVoice(d, time, voiceDuration());
-    else ok = splitClipAt(d, time);
+    if (sel?.kind === 'audio') ok = splitAudio(d, sel.id, t);
+    else if (sel?.kind === 'overlay') ok = splitOverlay(d, sel.id, t);
+    else ok = splitClipAt(d, t);
   });
-  if (!ok) toast('Move the playhead inside the item to split it', 'info');
+  if (!ok) toast('Put the playhead (or the mouse) inside the item to split it', 'info');
 }
 
-/** Split the narration at the playhead (from the voice lane). */
-export function splitVoiceAtPlayhead() {
-  const { time, update } = useEditor.getState();
-  update((d) => void splitVoice(d, time, voiceDuration()));
-}
-
-/** Shift+Delete: remove and close the gap (clips), or cut the selected narration segment out. */
+/** Shift+Delete: remove clips and close the gap; audio clips are removed and the following audio on that track moves earlier. */
 export async function rippleDelete() {
   const { project: p, selection: sel, multi, update, select } = useEditor.getState();
   if (!p) return;
-  if (sel?.kind === 'voice') return void (await deleteVoiceSegment(+sel.id));
+  if (sel?.kind === 'audio') {
+    const c = p.audio.find((x) => x.id === sel.id);
+    if (!c) return;
+    update((d) => {
+      d.audio = d.audio.filter((x) => x.id !== c.id);
+      d.audio.forEach((x) => x.trackId === c.trackId && x.start >= c.start + c.duration - 0.01 && (x.start -= c.duration));
+    });
+    select(null);
+    return toast('Removed — later audio on that track moved earlier', 'ok');
+  }
   const ids = new Set([...(sel?.kind === 'clip' ? [sel.id] : []), ...multi]);
   if (!ids.size) return toast('Select clips to ripple-delete', 'info');
   if (ids.size >= p.clips.length) return toast('Keep at least one clip', 'info');
   update((d) => rippleDeleteClips(d, ids));
   select(null);
-  toast(p.voiceover ? 'Removed — following clips moved earlier (the narration stays)' : 'Removed — everything after moved earlier', 'ok');
+  toast('Removed — following clips moved earlier', 'ok');
 }
 
-/** Cut a narration segment out of the voice file; everything after it moves earlier (one undo step). */
-export async function deleteVoiceSegment(index: number) {
+/** Cut a part of a narration file out (Remove silences etc.): everything after it moves earlier. */
+export async function cutNarration(assetId: string, cuts: { start: number; end: number }[]) {
   const p = useEditor.getState().project!;
-  const vo = p.voiceover && findAsset(p, p.voiceover.assetId);
-  if (!vo) return;
-  const seg = voiceSegments(p, vo.duration ?? 0)[index];
-  const buf = await media.audioBuffer(vo.id);
-  if (!seg || !buf) return toast('Could not read the voiceover', 'error');
-  if (seg.end - seg.start >= buf.duration - 0.05) return toast('Split the narration first, then delete a part', 'info');
-  const asset = await probe(encodeWav(cutBuffer(buf, [seg])), vo.name.replace(/(_cut)?(\.[^.]+)?$/, '_cut.wav'), 'audio');
+  const vo = findAsset(p, assetId);
+  const buf = vo && (await media.audioBuffer(vo.id));
+  if (!vo || !buf) return toast('Could not read the voice file', 'error');
+  const asset = await probe(encodeWav(cutBuffer(buf, cuts)), vo.name.replace(/(_cut)?(\.[^.]+)?$/, '_cut.wav'), 'audio');
   useEditor.getState().update((d) => {
     d.assets.push(asset);
-    applyCuts(d, [seg], asset.id);
+    applyCuts(d, cuts, asset.id, vo.id);
   });
-  useEditor.getState().select(null);
-  toast(`Cut ${(seg.end - seg.start).toFixed(1)} s of narration — captions and clips moved with it (Undo restores)`, 'ok');
 }
 
 export function copySelection(): boolean {
@@ -100,7 +93,7 @@ export function detachSelectedAudio() {
   let id: string | null = null;
   update((d) => void (id = detachAudio(d, selection.id)));
   if (id) {
-    select({ kind: 'music', id });
-    toast('Sound moved to the music lane — trim, fade or delete it there', 'ok');
+    select({ kind: 'audio', id });
+    toast('Sound moved to an audio track — trim, fade or delete it there', 'ok');
   } else toast('Only video clips with sound can be detached', 'info');
 }

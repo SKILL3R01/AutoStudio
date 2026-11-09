@@ -122,7 +122,7 @@ export function TypoStudio() {
           <Select label="Exit" value={target.exit ?? 'auto'} options={TYPO_EXITS.map((e) => [e, e] as [string, string])} onChange={(v) => edit((b) => void (b.exit = v as TypoBlock['exit']), 'ts-ex')} />
           <Slider label="Speed" value={target.speed ?? 1} min={0.5} max={2} step={0.05} onChange={(v) => edit((b) => void (b.speed = v), 'ts-sp')} fmt={(v) => `${v.toFixed(2)}×`} />
           <Seg options={[['word', 'On the word'], ['lead', 'Lead-in'], ['beat', 'On the beat']] as const} value={target.timing ?? 'word'} onChange={(v) => edit((b) => void (b.timing = v), 'ts-tm')} />
-          {target.timing === 'beat' && !p.music.length && <p className="hint">“On the beat” uses the music track — add music in Voice → Audio.</p>}
+          {target.timing === 'beat' && !p.audio.some((c) => p.audioTracks.find((t) => t.id === c.trackId)?.kind === 'music') && <p className="hint">“On the beat” uses the music track — add music in Voice → Audio.</p>}
           <div className="row wrap">
             <button className="btn sm primary" onClick={saveMine}><Icon name="plus" /> Save as my style</button>
             {selected && <button className="btn sm ghost" onClick={() => apply(designOf(selected, 'tmp', 'tmp'), true)}>Apply this design to all blocks</button>}

@@ -6,31 +6,40 @@ import { copySelection, duplicate, paste, rippleDelete, splitAtPlayhead } from '
 export function deleteSelection() {
   const { selection, update, select, multi } = useEditor.getState();
   if (!selection && !multi.length) return;
+  const ids = new Set([...(selection ? [selection.id] : []), ...multi]);
   update((p) => {
-    if (selection?.kind === 'clip' || multi.length) {
-      const ids = new Set([...(selection?.kind === 'clip' ? [selection.id] : []), ...multi]);
-      const firstStart = p.clips[0]?.start ?? 0;
-      p.clips = p.clips.filter((c) => !ids.has(c.id));
-      if (p.clips[0]) p.clips[0].start = Math.min(p.clips[0].start, firstStart);
-    }
-    if (selection?.kind === 'overlay') p.overlays = p.overlays.filter((o) => o.id !== selection.id);
-    if (selection?.kind === 'music') p.music = p.music.filter((o) => o.id !== selection.id);
-    if (selection?.kind === 'sfx') p.sfx = p.sfx.filter((o) => o.id !== selection.id);
-    if (selection?.kind === 'keyword') p.typo = p.typo.filter((o) => o.id !== selection.id);
+    const firstStart = p.clips[0]?.start ?? 0;
+    p.clips = p.clips.filter((c) => !ids.has(c.id));
+    if (p.clips[0]) p.clips[0].start = Math.min(p.clips[0].start, firstStart);
+    if (!p.clips.length) p.length = 0;
+    p.overlays = p.overlays.filter((o) => !ids.has(o.id));
+    p.audio = p.audio.filter((o) => !ids.has(o.id));
+    p.typo = p.typo.filter((o) => !ids.has(o.id));
   });
   select(null);
 }
 
+/** Ctrl+A: select every clip, text, typography block and audio clip. */
+export function selectAll() {
+  const { project: p } = useEditor.getState();
+  if (!p) return;
+  useEditor.setState({ selection: null, multi: [...p.clips, ...p.overlays, ...p.typo, ...p.audio].map((x) => x.id) });
+}
+
+/** Ctrl+X: copy, then delete. */
+export function cutSelection() {
+  if (copySelection()) deleteSelection();
+}
+
 /** Delete: narration segments can only be cut (ripple), everything else is removed in place. */
 export function deleteAction() {
-  if (useEditor.getState().selection?.kind === 'voice') return void rippleDelete();
   deleteSelection();
 }
 
 export const SHORTCUTS: [string, string][] = [
   ['Space', 'Play / pause'], ['← / →', 'Step 0.5 s (Shift = 5 s, Ctrl = 1 frame)'], ['Home / End', 'Jump to start / end'],
-  ['S', 'Split at playhead (selected music / text / narration, else the clip)'], ['Delete', 'Remove selection'], ['Shift+Delete', 'Ripple delete (close the gap)'],
-  ['Ctrl+C / Ctrl+V', 'Copy / paste at playhead'], ['Ctrl+D', 'Duplicate'], ['N', 'Snapping on / off'], ['Shift-click', 'Select several clips'], ['Esc', 'Clear selection'],
+  ['S', 'Split at playhead (selected audio / text, else the clip) — right-click → Split here'], ['Delete', 'Remove selection'], ['Shift+Delete', 'Ripple delete (close the gap)'],
+  ['Ctrl+A', 'Select everything'], ['Ctrl+X / Ctrl+C / Ctrl+V', 'Cut / copy / paste at playhead'], ['Ctrl+D', 'Duplicate'], ['N', 'Snapping on / off'], ['Shift / Ctrl-click', 'Select several items (any track)'], ['Esc', 'Clear selection'],
   ['Ctrl+Z / Ctrl+Shift+Z', 'Undo / redo'], ['Ctrl+wheel', 'Zoom timeline'], ['Double-click preview', 'Play / pause'], ['?', 'This list'],
 ];
 
@@ -65,6 +74,12 @@ export function useShortcuts() {
       } else if (mod && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         s.redo();
+      } else if (mod && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        selectAll();
+      } else if (mod && e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        cutSelection();
       } else if (mod && e.key.toLowerCase() === 'c') {
         if (copySelection()) e.preventDefault();
       } else if (mod && e.key.toLowerCase() === 'v') {

@@ -1,3 +1,6 @@
+import { mainVoiceAsset, narrationClips, narrationTrack } from '../lib/audiotracks';
+import { addVoiceTake, probe } from '../lib/project';
+import { offsetWords } from '../audio/mix';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from '../store';
 import { useProject } from '../editor/hooks';
@@ -5,7 +8,6 @@ import { FilePick, Section, Seg, Select, Slider, Toggle } from '../components/ui
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { engineHas, useEngine } from '../lib/engine';
-import { importAudio } from '../lib/project';
 import { KOKORO_VOICES, transcribeLocal } from '../ai/vision';
 import { uid } from '../lib/util';
 import { useRecorder, toMonoWav } from './recorder';
@@ -161,6 +163,18 @@ function VoiceLibrary({ voices, reload, selected, onSelect }: { voices: VoiceSam
   );
 }
 
+
+/** Add a new voice take (never replaces): returns where it went. */
+async function addTake(file: File) {
+  const a = await probe(file, file.name, 'audio');
+  let info: ReturnType<typeof addVoiceTake> = { trackName: '' };
+  useEditor.getState().update((d) => {
+    d.assets.push(a);
+    info = addVoiceTake(d, a.id, a.duration ?? 0, 0);
+  });
+  return { ...info, start: 0 };
+}
+
 export function VoicePanel() {
   const p = useProject();
   const update = useEditor((s) => s.update);
@@ -223,12 +237,11 @@ export function VoicePanel() {
       setBusy('Joining paragraphs…');
       const wav = await joinParagraphs(parts);
       const file = new File([wav], `voiceover_${voiceId ? 'cloned' : 'ai'}.wav`, { type: 'audio/wav' });
-      const next = await importAudio(useEditor.getState().project!, [file], { asVoiceover: true });
-      update((d) => Object.assign(d, { assets: next.assets, voiceover: next.voiceover }));
-      toast(`Voiceover ready (${paras.length} paragraphs, ${fmt((Date.now() - t0) / 1000)})`, 'ok');
+      const take = await addTake(file);
+      toast(`Voiceover ready (${paras.length} paragraphs, ${fmt((Date.now() - t0) / 1000)})${take.replacedName ? ` — your previous voice is kept on “${take.replacedName}” (muted)` : ''}`, 'ok');
       if (captions) {
         setBusy('Creating captions on this PC…');
-        const { words } = await transcribeLocal(wav, 'base', settings().language);
+        const words = offsetWords((await transcribeLocal(wav, 'base', settings().language)).words, take.start);
         update((d) => void ((d.words = words), (d.lines = []), (d.captions.enabled = true), (d.captions.wordLevel = true)));
       }
     } catch (e) {
@@ -247,10 +260,9 @@ export function VoicePanel() {
     if (!rec.blob) return;
     void (async () => {
       const file = new File([rec.blob!], 'voiceover_recorded.webm', { type: rec.blob!.type });
-      const next = await importAudio(useEditor.getState().project!, [file], { asVoiceover: true });
-      update((d) => Object.assign(d, { assets: next.assets, voiceover: next.voiceover }));
+      const take = await addTake(file);
       rec.reset();
-      toast('Recording set as the voiceover — use Audio → Remove silences to tighten it', 'ok');
+      toast(take.replacedName ? `Recording added on “${take.trackName}” — your previous voice is kept on “${take.replacedName}” (muted)` : 'Recording added as the narration — use Audio → Remove silences to tighten it', 'ok');
     })();
   }, [rec.blob]);
 
@@ -306,7 +318,7 @@ export function VoicePanel() {
           <button className="btn sm" disabled={rec.state === 'countdown'} onClick={() => void rec.start(3)}><Icon name="mic" /> Record voiceover</button>
         )}
         {rec.error && <p className="warn">{rec.error}</p>}
-        {p.voiceover && <p className="hint">Current voiceover: {p.assets.find((a) => a.id === p.voiceover!.assetId)?.name}</p>}
+        {mainVoiceAsset(p) && <p className="hint">Narration: {p.assets.find((a) => a.id === mainVoiceAsset(p))?.name} · new takes are added, never replaced</p>}
       </Section>
     </>
   );
@@ -316,7 +328,9 @@ export function VoicePanel() {
 export function VoiceEnhance() {
   const p = useProject();
   const update = useEditor((s) => s.update);
-  const vo = p.voiceover;
+  const nt = narrationTrack(p);
+  const first = narrationClips(p)[0];
+  const vo = nt && first ? { fx: nt.fx, assetId: first.assetId } : undefined;
   const [busy, setBusy] = useState('');
   const [pace, setPace] = useState(1);
   const [pitch, setPitch] = useState(0);
@@ -324,13 +338,13 @@ export function VoiceEnhance() {
   const fx: VoiceFx = vo.fx ?? { ...defaultFx('off'), targetLufs: null };
   /** Apply settings and re-measure loudness so the result lands on the target (−14 LUFS for YouTube). */
   const apply = async (next: VoiceFx) => {
-    update((d) => void (d.voiceover && (d.voiceover.fx = next)), 'voicefx');
+    update((d) => void (narrationTrack(d) && (narrationTrack(d)!.fx = next)), 'voicefx');
     if (next.targetLufs === null) return;
     const buf = await media.audioBuffer(vo.assetId);
     if (!buf) return;
     setBusy('Measuring loudness…');
     const gainDb = await makeupFor(buf, next);
-    update((d) => void (d.voiceover?.fx && (d.voiceover.fx.gainDb = gainDb)), 'voicefx');
+    update((d) => void (narrationTrack(d)?.fx && (narrationTrack(d)!.fx!.gainDb = gainDb)), 'voicefx');
     setBusy('');
   };
   const set = (k: keyof VoiceFx, v: number) => void apply({ ...fx, [k]: v, preset: 'custom' });
@@ -341,8 +355,12 @@ export function VoiceEnhance() {
     try {
       const out = await paceAndPitch(buf, pace, pitch);
       const file = new File([encodeWav(out)], `voiceover_${pace.toFixed(2)}x_${pitch > 0 ? '+' : ''}${pitch}st.wav`, { type: 'audio/wav' });
-      const next = await importAudio(useEditor.getState().project!, [file], { asVoiceover: true });
-      update((d) => Object.assign(d, { assets: next.assets, voiceover: { ...next.voiceover!, fx: vo.fx } }));
+      const a = await probe(file, file.name, 'audio');
+      update((d) => {
+        d.assets.push(a);
+        const c = d.audio.find((x) => x.id === first!.id);
+        if (c) Object.assign(c, { assetId: a.id, trimIn: c.trimIn / pace, duration: c.duration / pace });
+      });
       toast('Voiceover updated — Undo brings the original back. Re-run captions if the pace changed.', 'ok');
       setPace(1);
       setPitch(0);
@@ -361,7 +379,7 @@ export function VoiceEnhance() {
       <Slider label="Room" value={fx.room} min={0} max={0.5} onChange={(v) => set('room', v)} />
       <Toggle label="Loudness −14 LUFS (YouTube standard)" value={fx.targetLufs !== null} onChange={(v) => void apply({ ...fx, targetLufs: v ? -14 : null, gainDb: v ? fx.gainDb : 0 })} />
       {fx.targetLufs !== null && <p className="hint">Make-up gain {fx.gainDb > 0 ? '+' : ''}{fx.gainDb.toFixed(1)} dB</p>}
-      <Toggle label="Compare: bypass (hear the original)" value={!!fx.bypass} onChange={(v) => update((d) => void (d.voiceover && (d.voiceover.fx = { ...fx, bypass: v })))} />
+      <Toggle label="Compare: bypass (hear the original)" value={!!fx.bypass} onChange={(v) => update((d) => void (narrationTrack(d) && (narrationTrack(d)!.fx = { ...fx, bypass: v })))} />
       <h4>Pace & pitch</h4>
       <Slider label="Pace" value={pace} min={0.85} max={1.15} step={0.01} onChange={setPace} fmt={(v) => `${v.toFixed(2)}×`} />
       <Slider label="Pitch" value={pitch} min={-3} max={3} step={0.5} onChange={setPitch} fmt={(v) => `${v > 0 ? '+' : ''}${v} st`} />

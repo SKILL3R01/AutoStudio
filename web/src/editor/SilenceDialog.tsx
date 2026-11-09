@@ -1,3 +1,4 @@
+import { narrationClips } from '../lib/audiotracks';
 import { useEffect, useMemo, useState } from 'react';
 import { useEditor, findAsset } from '../store';
 import { media } from '../render/media';
@@ -15,7 +16,8 @@ interface Pause extends Range {
 export function SilenceDialog({ onClose }: { onClose: () => void }) {
   const p = useEditor((s) => s.project!);
   const update = useEditor((s) => s.update);
-  const vo = p.voiceover && findAsset(p, p.voiceover.assetId);
+  const first = narrationClips(p)[0];
+  const vo = first && findAsset(p, first.assetId);
   const [buf, setBuf] = useState<AudioBuffer>();
   const [lv, setLv] = useState<Levels>();
   const [opts, setOpts] = useState<SilenceOptions>({ threshold: 'auto', minPause: 0.6, padding: 0.15 });
@@ -26,14 +28,14 @@ export function SilenceDialog({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!p.voiceover) return;
-    void media.audioBuffer(p.voiceover.assetId).then((b) => b && (setBuf(b), setLv(analyzeLevels(b))));
-  }, [p.voiceover?.assetId]);
+    if (!vo) return;
+    void media.audioBuffer(vo.id).then((b) => b && (setBuf(b), setLv(analyzeLevels(b))));
+  }, [vo?.id]);
   useEffect(() => {
     if (lv) setPauses(detectSilences(lv, opts).map((r) => ({ ...r, approved: true })));
   }, [lv, opts]);
 
-  const off = p.voiceStart ?? 0;
+  const off = first ? first.start - first.trimIn : 0;
   const words = p.words.length ? p.words : p.lines.flatMap((l) => l.words);
   const around = (r: Range) => {
     const before = words.filter((w) => w.end <= r.start + off + 0.05).slice(-3).map((w) => w.text).join(' ');
@@ -69,7 +71,7 @@ export function SilenceDialog({ onClose }: { onClose: () => void }) {
       const asset = await probe(encodeWav(out), vo.name.replace(/(\.[^.]+)?$/, '_trimmed.wav'), 'audio');
       update((d) => {
         d.assets.push(asset);
-        applyCuts(d, cuts, asset.id);
+        applyCuts(d, cuts, asset.id, vo.id);
       });
       toast(`Removed ${cuts.length} pause${cuts.length > 1 ? 's' : ''} · saved ${saved.toFixed(1)} s (Undo restores the original)`, 'ok');
       onClose();

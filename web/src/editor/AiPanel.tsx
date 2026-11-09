@@ -1,3 +1,4 @@
+import { ensureTrack, newAudioClip } from '../lib/audiotracks';
 import { useState } from 'react';
 import { useEditor, clipEnd, findAsset } from '../store';
 import { useProject } from './hooks';
@@ -66,13 +67,14 @@ export function AiPanel() {
         3000,
       );
       update((d) => {
-        d.sfx = d.sfx.filter((s) => !s.id.startsWith('ai_'));
+        d.audio = d.audio.filter((s) => !s.id.startsWith('ai_'));
+        const sfxTrack = ensureTrack(d, 'sfx');
         for (const s of plan) {
           const c = d.clips[s.i];
           if (!c) continue;
           if (s.motion && MOTIONS.includes(s.motion)) c.motion = s.motion;
           if (s.transition && TRANSITIONS.includes(s.transition) && s.i > 0) c.transition = s.transition;
-          if (s.sfx && (SFX as readonly string[]).includes(s.sfx)) d.sfx.push({ id: 'ai_' + uid(), sound: s.sfx, start: Math.max(0, (s.i === 0 ? 0 : c.start) - 0.2), volume: 0.5 });
+          if (s.sfx && (SFX as readonly string[]).includes(s.sfx)) d.audio.push(newAudioClip(sfxTrack, '', Math.max(0, (s.i === 0 ? 0 : c.start) - 0.2), 1.2, 'sfx', { id: 'ai_' + uid(), sound: s.sfx, volume: 0.5 }));
         }
       });
       toast(`Applied AI edit to ${plan.length} scenes`, 'ok');

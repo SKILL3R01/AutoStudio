@@ -1,3 +1,4 @@
+import { newAudioClip, TRACK_IDS } from './audiotracks';
 import { createProject } from './scenes';
 import { spreadWords } from './captions';
 import { uid } from './util';
@@ -49,7 +50,7 @@ export async function createDemoProject() {
   p.clips.forEach((c, i) => (c.transition = i ? 'random' : 'none'));
   p.overlays.push({ id: uid(), text: 'AutoStudio demo', start: 0.3, duration: 3.5, x: 0.5, y: 0.16, size: 1.1, color: '#ffffff', font: 'Bebas Neue', weight: 400, rotate: 0, blur: 0, opacity: 1, fadeIn: 0.4, fadeOut: 0.4, background: 'transparent', shadow: true });
   p.effects.push({ kind: 'grain', intensity: 0.4 }, { kind: 'vignette', intensity: 0.4 });
-  p.sfx.push({ id: uid(), sound: 'whoosh', start: 2.6, volume: 0.6 });
+  p.audio.push(newAudioClip(TRACK_IDS.sfx, '', 2.6, 1.5, 'sfx', { sound: 'whoosh', volume: 0.6 }));
   p.captions.mode = 'both';
   p.captions.typography = true;
   p.typo = autoBlocks(p.words, { ...p.typoSettings, density: 3 });

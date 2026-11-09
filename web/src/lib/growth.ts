@@ -1,4 +1,5 @@
 /** Growth helpers that need no API: niche RPM estimates, YouTube Partner Program targets, monetization readiness. */
+import { narrationClips, narrationEnd } from './audiotracks';
 import type { Project } from '../types';
 
 export interface Niche {
@@ -63,7 +64,7 @@ export interface ReadinessItem {
 
 /** A project's "style fingerprint" — identical fingerprints across many videos look mass-produced. */
 export const fingerprint = (p: Project) =>
-  [p.captions.style, [...new Set(p.typo.map((b) => b.template))].sort().join('+'), p.music.map((m) => p.assets.find((a) => a.id === m.assetId)?.name ?? '').sort().join('+'), p.effects.map((e) => e.kind).sort().join('+'), [...new Set(p.clips.map((c) => c.motion))].sort().join('+')].join('|');
+  [p.captions.style, [...new Set(p.typo.map((b) => b.template))].sort().join('+'), p.audio.filter((m) => m.trackId !== p.narrationTrackId).map((m) => p.assets.find((a) => a.id === m.assetId)?.name ?? m.sound ?? '').sort().join('+'), p.effects.map((e) => e.kind).sort().join('+'), [...new Set(p.clips.map((c) => c.motion))].sort().join('+')].join('|');
 
 /**
  * Pre-upload checklist against YouTube's monetization policies for faceless / AI-assisted videos
@@ -72,11 +73,11 @@ export const fingerprint = (p: Project) =>
 export function readiness(p: Project, others: Project[] = []): ReadinessItem[] {
   const out: ReadinessItem[] = [];
   const words = p.words.length ? p.words : p.lines.flatMap((l) => l.words);
-  const length = Math.max(p.length, words[words.length - 1]?.end ?? 0, p.voiceover ? (p.assets.find((a) => a.id === p.voiceover!.assetId)?.duration ?? 0) + (p.voiceStart ?? 0) : 0);
+  const length = Math.max(p.length, words[words.length - 1]?.end ?? 0, narrationEnd(p));
   const minutes = length / 60;
   const vertical = p.export.aspect === '9:16';
 
-  out.push(p.voiceover
+  out.push(narrationClips(p).length
     ? { id: 'voice', status: 'ok', title: 'Narration', detail: 'The video has a voiceover — commentary is what makes faceless videos original.' }
     : { id: 'voice', status: 'warn', title: 'No narration', detail: 'Videos that are only images/clips + music are often judged as reused or low-effort. Add commentary or a story.' });
 
@@ -105,8 +106,8 @@ export function readiness(p: Project, others: Project[] = []): ReadinessItem[] {
     out.push({ id: 'rights', status: 'warn', title: 'Video footage rights', detail: `${unknown.length} video clip(s) from files — only use footage you made, licensed, or that is clearly free to reuse. Movie/TV/other creators' clips cause Content ID claims.` });
   }
   const needCredit = (p.credits ?? []).filter((c) => c.required);
-  if (needCredit.length) out.push({ id: 'credits', status: 'info', title: 'Credits to add', detail: `${needCredit.length} free item(s) are CC BY / BY-SA — paste their credit lines into the description (Free media → Copy credits).` });
-  if (p.music.length) out.push({ id: 'music', status: 'warn', title: 'Music licence', detail: 'Use music you have rights to (YouTube Audio Library, or royalty-free with a licence). Popular songs get claimed and lose revenue.' });
+  if (needCredit.length) out.push({ id: 'credits', status: 'info', title: 'Credits to add', detail: `${needCredit.length} free item(s) are CC BY / BY-SA — paste their credit lines into the description (from the original source pages).` });
+  if (p.audio.some((m) => m.assetId && p.audioTracks.find((t) => t.id === m.trackId)?.kind === 'music')) out.push({ id: 'music', status: 'warn', title: 'Music licence', detail: 'Use music you have rights to (YouTube Audio Library, or royalty-free with a licence). Popular songs get claimed and lose revenue.' });
 
   out.push({ id: 'ai', status: 'info', title: 'AI disclosure', detail: `${aiVideo.length ? `${aiVideo.length} AI-generated clip(s). ` : ''}If AI imagery or voice could be mistaken for real people, places or events, turn on "Altered or synthetic content" when uploading. Fantasy, animation and clearly-illustrative visuals don't need it.` });
 

@@ -44,7 +44,7 @@ const source: FrameSource = {
 
 /** Only the fields that affect sound — playback restarts when these change, not on every visual tweak. */
 const audioKey = (p: Project) => JSON.stringify([
-  p.voiceover, p.music, p.sfx, p.clips.map((c) => [c.assetId, c.start, c.trimIn, c.trimOut, c.loop, c.volume]), p.words.length, p.lines.length,
+  p.audio, p.audioTracks, p.narrationTrackId, p.clips.map((c) => [c.assetId, c.start, c.trimIn, c.trimOut, c.loop, c.volume]), p.words.length, p.lines.length,
 ]);
 
 type Draggable = { kind: 'overlay' | 'keyword'; id: string; x: number; y: number; w: number; h: number };

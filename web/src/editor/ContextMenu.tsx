@@ -4,8 +4,9 @@ import { useEditor, projectLength, type Selection } from '../store';
 import { Icon } from '../components/icons';
 import { copySelection, detachSelectedAudio, duplicate, hasClipboard, paste, rippleDelete, splitAtPlayhead } from './actions';
 import { fmtClock, parseClock, setClipStart } from '../lib/timeline';
+import { moveAudioClip } from '../lib/audiotracks';
 import { MOTION_LABELS } from './Panels';
-import { deleteSelection } from './shortcuts';
+import { deleteSelection, selectAll } from './shortcuts';
 import type { Motion } from '../types';
 
 type Target = NonNullable<Selection>;
@@ -40,7 +41,7 @@ export function ContextMenu() {
   const { target } = at;
   const ci = target.kind === 'clip' ? p.clips.findIndex((c) => c.id === target.id) : -1;
   const clip = ci >= 0 ? p.clips[ci] : undefined;
-  const music = target.kind === 'music' ? p.music.find((m) => m.id === target.id) : undefined;
+  const music = target.kind === 'audio' ? p.audio.find((m) => m.id === target.id) : undefined;
   const isVideo = clip && p.assets.find((a) => a.id === clip.assetId)?.kind === 'video';
   const run = (fn: () => unknown) => () => (close(), void fn());
   const item = (label: string, icon: string, fn: () => unknown, disabled = false) => (
@@ -52,8 +53,7 @@ export function ContextMenu() {
     if (v === null) return;
     update((d) => {
       if (clip) setClipStart(d, ci, v, len);
-      const m = music && d.music.find((x) => x.id === music.id);
-      if (m) m.start = Math.max(0, v);
+      if (music) moveAudioClip(d, music.id, v);
     });
   };
   const setLength = () => {
@@ -65,12 +65,13 @@ export function ContextMenu() {
   };
   const fade = (which: 'fadeIn' | 'fadeOut') => {
     const v = parseClock(prompt(`${which === 'fadeIn' ? 'Fade in' : 'Fade out'} (seconds)`, String(music?.[which] ?? 1)) ?? '');
-    if (v !== null) update((d) => void (d.music.find((x) => x.id === target.id)![which] = Math.max(0, v)));
+    if (v !== null) update((d) => void (d.audio.find((x) => x.id === target.id)![which] = Math.max(0, v)));
   };
   const y = Math.min(at.y, window.innerHeight - 360), x = Math.min(at.x, window.innerWidth - 230);
   return (
     <div className="ctx-menu" style={{ left: x, top: y }} onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
-      {item('Split at playhead', 'scissors', () => (useEditor.getState().seek(at.time), splitAtPlayhead()))}
+      {item(`Split here (${fmtClock(at.time)})`, 'scissors', () => splitAtPlayhead(at.time))}
+      {item('Select all (Ctrl+A)', 'layers', selectAll)}
       {item('Duplicate', 'copy', duplicate)}
       {item('Copy', 'copy', copySelection)}
       {item('Paste here', 'paste', () => paste(at.time), !hasClipboard())}

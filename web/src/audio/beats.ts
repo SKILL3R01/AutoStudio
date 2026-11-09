@@ -1,15 +1,18 @@
 import type { Project } from '../types';
 import { media } from '../render/media';
+import { narrationClips } from '../lib/audiotracks';
 
 const cache = new Map<string, Promise<number[]>>();
 
 /** Beats of the first music bed (or the voiceover when there is no music), cached per asset. */
 export function beatsFor(p: Project): Promise<number[]> {
-  const m = p.music[0];
-  const id = m?.assetId ?? p.voiceover?.assetId;
+  const m = p.audio.find((c) => c.assetId && p.audioTracks.find((t) => t.id === c.trackId)?.kind === 'music');
+  const v = narrationClips(p)[0];
+  const id = m?.assetId ?? v?.assetId;
   if (!id || !(p.clips.some((c) => c.regions?.some((r) => r.trigger === 'beats')) || p.typo.some((b) => b.timing === 'beat'))) return Promise.resolve([]);
   if (!cache.has(id)) cache.set(id, media.audioBuffer(id).then((b) => (b ? detectBeats(b) : [])));
-  const offset = m ? m.start - m.trimIn : 0;
+  const src = m ?? v;
+  const offset = src ? src.start - src.trimIn : 0;
   return cache.get(id)!.then((bs) => bs.map((b) => b + offset).filter((b) => b >= 0));
 }
 

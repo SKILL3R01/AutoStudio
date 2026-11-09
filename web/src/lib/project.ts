@@ -1,6 +1,8 @@
 import type { CaptionSettings, Asset, AssetKind, Clip, KeywordSettings, Project, TypoBlock, TypoSettings } from '../types';
 import { saveBlob } from './db';
 import { uid } from './util';
+import { clipEndOf, defaultTracks, ensureTrack, migrateAudio, narrationClips, newAudioClip, addTrack, TRACK_IDS } from './audiotracks';
+export { setVoiceStart } from './audiotracks';
 
 export const defaultKeywordSettings = (): KeywordSettings => ({
   density: 3, combo: 'bold-serif', palette: 'neon', placement: 'safe', seed: 1, anims: ['pop', 'slam', 'slide', 'rotate'],
@@ -26,9 +28,10 @@ export function newProject(name = 'Untitled project'): Project {
     createdAt: Date.now(),
     updatedAt: Date.now(),
     assets: [],
-    length: 10,
-    voiceStart: 0,
-    tail: 0,
+    length: 0,
+    audioTracks: defaultTracks(),
+    audio: [],
+    narrationTrackId: TRACK_IDS.voice,
     audioFade: { in: 0, out: 0 },
     clips: [],
     motionDepth: 0.12,
@@ -43,8 +46,6 @@ export function newProject(name = 'Untitled project'): Project {
     typoSettings: defaultTypoSettings(),
     flowScenes: [],
     overlays: [],
-    music: [],
-    sfx: [],
     effects: [],
     color: { brightness: 1, contrast: 1, saturation: 1 },
     luts: [],
@@ -60,8 +61,9 @@ export function migrateCaptions(c: CaptionSettings, saved?: Partial<CaptionSetti
 }
 
 /** Fill in fields added in later versions so older saved projects keep working. */
-export function normalizeProject(p: Project): Project {
-  const d = newProject(p.name);
+export function normalizeProject(saved: Project): Project {
+  const d = newProject(saved.name);
+  const p = migrateAudio(saved);
   return {
     ...d,
     ...p,
@@ -73,21 +75,8 @@ export function normalizeProject(p: Project): Project {
     flowScenes: p.flowScenes ?? [],
     effects: p.effects ?? [],
     export: { ...d.export, ...p.export },
-    voiceStart: p.voiceStart ?? 0,
-    tail: p.tail ?? 0,
     audioFade: { ...d.audioFade, ...p.audioFade },
   };
-}
-
-/** Move the narration start; captions, keywords and SFX follow so they stay in sync with the voice. */
-export function setVoiceStart(p: Project, v: number) {
-  const d = Math.max(0, v) - p.voiceStart;
-  if (!d) return;
-  p.voiceStart = Math.max(0, v);
-  p.words.forEach((w) => ((w.start += d), (w.end += d)));
-  p.lines.forEach((l) => ((l.start += d), (l.end += d), l.words.forEach((w) => ((w.start += d), (w.end += d)))));
-  p.typo.forEach((b) => ((b.start += d), (b.end += d), b.words.forEach((w) => ((w.start += d), (w.end += d)))));
-  p.sfx.forEach((s) => (s.start = Math.max(0, s.start + d)));
 }
 
 /** A blank (solid colour) section starting at `start`. */
@@ -133,15 +122,46 @@ export const defaultClip = (assetId: string, start: number): Clip => ({
   id: uid(), assetId, start, trimIn: 0, motion: 'random', transition: 'none', volume: 0.4, fit: 'cover',
 });
 
-/** Import audio files: the first becomes the voiceover (unless `asMusic`), the rest music beds. */
+/** Put an audio asset on a track of `kind` at `at`; uses another track of that kind (or a new one) if it would overlap. */
+export function placeAudio(p: Project, assetId: string, kind: 'voice' | 'music' | 'sfx' | 'other', at: number, duration: number) {
+  const free = (tid: string) => !p.audio.some((c) => c.trackId === tid && c.start < at + duration - 0.01 && clipEndOf(c) > at + 0.01);
+  const tid = p.audioTracks.filter((t) => t.kind === kind).map((t) => t.id).find(free) ?? (p.audioTracks.some((t) => t.kind === kind) ? addTrack(p, kind) : ensureTrack(p, kind));
+  const c = newAudioClip(tid, assetId, at, duration, kind);
+  p.audio.push(c);
+  return c;
+}
+
+/**
+ * A new voice (recording, AI voice, upload): becomes the narration when there is none. Otherwise it goes on a new
+ * voice track that becomes the narration, and the previous narration track is muted — nothing is deleted.
+ */
+export function addVoiceTake(p: Project, assetId: string, duration: number, at = 0): { trackName: string; replacedName?: string } {
+  const prev = p.audioTracks.find((t) => t.id === p.narrationTrackId);
+  if (!narrationClips(p).length) {
+    const tid = prev ? prev.id : ensureTrack(p, 'voice');
+    p.narrationTrackId = tid;
+    p.audio.push(newAudioClip(tid, assetId, at, duration, 'voice'));
+    return { trackName: p.audioTracks.find((t) => t.id === tid)!.name };
+  }
+  const tid = addTrack(p, 'voice');
+  const t = p.audioTracks.find((x) => x.id === tid)!;
+  t.fx = prev?.fx;
+  p.audio.push(newAudioClip(tid, assetId, at, duration, 'voice'));
+  p.narrationTrackId = tid;
+  if (prev) prev.muted = true;
+  return { trackName: t.name, replacedName: prev?.name };
+}
+
+/** Import audio files: the first becomes the narration when there is none (unless `asMusic`), the rest go to Music. */
 export async function importAudio(p: Project, files: File[], opts: { asVoiceover?: boolean; asMusic?: boolean } = {}): Promise<Project> {
   const next = structuredClone(p);
   for (const f of files) {
     if (kindOf(f) !== 'audio') continue;
     const asset = await probe(f, f.name, 'audio');
     next.assets.push(asset);
-    if (!opts.asMusic && (opts.asVoiceover || !next.voiceover)) next.voiceover = { assetId: asset.id, volume: 1 };
-    else next.music.push({ id: uid(), assetId: asset.id, start: 0, duration: asset.duration ?? 10, trimIn: 0, volume: 0.25, fadeIn: 1, fadeOut: 2, duck: true });
+    const dur = asset.duration ?? 10;
+    if (!opts.asMusic && (opts.asVoiceover || !narrationClips(next).length)) addVoiceTake(next, asset.id, dur);
+    else placeAudio(next, asset.id, 'music', 0, dur);
   }
   return next;
 }
@@ -165,7 +185,7 @@ export async function importVisuals(p: Project, entries: TimedFile[], onProgress
   }
   next.clips.sort((a, b) => a.start - b.start);
   if (next.clips[0]) next.clips[0].start = Math.min(next.clips[0].start, 0);
-  if (!next.voiceover && next.clips.length) {
+  if (next.clips.length) {
     const last = next.clips[next.clips.length - 1];
     const lastAsset = next.assets.find((a) => a.id === last.assetId);
     next.length = Math.max(next.length, last.start + (lastAsset?.kind === 'video' ? lastAsset.duration ?? 4 : 4));

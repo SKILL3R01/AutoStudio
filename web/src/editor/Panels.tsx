@@ -1,8 +1,12 @@
+import { fmtTime } from '../lib/util';
+import { toast } from '../components/Toast';
+import { ensureTrack, narrationClips, narrationEnd, narrationTrack, newAudioClip, voiceStartOf } from '../lib/audiotracks';
+import { addVoiceTake, placeAudio } from '../lib/project';
 import { useEffect, useState } from 'react';
-import { useEditor, findAsset, projectLength, voiceEnd } from '../store';
+import { useEditor, findAsset, projectLength } from '../store';
 import { useClipTarget, useProject } from './hooks';
 import { MOTIONS, TRANSITIONS, EFFECTS, type Motion, type Transition, type Overlay, type EffectKind, type EffectLayer } from '../types';
-import { FilePick, Section, Seg, Slider } from '../components/ui';
+import { FilePick, Section, Seg, Select, Slider } from '../components/ui';
 import { Icon } from '../components/icons';
 import { CaptionsPanel } from './CaptionsPanel';
 import { KeywordsPanel } from './KeywordsPanel';
@@ -16,7 +20,7 @@ import { SilenceDialog } from './SilenceDialog';
 import { GradeEditor } from './GradeEditor';
 import { EFFECT_COST, EFFECT_LABELS } from '../render/effects';
 import { SFX, sfxBuffer } from '../audio/sfx';
-import { blankClip, importAudio, probe, setVoiceStart } from '../lib/project';
+import { blankClip, probe, setVoiceStart } from '../lib/project';
 import { uid } from '../lib/util';
 
 export const TABS = [
@@ -157,8 +161,9 @@ function TransitionsPanel() {
   const { selectedId, count, apply } = useClipTarget();
   const cur = selectedId ? p.clips.find((c) => c.id === selectedId)?.transition : p.clips.every((c) => c.transition === p.clips[0]?.transition) ? p.clips[0]?.transition : undefined;
   const addWhooshes = () => update((d) => {
-    d.sfx = d.sfx.filter((s) => !s.id.startsWith('auto_'));
-    d.clips.slice(1).forEach((c) => c.transition !== 'none' && d.sfx.push({ id: 'auto_' + uid(), sound: 'whoosh', start: Math.max(0, c.start - 0.4), volume: 0.5 }));
+    d.audio = d.audio.filter((s) => !s.id.startsWith('auto_'));
+    const tid = ensureTrack(d, 'sfx');
+    d.clips.slice(1).forEach((c) => c.transition !== 'none' && d.audio.push(newAudioClip(tid, '', Math.max(0, c.start - 0.4), 1.2, 'sfx', { id: 'auto_' + uid(), sound: 'whoosh', volume: 0.5 })));
   });
   return (
     <Section title="Transitions" hint="Plays into the clip, centred on its cut.">
@@ -208,64 +213,78 @@ function OverlayPanel() {
 
 function MusicPanel() {
   const p = useProject();
-  const { update, selection, select } = useEditor();
+  const { update, selection, select, time } = useEditor();
   const len = projectLength(p);
   const add = async (files: File[]) => {
-    const next = await importAudio(p, files, { asMusic: true });
-    update((d) => {
-      d.assets = next.assets;
-      d.music = next.music.map((m) => (d.music.some((x) => x.id === m.id) ? m : { ...m, duration: Math.min(m.duration, len) }));
-    });
+    for (const f of files) {
+      const a = await probe(f, f.name, 'audio');
+      update((d) => {
+        d.assets.push(a);
+        const c = placeAudio(d, a.id, 'music', 0, Math.min(a.duration ?? 10, Math.max(5, projectLength(d))));
+        select({ kind: 'audio', id: c.id });
+      });
+    }
   };
   const loopFill = (id: string) => update((d) => {
-    const m = d.music.find((x) => x.id === id)!;
+    const m = d.audio.find((x) => x.id === id)!;
     const dur = findAsset(d, m.assetId)?.duration ?? m.duration;
-    for (let t = m.start + dur; t < len; t += dur) d.music.push({ ...m, id: uid(), start: t, duration: Math.min(dur, len - t), fadeIn: 0 });
+    for (let t = m.start + dur; t < len; t += dur) d.audio.push({ ...m, id: uid(), start: t, duration: Math.min(dur, len - t), fadeIn: 0 });
   });
-  const ve = voiceEnd(p);
+  const narr = narrationClips(p);
+  const nt = narrationTrack(p);
   const [silenceOpen, setSilenceOpen] = useState(false);
+  const voiceTracks = p.audioTracks.filter((t) => t.kind === 'voice');
+  const musicClips = p.audio.filter((c) => p.audioTracks.find((t) => t.id === c.trackId)?.kind === 'music');
   return (
     <>
       {silenceOpen && <SilenceDialog onClose={() => setSilenceOpen(false)} />}
-      <Section title="Start & end" hint="Visuals before the narration (intro), after it (outro), blank sections and fades. You can also drag the voice lane and the ◀▶ end handle on the timeline.">
-        {p.voiceover ? (
-          <>
-            <Slider label="Intro" value={p.voiceStart} min={0} max={20} step={0.1} onChange={(v) => update((d) => setVoiceStart(d, v), 'intro')} suffix="s" />
-            <Slider label="Outro" value={p.tail} min={0} max={30} step={0.1} onChange={(v) => update((d) => void (d.tail = v), 'outro')} suffix="s" />
-          </>
-        ) : <Slider label="Length" value={p.length} min={1} max={Math.max(120, p.length)} step={0.5} onChange={(v) => update((d) => void (d.length = v), 'len')} suffix="s" />}
+      <Section title="Start & end" hint="The video ends at the last item on any track. Add an intro before the narration, a black outro, or hold the last image longer.">
+        {narr.length > 0 && <Slider label="Intro (narration starts at)" value={voiceStartOf(p)} min={0} max={20} step={0.1} onChange={(v) => update((d) => setVoiceStart(d, v), 'intro')} suffix="s" />}
         <div className="row wrap">
-          <button className="btn sm" onClick={() => update((d) => {
-            const end = projectLength(d);
-            if (ve) d.tail += 3;
-            else d.length += 3;
+          <button className="btn sm" disabled={!p.clips.length} onClick={() => update((d) => {
+            const end = Math.max(d.length, projectLength(d));
             d.clips.push(blankClip(end));
+            d.length = end + 3;
           })}><Icon name="plus" /> Add 3 s black outro</button>
-          <button className="btn sm" onClick={() => update((d) => void (ve ? (d.tail += 3) : (d.length += 3)))}><Icon name="plus" /> Hold last image +3 s</button>
-          {ve > 0 && <button className="btn sm ghost" onClick={() => update((d) => ((d.tail = 0), setVoiceStart(d, 0)))}>Reset to narration</button>}
+          <button className="btn sm" disabled={!p.clips.length} onClick={() => update((d) => void (d.length = Math.max(d.length, projectLength(d)) + 3))}><Icon name="plus" /> Hold last image +3 s</button>
+          {p.clips.length > 0 && narr.length > 0 && <button className="btn sm ghost" onClick={() => update((d) => void (d.length = narrationEnd(d)))}>End visuals with the narration</button>}
         </div>
         <Slider label="Audio fade in" value={p.audioFade.in} min={0} max={5} step={0.1} onChange={(v) => update((d) => void (d.audioFade.in = v), 'afi')} suffix="s" />
         <Slider label="Audio fade out" value={p.audioFade.out} min={0} max={10} step={0.1} onChange={(v) => update((d) => void (d.audioFade.out = v), 'afo')} suffix="s" />
         <Slider label="Video fade in" value={p.sceneFades.fadeIn} min={0} max={3} onChange={(v) => update((d) => void (d.sceneFades.fadeIn = v), 'fi')} suffix="s" />
         <Slider label="Video fade out" value={p.sceneFades.fadeOut} min={0} max={5} onChange={(v) => update((d) => void (d.sceneFades.fadeOut = v), 'fo')} suffix="s" />
       </Section>
-      <Section title="Voiceover">
-        {p.voiceover ? (
+      <Section title="Voice" hint="Every recording or AI voice is kept. The ★ narration track drives captions and music ducking.">
+        {voiceTracks.length > 1 && (
+          <Select label="★ Narration track" value={p.narrationTrackId} options={voiceTracks.map((t) => [t.id, `${t.name}${t.muted ? ' (muted)' : ''}`] as [string, string])} onChange={(v) => update((d) => {
+            d.narrationTrackId = v;
+            const t = d.audioTracks.find((x) => x.id === v);
+            if (t) t.muted = false;
+          })} />
+        )}
+        {narr.length ? (
           <>
             <button className="btn sm" onClick={() => setSilenceOpen(true)}><Icon name="scissors" /> Remove silences…</button>
-            <p className="hint"><Icon name="mic" /> {findAsset(p, p.voiceover.assetId)?.name}</p>
-            <Slider label="Volume" value={p.voiceover.volume} min={0} max={2} onChange={(v) => update((d) => void (d.voiceover!.volume = v), 'vov')} fmt={(v) => `${Math.round(v * 100)}%`} />
+            {narr.map((c) => (
+              <button key={c.id} className={`list-item ${selection?.id === c.id ? 'on' : ''}`} onClick={() => (select({ kind: 'audio', id: c.id }), useEditor.getState().seek(c.start))}>
+                <Icon name="mic" /> {findAsset(p, c.assetId)?.name} <span className="hint">{fmtTime(c.start)} · {c.duration.toFixed(1)} s</span>
+              </button>
+            ))}
+            {nt && <Slider label="Narration volume" value={nt.volume} min={0} max={2} onChange={(v) => update((d) => void (d.audioTracks.find((t) => t.id === nt.id)!.volume = v), 'vov')} fmt={(v) => `${Math.round(v * 100)}%`} />}
           </>
-        ) : <p className="hint">No voiceover — the project length is set by the clips.</p>}
-        <FilePick accept="audio/*" className="btn sm" onFiles={async (f) => {
-          const next = await importAudio(p, f, { asVoiceover: true });
-          update((d) => ((d.assets = next.assets), (d.voiceover = next.voiceover)));
-        }}><Icon name="upload" /> {p.voiceover ? 'Replace voiceover' : 'Add voiceover'}</FilePick>
+        ) : <p className="hint">No narration yet — record or generate one in Voice, or add a file.</p>}
+        <FilePick accept="audio/*" className="btn sm" onFiles={async ([f]) => {
+          if (!f) return;
+          const a = await probe(f, f.name, 'audio');
+          let info: ReturnType<typeof addVoiceTake> | undefined;
+          update((d) => void ((d.assets.push(a)), (info = addVoiceTake(d, a.id, a.duration ?? 0, narrationClips(d).length ? 0 : time))));
+          if (info?.replacedName) toast(`Added on “${info.trackName}”. Your previous voice is kept on “${info.replacedName}” (muted).`, 'ok');
+        }}><Icon name="upload" /> Add a voice file</FilePick>
       </Section>
-      <Section title="Music & audio beds" hint="Drag on the M lane to time it; ducking lowers it while someone speaks.">
+      <Section title="Music & audio beds" hint="Drag clips on the timeline to time them, cut with S, drag the volume line; ducking lowers music under the narration.">
         <FilePick accept="audio/*" multiple onFiles={add} className="btn sm"><Icon name="upload" /> Add music</FilePick>
-        {p.music.map((m) => (
-          <button key={m.id} className={`list-item ${selection?.id === m.id ? 'on' : ''}`} onClick={() => select({ kind: 'music', id: m.id })}>
+        {musicClips.map((m) => (
+          <button key={m.id} className={`list-item ${selection?.id === m.id ? 'on' : ''}`} onClick={() => select({ kind: 'audio', id: m.id })}>
             <Icon name="music" /> {findAsset(p, m.assetId)?.name} <span className="hint">{Math.round(m.volume * 100)}%</span>
             <span className="grow" />
             <span className="link" onClick={(e) => (e.stopPropagation(), loopFill(m.id))}>Loop to fill</span>
@@ -290,14 +309,20 @@ function SfxPanel() {
     s.start();
     s.onended = () => c.close();
   };
-  const add = (sound: string) => {
-    const id = uid();
-    update((d) => void d.sfx.push({ id, sound, start: time, volume: vol }));
-    select({ kind: 'sfx', id });
+  const add = async (sound: string) => {
+    const dur = (await sfxBuffer(sound))?.duration ?? 1.5;
+    let id = '';
+    update((d) => {
+      const c = newAudioClip(ensureTrack(d, 'sfx'), '', time, dur, 'sfx', { sound, volume: vol });
+      d.audio.push(c);
+      id = c.id;
+    });
+    select({ kind: 'audio', id });
   };
+  const placed = p.audio.filter((c) => p.audioTracks.find((t) => t.id === c.trackId)?.kind === 'sfx').sort((a, b) => a.start - b.start);
   return (
     <>
-      <Section title="Sound effects" hint="▶ to listen, + to drop at the playhead. Drag markers on the FX lane to retime.">
+      <Section title="Sound effects" hint="▶ to listen, + to drop at the playhead. Drag them on the SFX track to retime.">
         <Slider label="Volume" value={vol} min={0} max={1.5} onChange={setVol} fmt={(v) => `${Math.round(v * 100)}%`} />
         <div className="list">
           {SFX.map((s) => (
@@ -311,17 +336,17 @@ function SfxPanel() {
         <FilePick accept="audio/*" className="btn sm" onFiles={async ([f]) => {
           if (!f) return;
           const a = await probe(f, f.name, 'audio');
-          update((d) => (d.assets.push(a), d.sfx.push({ id: uid(), sound: `asset:${a.id}`, start: time, volume: vol })));
+          update((d) => (d.assets.push(a), void placeAudio(d, a.id, 'sfx', time, a.duration ?? 1.5)));
         }}><Icon name="upload" /> Upload your own sound</FilePick>
       </Section>
-      <Section title={`Placed (${p.sfx.length})`}>
+      <Section title={`Placed (${placed.length})`}>
         <div className="list">
-          {p.sfx.slice().sort((a, b) => a.start - b.start).map((s) => (
-            <div key={s.id} className="list-item sfx-row" onClick={() => (select({ kind: 'sfx', id: s.id }), useEditor.getState().seek(s.start))}>
-              <span>{s.sound.startsWith('asset:') ? findAsset(p, s.sound.slice(6))?.name : s.sound}</span>
+          {placed.map((s) => (
+            <div key={s.id} className="list-item sfx-row" onClick={() => (select({ kind: 'audio', id: s.id }), useEditor.getState().seek(s.start))}>
+              <span>{s.sound ?? findAsset(p, s.assetId)?.name}</span>
               <span className="hint">{s.start.toFixed(2)}s</span>
-              <input type="range" min={0} max={1.5} step={0.01} value={s.volume} onChange={(e) => update((d) => void (d.sfx.find((x) => x.id === s.id)!.volume = +e.target.value), `sv${s.id}`)} />
-              <button className="icon-btn" onClick={(e) => (e.stopPropagation(), update((d) => void (d.sfx = d.sfx.filter((x) => x.id !== s.id))))}><Icon name="x" /></button>
+              <input type="range" min={0} max={1.5} step={0.01} value={s.volume} onChange={(e) => update((d) => void (d.audio.find((x) => x.id === s.id)!.volume = +e.target.value), `sv${s.id}`)} />
+              <button className="icon-btn" onClick={(e) => (e.stopPropagation(), update((d) => void (d.audio = d.audio.filter((x) => x.id !== s.id))))}><Icon name="x" /></button>
             </div>
           ))}
         </div>

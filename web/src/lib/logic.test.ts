@@ -1,3 +1,4 @@
+import { addVoiceTake } from './project';
 import { describe, expect, it } from 'vitest';
 import { detectTime, parseClock } from './timecode';
 import { buildLines, parseCaptionFile, spreadWords } from './captions';
@@ -123,15 +124,14 @@ describe('start & end', () => {
   const proj = () => {
     const p = newProject();
     p.assets.push({ id: 'vo', name: 'vo.wav', kind: 'audio', mime: 'audio/wav', duration: 20 });
-    p.voiceover = { assetId: 'vo', volume: 1 };
+    addVoiceTake(p, 'vo', 20);
     p.words = words('a b c');
     return p;
   };
-  it('length = intro + narration + outro', () => {
+  it('length = the end of the last item (intro moves the narration)', () => {
     const p = proj();
-    p.tail = 3;
     setVoiceStart(p, 2);
-    expect(projectLength(p)).toBe(25);
+    expect(projectLength(p)).toBe(22);
   });
   it('moving the narration shifts captions with it', () => {
     const p = proj();

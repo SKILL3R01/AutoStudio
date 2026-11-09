@@ -1,11 +1,13 @@
 /**
- * Timeline editing operations (split, ripple delete, copy/paste, duplicate, detach audio, voice segments).
+ * Timeline editing operations (split, ripple delete, copy/paste, duplicate, detach audio).
  * Pure functions on a project draft — the UI wraps them in `update()` so each is one undo step.
  */
 import { clipEnd, projectLength } from '../store';
 import { remapTime, type Range } from '../audio/silence';
 import { uid } from '../lib/util';
-import type { Clip, MusicItem, Overlay, Project, SfxItem, TypoBlock } from '../types';
+import type { AudioClip, Clip, Overlay, Project, TypoBlock } from '../types';
+import { narrationClips, splitAudioClip } from '../lib/audiotracks';
+import { placeAudio } from '../lib/project';
 
 const MIN = 0.1;
 export const clipStartOf = (p: Project, i: number) => (i === 0 ? 0 : p.clips[i].start);
@@ -21,8 +23,7 @@ export function applyTimeMap(p: Project, r: (t: number) => number, opts: { clips
   p.words.forEach((w) => ((w.start = r(w.start)), (w.end = r(w.end))));
   p.lines.forEach((l) => ((l.start = r(l.start)), (l.end = r(l.end)), l.words.forEach((w) => ((w.start = r(w.start)), (w.end = r(w.end))))));
   p.typo.forEach((b) => ((b.start = r(b.start)), (b.end = r(b.end)), b.words.forEach((w) => ((w.start = r(w.start)), (w.end = r(w.end))))));
-  p.sfx.forEach((s) => (s.start = r(s.start)));
-  for (const list of [p.overlays, p.music] as { start: number; duration: number }[][]) {
+  for (const list of [p.overlays, p.audio] as { start: number; duration: number }[][]) {
     list.forEach((o) => {
       const end = r(o.start + o.duration);
       o.start = r(o.start);
@@ -37,15 +38,18 @@ export function applyTimeMap(p: Project, r: (t: number) => number, opts: { clips
 }
 
 /**
- * The voiceover was cut at `cutsVoice` (seconds into the voice file) and replaced by `newAssetId`:
- * everything after each cut moves earlier, and voice split points follow.
+ * The file of every narration clip using `oldAssetId` was cut at `cutsFile` (seconds into the file) and replaced by
+ * `newAssetId`: everything after each cut moves earlier on the whole timeline.
  */
-export function applyCuts(p: Project, cutsVoice: Range[], newAssetId: string) {
-  const off = p.voiceStart ?? 0;
-  const cuts = cutsVoice.map((c) => ({ start: c.start + off, end: c.end + off }));
-  const splits = (p.voiceover!.splits ?? []).map((s) => remapTime(s, cutsVoice)).filter((s, i, a) => s > MIN && a.indexOf(s) === i);
-  p.voiceover = { ...p.voiceover!, assetId: newAssetId, splits };
+export function applyCuts(p: Project, cutsFile: Range[], newAssetId: string, oldAssetId = narrationClips(p)[0]?.assetId) {
+  const users = p.audio.filter((c) => c.assetId === oldAssetId);
+  const cuts = users.flatMap((c) => cutsFile
+    .filter((k) => k.end > c.trimIn && k.start < c.trimIn + c.duration * (c.rate ?? 1))
+    .map((k) => ({ start: c.start + (Math.max(k.start, c.trimIn) - c.trimIn) / (c.rate ?? 1), end: c.start + (k.end - c.trimIn) / (c.rate ?? 1) })))
+    .sort((a, b) => a.start - b.start);
+  users.forEach((c) => ((c.assetId = newAssetId), (c.trimIn = remapTime(c.trimIn, cutsFile))));
   applyTimeMap(p, (t) => remapTime(t, cuts));
+  p.length = remapTime(p.length, cuts);
 }
 
 // ---------- split ----------
@@ -63,16 +67,7 @@ export function splitClipAt(p: Project, t: number): boolean {
   return true;
 }
 
-export function splitMusic(p: Project, id: string, t: number): boolean {
-  const m = p.music.find((x) => x.id === id);
-  if (!m || t - m.start < MIN || m.start + m.duration - t < MIN) return false;
-  const left = t - m.start;
-  const right: MusicItem = { ...structuredClone(m), id: uid(), start: t, duration: m.duration - left, trimIn: m.trimIn + left * (m.rate ?? 1), fadeIn: 0 };
-  m.duration = left;
-  m.fadeOut = 0;
-  p.music.splice(p.music.indexOf(m) + 1, 0, right);
-  return true;
-}
+export const splitAudio = (p: Project, id: string, t: number): boolean => !!splitAudioClip(p, id, t);
 
 export function splitOverlay(p: Project, id: string, t: number): boolean {
   const o = p.overlays.find((x) => x.id === id);
@@ -82,27 +77,6 @@ export function splitOverlay(p: Project, id: string, t: number): boolean {
   o.fadeOut = 0;
   p.overlays.splice(p.overlays.indexOf(o) + 1, 0, right);
   return true;
-}
-
-/** Add a split point in the narration at timeline time t. */
-export function splitVoice(p: Project, t: number, voiceDuration: number): boolean {
-  if (!p.voiceover) return false;
-  const local = t - (p.voiceStart ?? 0);
-  if (local < MIN || voiceDuration - local < MIN) return false;
-  const splits = p.voiceover.splits ?? [];
-  if (splits.some((s) => Math.abs(s - local) < MIN)) return false;
-  p.voiceover.splits = [...splits, local].sort((a, b) => a - b);
-  return true;
-}
-
-/** Narration segments [start, end) in voice-file seconds. */
-export function voiceSegments(p: Project, voiceDuration: number): Range[] {
-  const pts = [0, ...(p.voiceover?.splits ?? []).filter((s) => s > 0 && s < voiceDuration), voiceDuration];
-  return pts.slice(0, -1).map((s, i) => ({ start: s, end: pts[i + 1] }));
-}
-
-export function removeVoiceSplit(p: Project, index: number) {
-  if (p.voiceover?.splits) p.voiceover.splits = p.voiceover.splits.filter((_, i) => i !== index);
 }
 
 // ---------- ripple delete ----------
@@ -123,14 +97,11 @@ export function rippleDeleteClips(p: Project, ids: Set<string>) {
     return acc;
   }, []);
   const removed = merged.reduce((a, r) => a + r.end - r.start, 0);
-  const len = projectLength(p);
   p.clips = p.clips.filter((c) => !ids.has(c.id));
   const r = (t: number) => remapTime(t, merged);
   p.clips.forEach((c, i) => (c.start = i === 0 ? 0 : r(c.start)));
-  if (!p.voiceover) {
-    applyTimeMap(p, r, { clips: false });
-    p.length = Math.max(0.5, len - removed);
-  }
+  if (!narrationClips(p).length) applyTimeMap(p, r, { clips: false });
+  p.length = Math.max(0.5, p.length - removed);
 }
 
 // ---------- copy / paste / duplicate ----------
@@ -139,11 +110,21 @@ export type Clip0 = { clip: Clip; len: number };
 export type ClipboardData =
   | { kind: 'clips'; items: Clip0[] }
   | { kind: 'overlays'; items: Overlay[] }
-  | { kind: 'music'; items: MusicItem[] }
-  | { kind: 'sfx'; items: SfxItem[] }
-  | { kind: 'typo'; items: TypoBlock[] };
+  | { kind: 'audio'; items: AudioClip[] }
+  | { kind: 'typo'; items: TypoBlock[] }
+  | { kind: 'mixed'; items: (Clip0 | Overlay | AudioClip | TypoBlock)[]; clips: Clip0[]; overlays: Overlay[]; audio: AudioClip[]; typo: TypoBlock[]; t0: number };
 
 export function copyItems(p: Project, sel: { kind: string; id: string } | null, multi: string[]): ClipboardData | null {
+  const all = new Set([...(sel ? [sel.id] : []), ...multi]);
+  const others = [...p.overlays, ...p.audio, ...p.typo].filter((x) => all.has(x.id));
+  if (multi.length && others.length && (others.length > 1 || p.clips.some((c) => all.has(c.id)))) {
+    const clips = p.clips.map((c, i) => ({ c, i })).filter(({ c }) => all.has(c.id)).map(({ c, i }) => ({ clip: structuredClone(c), len: clipEnd(p, i) - clipStartOf(p, i) }));
+    const overlays = structuredClone(p.overlays.filter((x) => all.has(x.id)));
+    const audio = structuredClone(p.audio.filter((x) => all.has(x.id)));
+    const typo = structuredClone(p.typo.filter((x) => all.has(x.id)));
+    const starts = [...clips.map((x) => (p.clips.findIndex((c) => c.id === x.clip.id) === 0 ? 0 : x.clip.start)), ...overlays.map((x) => x.start), ...audio.map((x) => x.start), ...typo.map((x) => x.start)];
+    return { kind: 'mixed', items: [...clips, ...overlays, ...audio, ...typo], clips, overlays, audio, typo, t0: Math.min(...starts) };
+  }
   if (sel?.kind === 'clip' || multi.length) {
     const ids = new Set([...(sel?.kind === 'clip' ? [sel.id] : []), ...multi]);
     const items = p.clips.map((c, i) => ({ c, i })).filter(({ c }) => ids.has(c.id)).map(({ c, i }) => ({ clip: structuredClone(c), len: clipEnd(p, i) - clipStartOf(p, i) }));
@@ -152,8 +133,7 @@ export function copyItems(p: Project, sel: { kind: string; id: string } | null, 
   if (!sel) return null;
   const pick = <T extends { id: string }>(list: T[]) => list.filter((x) => x.id === sel.id).map((x) => structuredClone(x));
   if (sel.kind === 'overlay') return { kind: 'overlays', items: pick(p.overlays) };
-  if (sel.kind === 'music') return { kind: 'music', items: pick(p.music) };
-  if (sel.kind === 'sfx') return { kind: 'sfx', items: pick(p.sfx) };
+  if (sel.kind === 'audio') return { kind: 'audio', items: pick(p.audio) };
   if (sel.kind === 'keyword') return { kind: 'typo', items: pick(p.typo) };
   return null;
 }
@@ -178,13 +158,31 @@ export function insertClips(p: Project, t: number, items: Clip0[]): string[] {
     return c;
   });
   p.clips.splice(idx, 0, ...fresh);
-  if (!p.voiceover) p.length += total;
+  p.length += total;
   return ids;
 }
 
 /** Paste the clipboard at timeline time t. Returns the ids of the new items. */
 export function pasteItems(p: Project, data: ClipboardData, t: number): string[] {
   if (data.kind === 'clips') return insertClips(p, t, data.items);
+  if (data.kind === 'mixed') {
+    const shift = t - data.t0;
+    const ids = data.clips.length ? insertClips(p, t, data.clips) : [];
+    const fresh = <T extends { id: string; start: number }>(x: T): T => {
+      const c = { ...structuredClone(x), id: uid(), start: Math.max(0, x.start + shift) };
+      ids.push(c.id);
+      return c;
+    };
+    p.overlays.push(...data.overlays.map(fresh));
+    p.audio.push(...data.audio.map(fresh));
+    p.typo.push(...data.typo.map((b) => {
+      const c = fresh(b);
+      c.end += shift;
+      c.words.forEach((w) => ((w.start += shift), (w.end += shift)));
+      return c;
+    }));
+    return ids;
+  }
   const s0 = Math.min(...data.items.map((x) => x.start));
   const shift = t - s0;
   const ids: string[] = [];
@@ -194,8 +192,7 @@ export function pasteItems(p: Project, data: ClipboardData, t: number): string[]
     return c;
   };
   if (data.kind === 'overlays') p.overlays.push(...data.items.map(fresh));
-  if (data.kind === 'music') p.music.push(...data.items.map(fresh));
-  if (data.kind === 'sfx') p.sfx.push(...data.items.map(fresh));
+  if (data.kind === 'audio') p.audio.push(...data.items.map(fresh));
   if (data.kind === 'typo') {
     p.typo.push(...data.items.map((b) => {
       const c = fresh(b);
@@ -214,8 +211,8 @@ export function clipboardEnd(p: Project, data: ClipboardData): number {
     const i = p.clips.findIndex((c) => c.id === last);
     return i >= 0 ? clipEnd(p, i) : 0;
   }
-  if (data.kind === 'sfx') return Math.max(...data.items.map((s) => s.start)) + 0.5;
   if (data.kind === 'typo') return Math.max(...data.items.map((b) => b.end));
+  if (data.kind === 'mixed') return Math.max(...data.audio.map((x) => x.start + x.duration), ...data.overlays.map((x) => x.start + x.duration), ...data.typo.map((x) => x.end), data.t0 + data.clips.reduce((a, x) => a + x.len, 0));
   return Math.max(...data.items.map((x) => x.start + x.duration));
 }
 
@@ -230,11 +227,8 @@ export function detachAudio(p: Project, clipId: string): string | null {
   const asset = p.assets.find((a) => a.id === c.assetId)!;
   const speed = c.speed ?? 1;
   const srcLen = (Math.min(c.trimOut ?? Infinity, asset.duration ?? Infinity) - c.trimIn) / speed;
-  const m: MusicItem = {
-    id: uid(), assetId: c.assetId, start, duration: Math.max(0.2, Math.min(clipEnd(p, i) - start, srcLen)), trimIn: c.trimIn,
-    volume: c.volume, fadeIn: c.fadeIn ?? 0, fadeOut: c.fadeOut ?? 0, duck: false, rate: speed === 1 ? undefined : speed,
-  };
-  p.music.push(m);
+  const m = placeAudio(p, c.assetId, 'other', start, Math.max(0.2, Math.min(clipEnd(p, i) - start, srcLen)));
+  Object.assign(m, { trimIn: c.trimIn, volume: c.volume, fadeIn: c.fadeIn ?? 0, fadeOut: c.fadeOut ?? 0, duck: false, rate: speed === 1 ? undefined : speed });
   c.volume = 0;
   return m.id;
 }
@@ -243,13 +237,11 @@ export function detachAudio(p: Project, clipId: string): string | null {
 
 /** Times worth snapping to: start, end, playhead, cuts, narration edges and every item edge (except `exclude`). */
 export function snapPoints(p: Project, playhead: number, exclude?: string): number[] {
-  const pts = [0, projectLength(p), playhead, p.voiceStart ?? 0];
-  const vo = p.voiceover && p.assets.find((a) => a.id === p.voiceover!.assetId);
-  if (vo?.duration) pts.push((p.voiceStart ?? 0) + vo.duration, ...(p.voiceover!.splits ?? []).map((s) => s + (p.voiceStart ?? 0)));
+  const pts = [0, projectLength(p), playhead];
   p.clips.forEach((c, i) => i > 0 && c.id !== exclude && pts.push(c.start));
-  for (const o of [...p.overlays, ...p.music]) if (o.id !== exclude) pts.push(o.start, o.start + o.duration);
+  if (p.clips.length) pts.push(p.length);
+  for (const o of [...p.overlays, ...p.audio]) if (o.id !== exclude) pts.push(o.start, o.start + o.duration);
   for (const b of p.typo) if (b.id !== exclude) pts.push(b.start, b.end);
-  for (const s of p.sfx) if (s.id !== exclude) pts.push(s.start);
   return pts;
 }
 

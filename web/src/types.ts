@@ -329,9 +329,29 @@ export interface Overlay {
   writeTime?: number;
 }
 
-export interface MusicItem {
+export type TrackKind = 'voice' | 'music' | 'sfx' | 'other';
+
+/** An audio track (v3.0): any number, any clip type. The narration track drives captions and ducking. */
+export interface AudioTrack {
   id: string;
+  name: string;
+  kind: TrackKind;
+  volume: number;
+  muted?: boolean;
+  solo?: boolean;
+  /** Row height in px (timeline). */
+  height?: number;
+  /** Voice enhance chain applied to every clip on this track. */
+  fx?: VoiceFx;
+}
+
+/** One audio clip on a track: a file (assetId) or a built-in synth sound (`sound`). */
+export interface AudioClip {
+  id: string;
+  trackId: string;
   assetId: string;
+  /** Built-in synth name (SFX) when there is no file. */
+  sound?: string;
   start: number;
   duration: number;
   trimIn: number;
@@ -340,8 +360,9 @@ export interface MusicItem {
   fadeOut: number;
   /** Playback rate (detached audio of a sped-up clip keeps its speed). Default 1. */
   rate?: number;
-  duck: boolean;
-  /** Music level while the voice speaks, as a fraction of its volume (default 0.35). */
+  /** Dip under the narration. */
+  duck?: boolean;
+  /** Level while the voice speaks, as a fraction of its volume (default 0.35). */
   duckDepth?: number;
   /** Seconds to dip before speech starts (default 0.25). */
   duckAttack?: number;
@@ -351,13 +372,8 @@ export interface MusicItem {
   curve?: { t: number; v: number }[];
 }
 
-export interface SfxItem {
-  id: string;
-  /** Built-in synth name or `asset:<id>` for an uploaded sound. */
-  sound: string;
-  start: number;
-  volume: number;
-}
+/** @deprecated v3.0 — kept for migration only. */
+export type MusicItem = AudioClip;
 
 export type Aspect = '16:9' | '9:16' | '1:1' | '4:5';
 
@@ -376,14 +392,12 @@ export interface Project {
   createdAt: number;
   updatedAt: number;
   assets: Asset[];
-  /** `splits` = cut points (seconds into the voice file) that divide the narration into selectable segments. */
-  voiceover?: { assetId: string; volume: number; splits?: number[]; fx?: VoiceFx };
-  /** Explicit length when there is no voiceover. */
+  /** End of the main video track (the last clip runs to here). */
   length: number;
-  /** Seconds of visuals before the narration starts (intro). */
-  voiceStart: number;
-  /** Seconds after the narration ends (outro). */
-  tail: number;
+  audioTracks: AudioTrack[];
+  audio: AudioClip[];
+  /** Track whose clips are the narration (captions, ducking, silence tools). */
+  narrationTrackId: string;
   /** Master audio fade in/out in seconds. */
   audioFade: { in: number; out: number };
   clips: Clip[];
@@ -402,8 +416,6 @@ export interface Project {
   /** Scene list sent to the Google Flow extension (prompt order → timestamp). */
   flowScenes: FlowScene[];
   overlays: Overlay[];
-  music: MusicItem[];
-  sfx: SfxItem[];
   effects: EffectLayer[];
   /** Custom effects made in the Effects lab. */
   customEffects?: CustomEffect[];

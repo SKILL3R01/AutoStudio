@@ -1,3 +1,4 @@
+import { addVoiceTake } from './project';
 import type { Word } from '../types';
 import { newProject, probe, defaultClip } from './project';
 import { saveProject } from './db';
@@ -58,7 +59,7 @@ export async function createProject(opts: { name: string; voice?: Blob; images: 
   if (opts.voice) {
     const a = await probe(opts.voice, 'voiceover.wav', 'audio');
     p.assets.push(a);
-    p.voiceover = { assetId: a.id, volume: 1 };
+    addVoiceTake(p, a.id, a.duration ?? 0);
   }
   const imgs = [...opts.images].sort((a, b) => a.t - b.t);
   for (const [i, im] of imgs.entries()) {

@@ -16,7 +16,7 @@ export function useLines() {
 export function useBeats() {
   const p = useProject();
   const [beats, setBeats] = useState<number[]>([]);
-  const key = `${p.music[0]?.assetId}|${p.music[0]?.start}|${p.voiceover?.assetId}|${p.clips.some((c) => c.regions?.some((r) => r.trigger === 'beats'))}`;
+  const key = `${p.audio.map((c) => `${c.assetId}@${c.start}`).join(',')}|${p.clips.some((c) => c.regions?.some((r) => r.trigger === 'beats'))}`;
   useEffect(() => {
     let live = true;
     beatsFor(p).then((b) => live && setBeats(b));

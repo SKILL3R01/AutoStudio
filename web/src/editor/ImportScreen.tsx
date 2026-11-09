@@ -1,8 +1,8 @@
+import { mainVoiceAsset } from '../lib/audiotracks';
 import { useEffect, useRef, useState } from 'react';
 import { navigate } from '../App';
 import { useEditor, findAsset } from '../store';
-import { importAudio, importVisuals, kindOf, probe } from '../lib/project';
-import { uid } from '../lib/util';
+import { importAudio, importVisuals, kindOf, placeAudio, probe } from '../lib/project';
 import { FilePick, Progress } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
@@ -18,7 +18,7 @@ export function ImportReview({ project, voice, onBuilt, cta = 'Validate & build 
   const itemsRef = useRef(items);
   itemsRef.current = items;
   useEffect(() => () => itemsRef.current.forEach((i) => URL.revokeObjectURL(i.url)), []);
-  const voDur = voice ? null : project.voiceover ? findAsset(project, project.voiceover.assetId)?.duration ?? null : null;
+  const voDur = voice ? null : mainVoiceAsset(project) ? findAsset(project, mainVoiceAsset(project)!)?.duration ?? null : null;
   const [voiceDur, setVoiceDur] = useState<number | null>(null);
   // A voiceover dropped into the list counts like the separate voiceover box.
   const voiceFile = voice ?? (items.find((i) => i.kind === 'audio' && i.include && i.audioRole === 'voiceover')?.file as File | undefined) ?? null;
@@ -45,7 +45,7 @@ export function ImportReview({ project, voice, onBuilt, cta = 'Validate & build 
     }
     setItems((cur) => {
       const names = new Set(cur.map((c) => c.name));
-      const hasVoice = !!voice || !!project.voiceover || cur.some((c) => c.audioRole === 'voiceover');
+      const hasVoice = !!voice || !!mainVoiceAsset(project) || cur.some((c) => c.audioRole === 'voiceover');
       return [...cur, ...toReviewItems(files.filter((f) => !names.has(f.name)), hasVoice)];
     });
   };
@@ -60,12 +60,15 @@ export function ImportReview({ project, voice, onBuilt, cta = 'Validate & build 
         const file = a.file as File;
         if (a.audioRole === 'voiceover') next = await importAudio(next, [file], { asVoiceover: true });
         else if (a.audioRole === 'music') {
-          next = await importAudio(next, [file], { asMusic: true });
-          const m = next.music[next.music.length - 1];
-          if (m) m.start = a.time ?? 0;
+          const asset = await probe(file, a.name, 'audio');
+          next = structuredClone(next);
+          next.assets.push(asset);
+          placeAudio(next, asset.id, 'music', a.time ?? 0, asset.duration ?? 10);
         } else {
           const asset = await probe(file, a.name, 'audio');
-          next = { ...next, assets: [...next.assets, asset], sfx: [...next.sfx, { id: uid(), sound: `asset:${asset.id}`, start: a.time ?? 0, volume: 0.8 }] };
+          next = structuredClone(next);
+          next.assets.push(asset);
+          placeAudio(next, asset.id, 'sfx', a.time ?? 0, asset.duration ?? 1.5).volume = 0.8;
         }
       }
       next = await importVisuals(next, chosen.map((i) => ({ file: i.file, name: i.name, time: i.time! })), setBusy);
@@ -100,7 +103,7 @@ export function ImportScreen() {
   const p = useEditor((s) => s.project!);
   const update = useEditor((s) => s.update);
   const [voice, setVoice] = useState<File | null>(null);
-  const existingVo = p.voiceover && p.assets.find((a) => a.id === p.voiceover!.assetId);
+  const existingVo = mainVoiceAsset(p) ? p.assets.find((a) => a.id === mainVoiceAsset(p)) : undefined;
   return (
     <main className="import">
       <div className="ed-top">
