@@ -11,6 +11,7 @@ import { FreeMediaPanel } from './FreeMediaPanel';
 import { VoicePanel } from '../voice/VoicePanel';
 import { useUi } from '../lib/uimode';
 import { EffectsLab } from './EffectsLab';
+import { MotionTile } from './MotionGallery';
 import { AiPanel } from './AiPanel';
 import { SilenceDialog } from './SilenceDialog';
 import { GradeEditor } from './GradeEditor';
@@ -117,16 +118,23 @@ function MotionPanel() {
   const update = useEditor((s) => s.update);
   const { selectedId, count, apply } = useClipTarget();
   const cur = selectedId ? p.clips.find((c) => c.id === selectedId)?.motion : p.clips.every((c) => c.motion === p.clips[0]?.motion) ? p.clips[0]?.motion : undefined;
+  const previewClip = (selectedId ? p.clips.find((c) => c.id === selectedId) : undefined) ?? p.clips.find((c) => !c.fill && p.assets.find((a) => a.id === c.assetId)?.kind === 'image');
+  const previewAsset = previewClip && p.assets.find((a) => a.id === previewClip.assetId)?.kind === 'image' ? previewClip.assetId : undefined;
   return (
     <>
       <Section title="Camera movement">
         <TargetHint selected={selectedId} count={count} />
-        <div className="grid2">
+        <p className="hint">Hover a move to see it on {selectedId ? 'the selected clip' : 'your first image'}; click to apply.</p>
+        <div className="motion-gallery">
           {MOTIONS.filter((m) => !m.startsWith('parallax') && m !== 'dollyZoom').map((m) => (
-            <button key={m} className={`tile motion-tile m-${m} ${cur === m ? 'on' : ''}`} onClick={() => apply((c) => void (c.motion = m))}><i />{MOTION_LABELS[m]}</button>
+            <MotionTile key={m} motion={m} label={MOTION_LABELS[m]} assetId={previewAsset} clip={previewClip} depth={p.motionDepth} on={cur === m} onClick={() => apply((c) => void (c.motion = m))} />
           ))}
         </div>
-        <Slider label="Depth" value={p.motionDepth} min={0} max={0.4} onChange={(v) => update((d) => void (d.motionDepth = v), 'depth')} fmt={(v) => `${Math.round(v * 100)}%`} />
+        <Slider label="Strength (all clips)" value={p.motionDepth} min={0} max={0.4} onChange={(v) => update((d) => void (d.motionDepth = v), 'depth')} fmt={(v) => (v < 0.08 ? 'subtle' : v > 0.25 ? 'strong' : 'medium') + ` · ${Math.round(v * 100)}%`} />
+        <div className="row wrap">
+          <button className="btn sm ghost" onClick={() => update((d) => d.clips.forEach((c, i) => void (!c.fill && (c.motion = (['zoomIn', 'panRight', 'zoomOut', 'panLeft', 'drift', 'tiltUp'] as Motion[])[i % 6]))))}>Vary per scene</button>
+          <button className="btn sm ghost" onClick={() => update((d) => d.clips.forEach((c) => void (c.motion = 'none')))}>Remove all motion</button>
+        </div>
       </Section>
       <Section title="3D depth motion" hint="Uses an AI depth map of each image (made in your browser) so the foreground moves against the background.">
         <div className="grid3">
