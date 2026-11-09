@@ -58,7 +58,7 @@ export function addTrack(p: Project, kind: TrackKind = 'other', name?: string): 
   return id;
 }
 
-/** Shift captions, lines and typography inside [from, to) by `dt` (they follow their voice clip). */
+/** Shift captions, lines and typography inside [from, to) by `dt`. */
 export function shiftWords(p: Project, from: number, to: number, dt: number) {
   if (!dt) return;
   const inside = (s: number) => s >= from - 0.001 && s < to;
@@ -67,13 +67,12 @@ export function shiftWords(p: Project, from: number, to: number, dt: number) {
   p.typo.forEach((b) => inside(b.start) && ((b.start += dt), (b.end += dt), b.words.forEach((w) => ((w.start += dt), (w.end += dt)))));
 }
 
-/** Move an audio clip; narration clips carry their captions / typography with them. */
+/** Move an audio clip (captions stay put; the timeline offers a re-sync when they drift). */
 export function moveAudioClip(p: Project, id: string, start: number, trackId?: string) {
   const c = p.audio.find((x) => x.id === id);
   if (!c) return;
-  const ns = Math.max(0, start);
-  if (c.trackId === p.narrationTrackId) shiftWords(p, c.start, clipEndOf(c), ns - c.start);
-  c.start = ns;
+  bindWords(p);
+  c.start = Math.max(0, start);
   if (trackId) c.trackId = trackId;
 }
 
@@ -83,15 +82,76 @@ export function setVoiceStart(p: Project, v: number) {
   if (!dt) return;
   const n = narrationClips(p);
   if (!n.length) return;
-  const from = n[0].start, to = narrationEnd(p);
-  shiftWords(p, from, to + 1e9, dt);
+  bindWords(p);
   n.forEach((c) => (c.start += dt));
+  resyncCaptions(p);
+}
+
+// ---------- caption sync ----------
+
+type Timed = { start: number; end: number; src?: { a: string; t: number } };
+const allWords = (p: Project): Timed[] => [...p.words, ...p.lines.flatMap((l) => l.words), ...p.typo.flatMap((b) => b.words)];
+
+/** Remember, for every caption word not yet bound, where it sits inside the narration clip under it. */
+export function bindWords(p: Project) {
+  const narr = narrationClips(p);
+  if (!narr.length) return;
+  for (const w of allWords(p)) {
+    if (w.src) continue;
+    const c = narr.find((x) => w.start >= x.start - 0.02 && w.start < clipEndOf(x) + 0.02);
+    if (c && c.assetId) w.src = { a: c.assetId, t: c.trimIn + (w.start - c.start) * (c.rate ?? 1) };
+  }
+}
+
+/** Forget the bindings (e.g. after the voice file itself changed). */
+export const unbindWords = (p: Project) => allWords(p).forEach((w) => delete w.src);
+
+/** Where a bound word should be now, or null when its part of the voice is no longer on the narration track. */
+function syncedStart(p: Project, w: Timed): number | null {
+  if (!w.src) return null;
+  const { a, t } = w.src;
+  const c = narrationClips(p).find((x) => x.assetId === a && t >= x.trimIn - 0.02 && t < x.trimIn + x.duration * (x.rate ?? 1) + 0.02);
+  return c ? c.start + (t - c.trimIn) / (c.rate ?? 1) : null;
+}
+
+/** How many caption words no longer line up with their voice. */
+export function captionDrift(p: Project): number {
+  let n = 0;
+  for (const w of p.words.length ? p.words : p.lines.flatMap((l) => l.words)) {
+    const s = syncedStart(p, w);
+    if (s !== null && Math.abs(s - w.start) > 0.05) n++;
+  }
+  return n;
+}
+
+/** Put every bound caption / typography word back on its voice (words whose voice part was removed stay where they are). */
+export function resyncCaptions(p: Project) {
+  const fix = (w: Timed) => {
+    const s = syncedStart(p, w);
+    if (s === null) return 0;
+    const d = s - w.start;
+    w.start += d;
+    w.end += d;
+    return d;
+  };
+  p.words.forEach(fix);
+  p.lines.forEach((l) => {
+    l.words.forEach(fix);
+    if (l.words.length) (l.start = l.words[0].start), (l.end = l.words[l.words.length - 1].end);
+  });
+  p.typo.forEach((b) => {
+    const d = b.words.map(fix)[0] ?? 0;
+    b.start += d;
+    b.end += d;
+  });
+  p.words.sort((x, y) => x.start - y.start);
 }
 
 /** Split an audio clip at timeline time `t`; returns the new right-hand clip id. */
 export function splitAudioClip(p: Project, id: string, t: number): string | undefined {
   const c = p.audio.find((x) => x.id === id);
   if (!c || t <= c.start + 0.05 || t >= clipEndOf(c) - 0.05) return;
+  bindWords(p);
   const left = t - c.start;
   const right: AudioClip = { ...structuredClone(c), id: uid(), start: t, duration: c.duration - left, trimIn: c.trimIn + left * (c.rate ?? 1), fadeIn: 0 };
   c.duration = left;
@@ -137,4 +197,16 @@ export function migrateAudio(p: Project & LegacyAudio): Project {
   delete next.music;
   delete next.sfx;
   return next;
+}
+
+/** After a drop: if the audio clip overlaps another clip on its track, move it to a free track of that kind (or a new one). */
+export function resolveOverlap(p: Project, id: string): string {
+  const c = p.audio.find((x) => x.id === id);
+  if (!c) return '';
+  const hits = (tid: string) => p.audio.some((o) => o.id !== id && o.trackId === tid && o.start < clipEndOf(c) - 0.01 && clipEndOf(o) > c.start + 0.01);
+  if (!hits(c.trackId)) return '';
+  const kind = p.audioTracks.find((t) => t.id === c.trackId)?.kind ?? 'other';
+  const free = p.audioTracks.find((t) => t.kind === kind && t.id !== c.trackId && !hits(t.id));
+  c.trackId = free ? free.id : addTrack(p, kind);
+  return p.audioTracks.find((t) => t.id === c.trackId)!.name;
 }

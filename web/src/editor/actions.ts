@@ -26,6 +26,19 @@ export function splitAtPlayhead(at?: number) {
   if (!ok) toast('Put the playhead (or the mouse) inside the item to split it', 'info');
 }
 
+/** Scissors: split every item under the playhead on every track (main clip, audio, text). */
+export function splitAllAtPlayhead() {
+  const { project: p, time, update } = useEditor.getState();
+  if (!p) return;
+  let n = 0;
+  update((d) => {
+    if (splitClipAt(d, time)) n++;
+    for (const c of [...d.audio]) if (c.start < time - 0.05 && c.start + c.duration > time + 0.05 && splitAudio(d, c.id, time)) n++;
+    for (const o of [...d.overlays]) if (o.start < time - 0.1 && o.start + o.duration > time + 0.1 && splitOverlay(d, o.id, time)) n++;
+  });
+  toast(n ? `Split ${n} item${n > 1 ? 's' : ''} at the playhead` : 'Nothing under the playhead to split', n ? 'ok' : 'info');
+}
+
 /** Shift+Delete: remove clips and close the gap; audio clips are removed and the following audio on that track moves earlier. */
 export async function rippleDelete() {
   const { project: p, selection: sel, multi, update, select } = useEditor.getState();

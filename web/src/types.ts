@@ -205,6 +205,7 @@ export type TypoExit = (typeof TYPO_EXITS)[number];
 
 export interface TypoWord {
   text: string;
+  src?: WordSrc;
   /** When the word is spoken (it pops in then). */
   start: number;
   end: number;
@@ -275,10 +276,14 @@ export interface FlowScene {
   prompt: string;
 }
 
+/** Where a caption word sits inside its voice file (`a` = asset id, `t` = seconds into the file) — used to re-sync. */
+export interface WordSrc { a: string; t: number }
+
 export interface Word {
   text: string;
   start: number;
   end: number;
+  src?: WordSrc;
 }
 
 export interface CaptionLine {

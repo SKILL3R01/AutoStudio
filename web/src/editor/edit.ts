@@ -6,7 +6,7 @@ import { clipEnd, projectLength } from '../store';
 import { remapTime, type Range } from '../audio/silence';
 import { uid } from '../lib/util';
 import type { AudioClip, Clip, Overlay, Project, TypoBlock } from '../types';
-import { narrationClips, splitAudioClip } from '../lib/audiotracks';
+import { narrationClips, splitAudioClip, unbindWords } from '../lib/audiotracks';
 import { placeAudio } from '../lib/project';
 
 const MIN = 0.1;
@@ -48,6 +48,7 @@ export function applyCuts(p: Project, cutsFile: Range[], newAssetId: string, old
     .map((k) => ({ start: c.start + (Math.max(k.start, c.trimIn) - c.trimIn) / (c.rate ?? 1), end: c.start + (k.end - c.trimIn) / (c.rate ?? 1) })))
     .sort((a, b) => a.start - b.start);
   users.forEach((c) => ((c.assetId = newAssetId), (c.trimIn = remapTime(c.trimIn, cutsFile))));
+  unbindWords(p);
   applyTimeMap(p, (t) => remapTime(t, cuts));
   p.length = remapTime(p.length, cuts);
 }

@@ -647,3 +647,11 @@ pre.code-err { white-space: pre-wrap; font-size: 11.5px; margin: 0; }
 .tl-len { font-variant-numeric: tabular-nums; margin-right: 6px; }
 .tl-tools select.tl-size { width: auto; flex: none; }
 .motion-gallery { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+
+.fade-svg { position: absolute; top: 0; bottom: 0; height: 100%; pointer-events: none; z-index: 1; }
+.fade-svg.in { left: 0; }
+.fade-svg.out { right: 0; }
+.fade-svg polygon { fill: rgba(0, 0, 0, 0.45); }
+.fade-svg line { stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; opacity: 0.85; }
+.sync-chip { display: inline-flex; gap: 6px; align-items: center; }
+.sync-chip .link { font-size: 12px; }

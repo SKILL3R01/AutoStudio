@@ -1,4 +1,4 @@
-import { mainVoiceAsset, narrationClips, narrationTrack } from '../lib/audiotracks';
+import { mainVoiceAsset, narrationClips, narrationTrack, unbindWords } from '../lib/audiotracks';
 import { addVoiceTake, probe } from '../lib/project';
 import { offsetWords } from '../audio/mix';
 import { useEffect, useRef, useState } from 'react';
@@ -360,6 +360,7 @@ export function VoiceEnhance() {
         d.assets.push(a);
         const c = d.audio.find((x) => x.id === first!.id);
         if (c) Object.assign(c, { assetId: a.id, trimIn: c.trimIn / pace, duration: c.duration / pace });
+        unbindWords(d);
       });
       toast('Voiceover updated — Undo brings the original back. Re-run captions if the pace changed.', 'ok');
       setPace(1);

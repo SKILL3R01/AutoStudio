@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addVoiceTake, newProject, normalizeProject } from '../lib/project';
 import { clipEnd, projectLength } from '../store';
-import { TRACK_IDS, moveAudioClip, narrationClips, newAudioClip, voiceStartOf } from '../lib/audiotracks';
+import { TRACK_IDS, captionDrift, moveAudioClip, narrationClips, newAudioClip, resolveOverlap, resyncCaptions, splitAudioClip } from '../lib/audiotracks';
 import type { Asset, Clip, Project } from '../types';
 import {
   applyCuts, clipboardEnd, copyItems, detachAudio, insertClips, pasteItems, rippleDeleteClips, splitAudio, splitClipAt, splitOverlay,
@@ -67,14 +67,30 @@ describe('audio tracks', () => {
     expect(p.audioTracks.find((t) => t.id === TRACK_IDS.voice)!.muted).toBe(true);
     expect(narrationClips(p)[0].assetId).toBe('vo2');
   });
-  it('captions follow a moved narration clip; length = the last item on any track', () => {
+  it('captions stay put when a voice clip moves, then re-sync on demand (also after a split + reorder)', () => {
     const p = fixture();
     addVoiceTake(p, 'vo', 9);
-    p.words = [{ text: 'hi', start: 1, end: 1.5 }];
+    p.words = [{ text: 'hi', start: 1, end: 1.5 }, { text: 'there', start: 6, end: 6.5 }];
     moveAudioClip(p, narrationClips(p)[0].id, 4);
-    expect(p.words[0].start).toBe(5);
-    expect(voiceStartOf(p)).toBe(4);
+    expect(p.words[0].start).toBe(1);
+    expect(captionDrift(p)).toBe(2);
     expect(projectLength(p)).toBe(13);
+    resyncCaptions(p);
+    expect(p.words.map((w) => w.start)).toEqual([5, 10]);
+    expect(captionDrift(p)).toBe(0);
+    // split at 8 (file 4 s) and move the second half to the start
+    const right = splitAudioClip(p, narrationClips(p)[0].id, 8)!;
+    moveAudioClip(p, right, 0);
+    resyncCaptions(p);
+    expect(p.words.map((w) => [w.text, w.start])).toEqual([['there', 2], ['hi', 5]]);
+  });
+  it('a dropped clip never stays on top of another one: it moves to a new track of that kind', () => {
+    const p = fixture();
+    const right = splitAudioClip(p, 'm', 4)!;
+    moveAudioClip(p, right, 2);
+    expect(resolveOverlap(p, right)).toBe('Music 2');
+    expect(p.audioTracks.filter((t) => t.kind === 'music')).toHaveLength(2);
+    expect(resolveOverlap(p, 'm')).toBe('');
   });
 });
 

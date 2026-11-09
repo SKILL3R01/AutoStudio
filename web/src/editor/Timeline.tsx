@@ -1,5 +1,6 @@
 import { useMenu } from './ContextMenu';
-import { addTrack, moveAudioClip } from '../lib/audiotracks';
+import { addTrack, bindWords, captionDrift, moveAudioClip, resolveOverlap, resyncCaptions, unbindWords } from '../lib/audiotracks';
+import { toast } from '../components/Toast';
 import type { AudioTrack } from '../types';
 import { durationFlags, moveClip } from '../lib/timeline';
 import { useUi, type TlSize } from '../lib/uimode';
@@ -12,7 +13,7 @@ import { media, peaks } from '../render/media';
 import { fmtTime } from '../lib/util';
 import { TRANSITIONS, type Clip, type Transition } from '../types';
 import { deleteAction } from './shortcuts';
-import { copySelection, detachSelectedAudio, duplicate, hasClipboard, paste, rippleDelete, splitAtPlayhead } from './actions';
+import { copySelection, detachSelectedAudio, duplicate, hasClipboard, paste, splitAllAtPlayhead, splitAtPlayhead } from './actions';
 import { snapPoints, snapTime } from './edit';
 import { Icon } from '../components/icons';
 import { Slider } from '../components/ui';
@@ -258,6 +259,7 @@ export function Timeline() {
     const clickT = s0 + (e.clientX - (e.currentTarget as HTMLElement).getBoundingClientRect().left) / zoom;
     startDrag(e, zoom, (dt, ev) => update((d) => {
       const snap = (t: number) => (pts.length && !ev.shiftKey ? snapTime(t, pts, zoom) : t);
+      if (key === 'audio') bindWords(d);
       const it = (d[key] as { id: string; start: number; duration?: number; end?: number; trimIn?: number; trackId?: string; words?: { start: number; end: number }[] }[]).find((x) => x.id === id)!;
       if (mode === 'move') {
         const raw = s0 + dt;
@@ -286,6 +288,11 @@ export function Timeline() {
       if (e.shiftKey || e.ctrlKey || e.metaKey) return st2.toggleMulti(id);
       st2.select({ kind, id });
       st2.seek(clickT);
+    }, () => {
+      if (key !== 'audio' || mode !== 'move') return;
+      let moved = '';
+      update((d) => void (moved = resolveOverlap(d, id)), `${mode}-${id}`);
+      if (moved) toast(`It overlapped another clip — moved to “${moved}”`, 'info');
     });
   };
   /** Drag the volume line of an audio clip up / down (0–200 %). */
@@ -339,6 +346,7 @@ export function Timeline() {
     window.addEventListener('pointerup', up);
   };
   const selCount = (sel ? 1 : 0) + multi.filter((m) => m !== sel?.id).length;
+  const drift = captionDrift(p);
   const base = ROWS[tlSize];
   const trackH = (t: AudioTrack) => t.height ?? base.audio;
   const rows = `${base.ruler}px ${base.text}px ${base.typo}px ${base.video}px ${base.caps}px ${p.audioTracks.map((t) => `${trackH(t)}px`).join(' ')} ${base.fx}px`;
@@ -348,9 +356,9 @@ export function Timeline() {
     <div className={`timeline size-${tlSize}`} style={{ height: shownHeight }}>
       <div className="tl-resize" onPointerDown={resize} title="Drag to resize" />
       <div className="tl-tools">
-        <button className="icon-btn" onClick={() => splitAtPlayhead()} title="Split at playhead (S) — or right-click an item → Split here"><Icon name="scissors" /></button>
-        <button className="icon-btn" disabled={!selCount} onClick={deleteAction} title="Delete (Del)"><Icon name="trash" /></button>
-        <button className="icon-btn" disabled={!(sel?.kind === 'clip' || sel?.kind === 'audio' || multi.length)} onClick={() => void rippleDelete()} title="Ripple delete (Shift+Del): remove and close the gap"><Icon name="ripple" /></button>
+        <button className="icon-btn" onClick={splitAllAtPlayhead} title="Split everything under the playhead (all tracks)"><Icon name="scissors" /></button>
+        <button className="icon-btn" disabled={!sel || sel.kind === 'keyword'} onClick={() => splitAtPlayhead()} title="Split the selected item at the playhead (S) — or right-click → Split here"><Icon name="split" /></button>
+        <button className="icon-btn" disabled={!selCount} onClick={deleteAction} title="Delete (Del) · Shift+Del = ripple delete"><Icon name="trash" /></button>
         <span className="tl-sep" />
         <button className="icon-btn" disabled={!selCount} onClick={() => void copySelection()} title="Copy (Ctrl+C)"><Icon name="copy" /></button>
         <button className="icon-btn" disabled={!hasClipboard()} onClick={() => paste()} title="Paste at playhead (Ctrl+V)"><Icon name="paste" /></button>
@@ -366,6 +374,13 @@ export function Timeline() {
         </select>
         {flags.size > 0 && <span className="chip warn" title="Clips shorter than 1 s or longer than 20 s — right-click a clip to ignore">⚠ {flags.size}</span>}
         {selCount > 1 && <span className="chip">{selCount} selected</span>}
+        {drift > 0 && (
+          <span className="chip warn sync-chip" title="The voice was moved or cut — captions and typography no longer line up with it">
+            ⚠ Captions out of sync ({drift})
+            <button className="link" onClick={() => update((d) => resyncCaptions(d))}>Fix</button>
+            <button className="link" onClick={() => update((d) => (unbindWords(d), bindWords(d)))}>Keep</button>
+          </span>
+        )}
         <div className="grow" />
         <span className="hint tl-len">{fmtTime(length)}</span>
         <button className="icon-btn" onClick={() => setZoom(Math.max(1, zoom / 1.5))} title="Zoom out">−</button>
@@ -453,8 +468,8 @@ export function Timeline() {
                       onContextMenu={(e) => openMenu(e, { kind: 'audio', id: c.id }, c.start + (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom)}
                       title={`${a?.name ?? c.sound} · ${fmtTime(c.start)} → ${fmtTime(c.start + c.duration)} · ${Math.round(c.volume * 100)}% — drag to move (also to another track), drag the line for volume`}>
                       {a && <div className="aclip-wave" style={{ left: (-c.trimIn / (c.rate ?? 1)) * zoom }}><Waveform assetId={a.id} length={a.duration ?? c.duration} zoom={zoom / (c.rate ?? 1)} /></div>}
-                      {c.fadeIn > 0 && <i className="fade-ramp in" style={{ width: Math.min(c.duration, c.fadeIn) * zoom }} />}
-                      {c.fadeOut > 0 && <i className="fade-ramp out" style={{ width: Math.min(c.duration, c.fadeOut) * zoom }} />}
+                      {c.fadeIn > 0 && <FadeRamp dir="in" w={Math.min(c.duration, c.fadeIn) * zoom} />}
+                      {c.fadeOut > 0 && <FadeRamp dir="out" w={Math.min(c.duration, c.fadeOut) * zoom} />}
                       <span className="aclip-name">{t.kind === 'music' ? '♫ ' : ''}{a?.name ?? c.sound}{c.rate && c.rate !== 1 ? ` · ${c.rate}×` : ''}</span>
                       {w > 30 && <i className="vol-line" style={{ top: Math.max(2, Math.min(h - 2, (1 - c.volume / 2) * h)) }} onPointerDown={(e) => dragVolume(c.id, e, h)} />}
                       {w > 40 && <i className="fade-h in" style={{ left: Math.min(c.duration, c.fadeIn) * zoom }} onPointerDown={(e) => dragFade(c.id, 'fadeIn', e)} title="Drag: fade in" />}
@@ -494,3 +509,14 @@ const ROWS = {
   comfortable: { ruler: 26, text: 30, typo: 32, video: 78, caps: 26, audio: 54, fx: 28 },
   large: { ruler: 30, text: 38, typo: 40, video: 104, caps: 32, audio: 72, fx: 34 },
 };
+
+/** Fade drawn as a ramp: the silent part is the triangle above a line rising (in) or falling (out) left to right. */
+function FadeRamp({ dir, w }: { dir: 'in' | 'out'; w: number }) {
+  return (
+    <svg className={`fade-svg ${dir}`} style={{ width: w }} viewBox="0 0 100 100" preserveAspectRatio="none">
+      <polygon points={dir === 'in' ? '0,0 100,0 0,100' : '0,0 100,0 100,100'} />
+      <line x1={0} y1={dir === 'in' ? 100 : 0} x2={100} y2={dir === 'in' ? 0 : 100} />
+    </svg>
+  );
+}
+
