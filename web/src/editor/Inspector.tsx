@@ -1,3 +1,4 @@
+import type { Motion } from '../types';
 import { fmtClock, parseClock, setClipStart } from '../lib/timeline';
 import { useState } from 'react';
 
@@ -334,10 +335,23 @@ function ClipInspector({ id }: { id: string }) {
 
           {depthThumb && <img className="depth-thumb" src={depthThumb} alt="depth" />}
 
-          <button className="btn sm" disabled={depthBusy} onClick={depth}><Icon name="depth" /> {depthBusy ? (vision.label ? `${vision.label} ${Math.round(vision.value * 100)}%` : 'Estimating…') : clip.depthId ? 'Redo depth map' : 'Generate depth map'}</button>
+          <button className="btn sm" disabled={depthBusy} onClick={depth}><Icon name="depth" /> {depthBusy ? (vision.label ? `${vision.label} ${Math.round(vision.value * 100)}%` : 'Estimating…') : clip.depthId ? 'Redo depth map' : 'Preview 3D (make depth map)'}</button>
+          {clip.depthId && <button className="btn sm ghost" onClick={() => set((c) => void ((c.depthId = undefined), ['parallaxZoom', 'parallaxOrbit', 'dollyZoom'].includes(c.motion) && (c.motion = 'zoomIn')))}><Icon name="x" /> Remove 3D</button>}
 
         </div>
 
+        {clip.depthId && (
+          <div className="card">
+            <b>3D move for this scene</b>
+            <p className="hint">White = near, black = far. Pick a move and press play to preview it here before exporting; “Remove 3D” goes back to a flat move.</p>
+            <div className="row wrap">
+              {(['parallaxZoom', 'parallaxOrbit', 'dollyZoom'] as Motion[]).map((m) => (
+                <button key={m} className={`chip ${clip.motion === m ? 'on' : ''}`} onClick={() => (set((c) => void (c.motion = m)), useEditor.getState().seek(start + 0.05), useEditor.getState().setPlaying(true))}>{({ parallaxZoom: '3D push-in', parallaxOrbit: '3D orbit', dollyZoom: '3D dolly zoom' } as Record<string, string>)[m]}</button>
+              ))}
+            </div>
+            <Slider label="3D strength" value={p.motionDepth} min={0} max={0.4} onChange={(v) => update((d) => void (d.motionDepth = v), 'depth3d')} fmt={(v) => `${Math.round(v * 100)}%`} />
+          </div>
+        )}
         <button className="btn sm primary" onClick={() => confirmHeavyAi() && setRegionOpen(true)}><Icon name="cursor" /> Animate a detail…</button>
 
         {(clip.regions ?? []).map((r) => (
