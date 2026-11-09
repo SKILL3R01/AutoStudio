@@ -655,3 +655,13 @@ pre.code-err { white-space: pre-wrap; font-size: 11.5px; margin: 0; }
 .fade-svg line { stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; opacity: 0.85; }
 .sync-chip { display: inline-flex; gap: 6px; align-items: center; }
 .sync-chip .link { font-size: 12px; }
+
+/* v3.1: media panel */
+.media-bar { gap: 6px; align-items: center; }
+.media-bar select { width: auto; font-size: 12px; padding: 3px 6px; }
+.media-item.k-audio .mthumb { display: grid; place-items: center; background: linear-gradient(135deg, #1f2a3a, #2a1f3a); }
+.media-list { display: flex; flex-direction: column; gap: 4px; }
+.media-item.row-item { display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: center; }
+.media-item.row-item .mthumb { width: 64px; height: 40px; aspect-ratio: auto; }
+.media-item.row-item .mname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track.drop-on { outline: 2px dashed var(--accent); outline-offset: -2px; background: rgba(179, 157, 255, 0.08); }

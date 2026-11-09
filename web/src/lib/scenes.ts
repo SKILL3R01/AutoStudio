@@ -1,3 +1,4 @@
+import { narrationEnd } from './audiotracks';
 import { addVoiceTake } from './project';
 import type { Word } from '../types';
 import { newProject, probe, defaultClip } from './project';
@@ -71,7 +72,7 @@ export async function createProject(opts: { name: string; voice?: Blob; images: 
   }
   if (opts.words) p.words = opts.words;
   if (opts.aspect) p.export.aspect = opts.aspect;
-  if (!opts.voice && imgs.length) p.length = imgs[imgs.length - 1].t + 4;
+  if (imgs.length) p.length = Math.max(narrationEnd(p), imgs[imgs.length - 1].t + 4);
   await saveProject(p);
   return p;
 }

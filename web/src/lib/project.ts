@@ -1,7 +1,7 @@
 import type { CaptionSettings, Asset, AssetKind, Clip, KeywordSettings, Project, TypoBlock, TypoSettings } from '../types';
 import { saveBlob } from './db';
 import { uid } from './util';
-import { clipEndOf, defaultTracks, ensureTrack, migrateAudio, narrationClips, newAudioClip, addTrack, TRACK_IDS } from './audiotracks';
+import { clipEndOf, defaultTracks, ensureTrack, migrateAudio, narrationClips, narrationEnd, newAudioClip, addTrack, TRACK_IDS } from './audiotracks';
 export { setVoiceStart } from './audiotracks';
 
 export const defaultKeywordSettings = (): KeywordSettings => ({
@@ -188,7 +188,7 @@ export async function importVisuals(p: Project, entries: TimedFile[], onProgress
   if (next.clips.length) {
     const last = next.clips[next.clips.length - 1];
     const lastAsset = next.assets.find((a) => a.id === last.assetId);
-    next.length = Math.max(next.length, last.start + (lastAsset?.kind === 'video' ? lastAsset.duration ?? 4 : 4));
+    next.length = Math.max(next.length, narrationEnd(next), last.start + (lastAsset?.kind === 'video' ? lastAsset.duration ?? 4 : 4));
   }
   return next;
 }

@@ -1,5 +1,6 @@
 import { useMenu } from './ContextMenu';
-import { addTrack, bindWords, captionDrift, moveAudioClip, resolveOverlap, resyncCaptions, unbindWords } from '../lib/audiotracks';
+import { addTrack, bindWords, captionDrift, moveAudioClip, newAudioClip, resolveOverlap, resyncCaptions, unbindWords } from '../lib/audiotracks';
+import { insertAssetAt } from './MediaPanel';
 import { toast } from '../components/Toast';
 import type { AudioTrack } from '../types';
 import { durationFlags, moveClip } from '../lib/timeline';
@@ -347,6 +348,34 @@ export function Timeline() {
   };
   const selCount = (sel ? 1 : 0) + multi.filter((m) => m !== sel?.id).length;
   const drift = captionDrift(p);
+  const allowDrop = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('application/x-asset')) return;
+    e.preventDefault();
+    e.currentTarget.classList.add('drop-on');
+  };
+  const dropLeave = (e: React.DragEvent) => e.currentTarget.classList.remove('drop-on');
+  /** Media dragged from the Media panel: visuals go on the main track, audio on the track it was dropped on. */
+  const dropAsset = (e: React.DragEvent, target: string) => {
+    e.currentTarget.classList.remove('drop-on');
+    const id = e.dataTransfer.getData('application/x-asset');
+    const a = id && assets.get(id);
+    if (!a) return;
+    e.preventDefault();
+    const t = Math.max(0, (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom);
+    if (target === 'video') {
+      if (a.kind === 'audio') return toast('Drop audio on an audio track', 'info');
+      return update((d) => insertAssetAt(d, a.id, t));
+    }
+    if (a.kind === 'image') return toast('Drop images on the Video track', 'info');
+    let moved = '';
+    update((d) => {
+      const tr = d.audioTracks.find((x) => x.id === target)!;
+      const c = newAudioClip(target, a.id, t, a.duration ?? 5, tr.kind);
+      d.audio.push(c);
+      moved = resolveOverlap(d, c.id);
+    });
+    if (moved) toast(`That spot was taken — added on “${moved}”`, 'info');
+  };
   const base = ROWS[tlSize];
   const trackH = (t: AudioTrack) => t.height ?? base.audio;
   const rows = `${base.ruler}px ${base.text}px ${base.typo}px ${base.video}px ${base.caps}px ${p.audioTracks.map((t) => `${trackH(t)}px`).join(' ')} ${base.fx}px`;
@@ -434,7 +463,7 @@ export function Timeline() {
                 </div>
               ))}
             </div>
-            <div className="track t-video">
+            <div className="track t-video" onDragOver={allowDrop} onDragLeave={dropLeave} onDrop={(e) => dropAsset(e, 'video')}>
               {p.clips.map((c, i) => {
                 const end = clipEnd(p, i);
                 return inView(i === 0 ? 0 : c.start, end) ? (
@@ -457,7 +486,7 @@ export function Timeline() {
               ))}
             </div>
             {p.audioTracks.map((t) => (
-              <div key={t.id} className={`track t-aud k-${t.kind} ${t.muted ? 'muted' : ''}`} data-track={t.id}>
+              <div key={t.id} className={`track t-aud k-${t.kind} ${t.muted ? 'muted' : ''}`} data-track={t.id} onDragOver={allowDrop} onDragLeave={dropLeave} onDrop={(e) => dropAsset(e, t.id)}>
                 {p.audio.filter((c) => c.trackId === t.id && inView(c.start, c.start + c.duration)).map((c) => {
                   const w = Math.max(8, c.duration * zoom);
                   const h = trackH(t) - 6;
