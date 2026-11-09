@@ -1,0 +1,13 @@
+[
+  { "wait": 7000 },
+  { "eval": "(() => ({ size: document.querySelector('.timeline').className, flags: document.querySelector('.tl-tools .chip.warn')?.textContent ?? 'none' }))()" },
+  { "eval": "(() => { const c = document.querySelectorAll('.t-video .clip')[2]; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: r.left + 10, clientY: r.top + 10 })); return [...document.querySelectorAll('.ctx-menu > button')].map(b => b.textContent.trim()).join(' | '); })()" },
+  { "wait": 300 },
+  { "shot": "menu" },
+  { "eval": "(() => { const b = [...document.querySelectorAll('.ctx-menu .chip')].find(x => x.textContent === 'Pan left'); b.click(); return 'motion set'; })()" },
+  { "wait": 300 },
+  { "eval": "(() => { const ids = [...document.querySelectorAll('.t-video .clip')].map(c => c.title.split(' · ')[0]); const c = document.querySelectorAll('.t-video .clip')[0]; const r = c.getBoundingClientRect(); const x = r.left + 20, y = r.top + 10; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y, button: 0 })); for (let k = 1; k <= 10; k++) window.dispatchEvent(new PointerEvent('pointermove', { clientX: x + k * 30, clientY: y })); window.dispatchEvent(new PointerEvent('pointerup', { clientX: x + 300, clientY: y })); return 'before: ' + ids.join(','); })()" },
+  { "wait": 500 },
+  { "eval": "'after: ' + [...document.querySelectorAll('.t-video .clip')].map(c => c.title.split(' · ')[0]).join(',')" },
+  { "eval": "(() => { const st = document.querySelector('.inspector input[defaultValue], .inspector .field input'); return document.querySelector('.inspector')?.innerText.match(/Start .m:ss.mmm./) ? 'start field shown' : 'no start field'; })()" }
+]
