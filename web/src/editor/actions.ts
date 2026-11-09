@@ -118,6 +118,25 @@ export function detachSelectedAudio() {
 
 export const ASSET_MIME = 'application/x-asset';
 
+/** Replace the audio of one clip with a processed copy of its file (the original file stays; Undo restores). */
+export async function processClipAudio(clipId: string, label: string, fn: (b: AudioBuffer) => Promise<AudioBuffer>) {
+  const p = useEditor.getState().project!;
+  const c = p.audio.find((x) => x.id === clipId);
+  const a = c && findAsset(p, c.assetId);
+  const buf = a && (await media.audioBuffer(a.id));
+  if (!c || !a || !buf) return toast('Could not read this audio', 'error');
+  const out = await fn(buf);
+  const asset = await probe(encodeWav(out), a.name.replace(/(_[a-z]+)?(\.[^.]+)?$/, `_${label}.wav`), 'audio');
+  useEditor.getState().update((d) => {
+    d.assets.push(asset);
+    const x = d.audio.find((y) => y.id === clipId);
+    if (!x) return;
+    // Same timing, new file: captions bound to this clip's file follow the new id.
+    for (const w of [...d.words, ...d.lines.flatMap((l) => l.words), ...d.typo.flatMap((b) => b.words)]) if (w.src?.a === x.assetId && !d.audio.some((o) => o.id !== x.id && o.assetId === x.assetId)) w.src.a = asset.id;
+    x.assetId = asset.id;
+  });
+}
+
 /**
  * Put a media item where it was dropped. `target`: 'video' (main track), 'v:<id>' (overlay track) or an audio track id;
  * unknown / mismatched targets fall back to the main track (visuals) or the first track of the right kind (audio).

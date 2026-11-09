@@ -13,10 +13,10 @@ interface Pause extends Range {
   approved: boolean;
 }
 
-export function SilenceDialog({ onClose }: { onClose: () => void }) {
+export function SilenceDialog({ onClose, clipId }: { onClose: () => void; clipId?: string }) {
   const p = useEditor((s) => s.project!);
   const update = useEditor((s) => s.update);
-  const first = narrationClips(p)[0];
+  const first = clipId ? p.audio.find((c) => c.id === clipId) : narrationClips(p)[0];
   const vo = first && findAsset(p, first.assetId);
   const [buf, setBuf] = useState<AudioBuffer>();
   const [lv, setLv] = useState<Levels>();

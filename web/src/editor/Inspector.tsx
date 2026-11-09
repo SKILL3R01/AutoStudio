@@ -1,3 +1,7 @@
+import { denoise } from '../audio/denoise';
+import { processClipAudio } from './actions';
+import { SilenceDialog } from './SilenceDialog';
+import { VoiceEnhance } from '../voice/VoicePanel';
 import { PIP_PRESETS } from '../lib/pip';
 import { mainVoiceAsset, moveAudioClip, voiceStartOf } from '../lib/audiotracks';
 import type { Motion } from '../types';
@@ -667,6 +671,42 @@ function KeywordInspector({ id }: { id: string }) {
 
 
 
+/** Clean up & enhance for one audio clip: noise reduction, silences, voice enhance, pace / pitch. */
+function CleanUpSection({ clipId, trackId, voice }: { clipId: string; trackId: string; voice: boolean }) {
+  const [busy, setBusy] = useState('');
+  const [strength, setStrength] = useState(0.9);
+  const [silence, setSilence] = useState(false);
+  const run = async (label: string, fn: () => Promise<void>) => {
+    setBusy(label);
+    try {
+      await fn();
+      toast('Done — the original file is kept (Undo restores it)', 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setBusy('');
+    }
+  };
+  return (
+    <Section title="Clean up & enhance" hint="Runs on this PC. Each step makes a new copy of the audio — the original stays in Media.">
+      {silence && <SilenceDialog clipId={clipId} onClose={() => setSilence(false)} />}
+      <Slider label="Noise reduction strength" value={strength} min={0.3} max={1} onChange={setStrength} fmt={(v) => `${Math.round(v * 100)}%`} />
+      <div className="row wrap">
+        <button className="btn sm" disabled={!!busy} onClick={() => run('Reducing background noise…', () => processClipAudio(clipId, 'clean', (b) => denoise(b, strength, (f) => setBusy(`Reducing background noise… ${Math.round(f * 100)}%`))))}><Icon name="wand" /> Reduce background noise</button>
+        <button className="btn sm" disabled={!!busy} onClick={() => setSilence(true)}><Icon name="scissors" /> Remove silences…</button>
+      </div>
+      {busy && <p className="hint">{busy}</p>}
+      {voice && (
+        <>
+          <h4>Voice enhance (whole track)</h4>
+          <VoiceEnhance trackId={trackId} clipId={clipId} />
+          <p className="hint">Change voice (re-voice or re-generate in another voice) is coming in v3.4.</p>
+        </>
+      )}
+    </Section>
+  );
+}
+
 function AudioClipInspector({ id }: { id: string }) {
   const p = useProject();
   const update = useEditor((s) => s.update);
@@ -700,6 +740,7 @@ function AudioClipInspector({ id }: { id: string }) {
           <button className="btn sm ghost danger" onClick={deleteSelection}><Icon name="trash" /> Remove</button>
         </div>
       </Section>
+      <CleanUpSection clipId={m.id} trackId={m.trackId} voice={t?.kind === 'voice'} />
       {!isNarr && (
         <Section title="Under the narration">
           <Toggle label="Duck under the narration (dips while it speaks, rises in the pauses)" value={!!m.duck} onChange={(v) => set((x) => void (x.duck = v))} />

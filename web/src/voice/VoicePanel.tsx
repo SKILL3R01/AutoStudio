@@ -1,4 +1,4 @@
-import { mainVoiceAsset, narrationClips, narrationTrack, unbindWords } from '../lib/audiotracks';
+import { mainVoiceAsset, narrationTrack, unbindWords } from '../lib/audiotracks';
 import { addVoiceTake, probe } from '../lib/project';
 import { offsetWords } from '../audio/mix';
 import { useEffect, useRef, useState } from 'react';
@@ -325,11 +325,13 @@ export function VoicePanel() {
 }
 
 /** Enhance & effects for the current voiceover (non-destructive, applied in preview and export). */
-export function VoiceEnhance() {
+const trackOfId = (d: { audioTracks: { id: string; fx?: VoiceFx }[] }, id?: string) => d.audioTracks.find((t) => t.id === id);
+
+export function VoiceEnhance({ trackId, clipId }: { trackId?: string; clipId?: string } = {}) {
   const p = useProject();
   const update = useEditor((s) => s.update);
-  const nt = narrationTrack(p);
-  const first = narrationClips(p)[0];
+  const nt = trackId ? p.audioTracks.find((t) => t.id === trackId) : narrationTrack(p);
+  const first = clipId ? p.audio.find((c) => c.id === clipId) : p.audio.filter((c) => c.trackId === nt?.id).sort((a, b) => a.start - b.start)[0];
   const vo = nt && first ? { fx: nt.fx, assetId: first.assetId } : undefined;
   const [busy, setBusy] = useState('');
   const [pace, setPace] = useState(1);
@@ -338,13 +340,13 @@ export function VoiceEnhance() {
   const fx: VoiceFx = vo.fx ?? { ...defaultFx('off'), targetLufs: null };
   /** Apply settings and re-measure loudness so the result lands on the target (−14 LUFS for YouTube). */
   const apply = async (next: VoiceFx) => {
-    update((d) => void (narrationTrack(d) && (narrationTrack(d)!.fx = next)), 'voicefx');
+    update((d) => void (trackOfId(d, nt?.id) && (trackOfId(d, nt?.id)!.fx = next)), 'voicefx');
     if (next.targetLufs === null) return;
     const buf = await media.audioBuffer(vo.assetId);
     if (!buf) return;
     setBusy('Measuring loudness…');
     const gainDb = await makeupFor(buf, next);
-    update((d) => void (narrationTrack(d)?.fx && (narrationTrack(d)!.fx!.gainDb = gainDb)), 'voicefx');
+    update((d) => void (trackOfId(d, nt?.id)?.fx && (trackOfId(d, nt?.id)!.fx!.gainDb = gainDb)), 'voicefx');
     setBusy('');
   };
   const set = (k: keyof VoiceFx, v: number) => void apply({ ...fx, [k]: v, preset: 'custom' });
@@ -380,7 +382,7 @@ export function VoiceEnhance() {
       <Slider label="Room" value={fx.room} min={0} max={0.5} onChange={(v) => set('room', v)} />
       <Toggle label="Loudness −14 LUFS (YouTube standard)" value={fx.targetLufs !== null} onChange={(v) => void apply({ ...fx, targetLufs: v ? -14 : null, gainDb: v ? fx.gainDb : 0 })} />
       {fx.targetLufs !== null && <p className="hint">Make-up gain {fx.gainDb > 0 ? '+' : ''}{fx.gainDb.toFixed(1)} dB</p>}
-      <Toggle label="Compare: bypass (hear the original)" value={!!fx.bypass} onChange={(v) => update((d) => void (narrationTrack(d) && (narrationTrack(d)!.fx = { ...fx, bypass: v })))} />
+      <Toggle label="Compare: bypass (hear the original)" value={!!fx.bypass} onChange={(v) => update((d) => void (trackOfId(d, nt?.id) && (trackOfId(d, nt?.id)!.fx = { ...fx, bypass: v })))} />
       <h4>Pace & pitch</h4>
       <Slider label="Pace" value={pace} min={0.85} max={1.15} step={0.01} onChange={setPace} fmt={(v) => `${v.toFixed(2)}×`} />
       <Slider label="Pitch" value={pitch} min={-3} max={3} step={0.5} onChange={setPitch} fmt={(v) => `${v > 0 ? '+' : ''}${v} st`} />
