@@ -23,7 +23,11 @@ run() { # name url steps [ui-mode]
   UI_MODE=${4:-pro} timeout 240 node scripts/cdp-shot.mjs "$2" "$OUT/$1" "scripts/$3" >"$OUT/$1.log" 2>&1 || echo "[eval] \"suite error or timeout (exit $?)\"" >>"$OUT/$1.log"
   local bad
   bad=$(grep -v '^\[shot\]' "$OUT/$1.log" | grep -iE 'error|disabled|no (toast|modal|button|input|result|blocks|sound)|exception|cannot|undefined' | grep -vE "$EXPECTED" | head -5)
-  if [ -n "$bad" ]; then echo "$bad"; FAILED=1; fi
+  if [ -n "$bad" ]; then
+    echo "$bad"; FAILED=1
+    # In CI, show the whole suite log so the cause is visible in the job output.
+    if [ -n "$STRICT" ]; then echo "--- $1 log (last 40 lines) ---"; grep -vE "$EXPECTED" "$OUT/$1.log" | tail -40; echo "---"; fi
+  fi
 }
 run v3 "http://localhost:5173/#demo" steps-v3.json
 run review "http://localhost:5173/#projects" steps-review-v3.json
