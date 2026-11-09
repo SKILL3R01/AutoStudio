@@ -1,3 +1,4 @@
+import { DEPTH_MOTIONS } from '../types';
 import type { Clip, Motion, MotionEasing, Transition } from '../types';
 import { TRANSITIONS } from '../types';
 import { easeInOut, hash, lerp } from '../lib/util';
@@ -54,14 +55,11 @@ export function motionXform(m: Motion, p: number, local: number, depth: number, 
     case 'drift': return { scale: 1 + d, dx: Math.sin(local * 0.5 + index) * d * 0.35, dy: Math.cos(local * 0.4 + index) * d * 0.25 };
     case 'breathe': return { scale: 1 + d / 2 + Math.sin(local * 1.6) * d / 2, dx: 0, dy: 0 };
     // Depth motions move the camera inside the parallax shader; only a small zoom hides edge stretching here.
-    case 'parallaxZoom':
-    case 'parallaxOrbit':
-    case 'dollyZoom': return { scale: 1.04, dx: 0, dy: 0 };
-    default: return { scale: 1, dx: 0, dy: 0 };
+    default: return isDepthMotion(m) ? { scale: 1.04, dx: 0, dy: 0 } : { scale: 1, dx: 0, dy: 0 };
   }
 }
 
-export const isDepthMotion = (m: Motion) => m === 'parallaxZoom' || m === 'parallaxOrbit' || m === 'dollyZoom';
+export const isDepthMotion = (m: Motion) => (DEPTH_MOTIONS as readonly string[]).includes(m);
 
 /** Virtual camera for the 2.5D parallax shader. */
 export interface ParallaxCamera {
@@ -81,5 +79,13 @@ export function parallaxCamera(m: Motion, p: number, local: number, depth: numbe
   const dir = hash(index + 5) > 0.5 ? 1 : -1;
   if (m === 'parallaxOrbit') return { ox: Math.sin(local * 0.6 + index) * 0.03 * k, oy: Math.cos(local * 0.45 + index) * 0.015 * k, push: 0.02 * k, zoom: 1, strength: 1 };
   if (m === 'dollyZoom') return { ox: 0, oy: 0, push: lerp(0, 0.12, e) * k, zoom: lerp(1.08, 1, e), strength: 1 };
+  if (m === 'parallaxPanLeft') return { ox: lerp(0.035, -0.035, e) * k, oy: 0, push: 0.025 * k, zoom: 1, strength: 1 };
+  if (m === 'parallaxPanRight') return { ox: lerp(-0.035, 0.035, e) * k, oy: 0, push: 0.025 * k, zoom: 1, strength: 1 };
+  if (m === 'parallaxTiltUp') return { ox: 0, oy: lerp(0.025, -0.025, e) * k, push: 0.025 * k, zoom: 1, strength: 1 };
+  if (m === 'parallaxTiltDown') return { ox: 0, oy: lerp(-0.025, 0.025, e) * k, push: 0.025 * k, zoom: 1, strength: 1 };
+  if (m === 'parallaxPullOut') return { ox: lerp(0.015, -0.015, e) * dir * k, oy: 0, push: lerp(0.09, 0, e) * k, zoom: 1, strength: 1 };
+  if (m === 'parallaxSwing') return { ox: Math.sin(local * 1.1 + index) * 0.035 * k, oy: 0, push: 0.03 * k, zoom: 1, strength: 1 };
+  if (m === 'parallaxFloat') return { ox: Math.sin(local * 0.35 + index) * 0.012 * k, oy: Math.cos(local * 0.5 + index) * 0.012 * k, push: 0.015 * k, zoom: 1, strength: 1 };
+  if (m === 'parallaxCrane') return { ox: 0, oy: lerp(0.03, -0.03, e) * k, push: lerp(0, 0.06, e) * k, zoom: 1, strength: 1 };
   return { ox: lerp(-0.02, 0.02, e) * dir * k, oy: 0, push: lerp(0, 0.08, e) * k, zoom: 1, strength: 1 };
 }

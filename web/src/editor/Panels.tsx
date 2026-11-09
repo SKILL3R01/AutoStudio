@@ -1,3 +1,6 @@
+import { isDepthMotion } from '../render/motion';
+import { DEPTH_MOTIONS } from '../types';
+import { DepthAll } from './DepthAll';
 import { fmtTime } from '../lib/util';
 import { toast } from '../components/Toast';
 import { ensureTrack, narrationClips, narrationEnd, narrationTrack, newAudioClip, voiceStartOf } from '../lib/audiotracks';
@@ -43,6 +46,8 @@ export const MOTION_LABELS: Record<Motion, string> = {
   none: 'None', zoomIn: 'Zoom in', zoomOut: 'Zoom out', panLeft: 'Pan left', panRight: 'Pan right', tiltUp: 'Tilt up',
   tiltDown: 'Tilt down', diagonal: 'Diagonal', drift: 'Drift', breathe: 'Breathe', alternate: 'Alternate zoom', random: 'Random mix', custom: 'Custom framing',
   parallaxZoom: '3D push-in', parallaxOrbit: '3D orbit', dollyZoom: '3D dolly zoom',
+  parallaxPanLeft: '3D pan left', parallaxPanRight: '3D pan right', parallaxTiltUp: '3D tilt up', parallaxTiltDown: '3D tilt down',
+  parallaxPullOut: '3D pull-out', parallaxSwing: '3D swing', parallaxFloat: '3D float', parallaxCrane: '3D crane up',
 };
 
 export const TRANSITION_LABELS: Record<Transition, string> = {
@@ -128,7 +133,7 @@ function MotionPanel() {
         <TargetHint selected={selectedId} count={count} />
         <p className="hint">Hover a move to see it on {selectedId ? 'the selected clip' : 'your first image'}; click to apply.</p>
         <div className="motion-gallery">
-          {MOTIONS.filter((m) => !m.startsWith('parallax') && m !== 'dollyZoom').map((m) => (
+          {MOTIONS.filter((m) => !isDepthMotion(m)).map((m) => (
             <MotionTile key={m} motion={m} label={MOTION_LABELS[m]} assetId={previewAsset} clip={previewClip} depth={p.motionDepth} on={cur === m} onClick={() => apply((c) => void (c.motion = m))} />
           ))}
         </div>
@@ -139,12 +144,13 @@ function MotionPanel() {
         </div>
       </Section>
       <Section title="3D depth motion" hint="Uses an AI depth map of each image (made in your browser) so the foreground moves against the background.">
-        <div className="grid3">
-          {(['parallaxZoom', 'parallaxOrbit', 'dollyZoom'] as Motion[]).map((m) => (
-            <button key={m} className={`tile ${cur === m ? 'on' : ''}`} onClick={() => apply((c) => void (c.motion = m))}>{MOTION_LABELS[m]}</button>
+        <div className="motion-gallery">
+          {DEPTH_MOTIONS.map((m) => (
+            <MotionTile key={m} motion={m} label={MOTION_LABELS[m]} assetId={previewAsset} clip={previewClip} depth={p.motionDepth} on={cur === m} onClick={() => apply((c) => void (c.motion = m))} />
           ))}
         </div>
-        <p className="hint">Generate depth maps in the <b>AI</b> panel (or per clip in Properties). Clips without one fall back to a zoom.</p>
+        <p className="hint">The tiles preview the camera path on a flat image; with a depth map the foreground moves against the background. Clips without one fall back to a zoom.</p>
+        <DepthAll />
       </Section>
       <Section title="Scene fades">
         <Slider label="Fade in" value={p.sceneFades.fadeIn} min={0} max={3} onChange={(v) => update((d) => void (d.sceneFades.fadeIn = v), 'fi')} suffix="s" />

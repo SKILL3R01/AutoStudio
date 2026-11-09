@@ -1,3 +1,4 @@
+import { isDepthMotion } from '../render/motion';
 import { ensureTrack, newAudioClip } from '../lib/audiotracks';
 import { useState } from 'react';
 import { useEditor, clipEnd, findAsset } from '../store';
@@ -38,7 +39,7 @@ export function AiPanel() {
           const cl = pr.clips.find((x) => x.id === c.id);
           if (cl) {
             cl.depthId = d.id;
-            if (setMotion && !cl.motion.startsWith('parallax') && cl.motion !== 'dollyZoom') cl.motion = i % 3 === 2 ? 'parallaxOrbit' : 'parallaxZoom';
+            if (setMotion && !isDepthMotion(cl.motion)) cl.motion = i % 3 === 2 ? 'parallaxOrbit' : 'parallaxZoom';
           }
         });
         setDepthProg([i + 1, missing.length]);

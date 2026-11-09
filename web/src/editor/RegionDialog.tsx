@@ -1,3 +1,7 @@
+import { animateRegions } from '../render/regions';
+import { makeModel, type FrameSource } from '../render/renderer';
+import { media } from '../render/media';
+import type { Clip } from '../types';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor, findAsset } from '../store';
 import { Icon } from '../components/icons';
@@ -113,11 +117,46 @@ export function RegionDialog({ clipId, onClose }: { clipId: string; onClose: () 
           <Select label="When" value={trigger} options={[['loop', 'Always'], ['beats', 'On music beats'], ['keywords', 'On keywords']]} onChange={setTrigger} />
         </div>
         <Slider label="Intensity" value={intensity} min={0.1} max={1.5} onChange={setIntensity} />
+        {mask && still && <RegionPreview still={still} mask={mask} clip={clip} effect={effect} intensity={intensity} trigger={trigger} name={name} />}
         <div className="row end">
           <button className="btn ghost" onClick={() => (setPoints([]), setMask(undefined))}>Reset selection</button>
           <button className="btn primary" disabled={!mask} onClick={save}>Add animation</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Looping live preview of the effect on the still, before anything is saved (the mask stays in memory). */
+function RegionPreview({ still, mask, clip, effect, intensity, trigger, name }: { still: Blob; mask: Blob; clip: Clip; effect: RegionEffect; intensity: number; trigger: Region['trigger']; name: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const project = useEditor((s) => s.project!);
+  useEffect(() => {
+    let raf = 0, live = true;
+    void Promise.all([createImageBitmap(still), createImageBitmap(mask)]).then(([img, mk]) => {
+      if (!live) return;
+      const c = ref.current!;
+      c.width = Math.min(640, img.width);
+      c.height = Math.round((c.width * img.height) / img.width);
+      const g = c.getContext('2d')!;
+      const tmp = { ...clip, regions: [{ id: 'preview', name, maskId: '__preview_mask', effect, intensity, speed: 1, trigger, color: '#ffffff' }] } as Clip;
+      const m = makeModel(project, [], []);
+      const src: FrameSource = { clip: () => undefined, image: (id) => (id === '__preview_mask' ? mk : media.image(id)) };
+      const t0 = performance.now();
+      const draw = () => {
+        const t = clip.start + ((performance.now() - t0) / 1000) % 4;
+        g.clearRect(0, 0, c.width, c.height);
+        g.drawImage(animateRegions(img, tmp, t, m, src, 0), 0, 0, c.width, c.height);
+        raf = requestAnimationFrame(draw);
+      };
+      draw();
+    });
+    return () => ((live = false), cancelAnimationFrame(raf));
+  }, [still, mask, effect, intensity, trigger]);
+  return (
+    <div className="region-preview">
+      <span className="hint">Preview (loops) — nothing is saved until you press Add animation</span>
+      <canvas ref={ref} />
     </div>
   );
 }

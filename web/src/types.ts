@@ -26,9 +26,10 @@ export interface Framing {
 export const MOTIONS = [
   'none', 'zoomIn', 'zoomOut', 'panLeft', 'panRight', 'tiltUp', 'tiltDown',
   'diagonal', 'drift', 'breathe', 'alternate', 'random', 'custom', 'parallaxZoom', 'parallaxOrbit', 'dollyZoom',
+  'parallaxPanLeft', 'parallaxPanRight', 'parallaxTiltUp', 'parallaxTiltDown', 'parallaxPullOut', 'parallaxSwing', 'parallaxFloat', 'parallaxCrane',
 ] as const;
 /** Motions that need a depth map (generated in-browser). */
-export const DEPTH_MOTIONS = ['parallaxZoom', 'parallaxOrbit', 'dollyZoom'] as const;
+export const DEPTH_MOTIONS = ['parallaxZoom', 'parallaxOrbit', 'dollyZoom', 'parallaxPanLeft', 'parallaxPanRight', 'parallaxTiltUp', 'parallaxTiltDown', 'parallaxPullOut', 'parallaxSwing', 'parallaxFloat', 'parallaxCrane'] as const;
 export type Motion = (typeof MOTIONS)[number];
 
 export const TRANSITIONS = [

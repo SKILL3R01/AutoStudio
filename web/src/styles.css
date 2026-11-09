@@ -717,3 +717,6 @@ pre.code-err { white-space: pre-wrap; font-size: 11.5px; margin: 0; }
 .safe.wide .safe-box.title { inset: 10%; border-color: rgba(255, 220, 120, 0.7); }
 .safe.wide .zone.endscreen { right: 5%; bottom: 8%; width: 32%; height: 34%; background: rgba(120, 160, 255, 0.12); border-color: rgba(140, 170, 255, 0.6); }
 .safe.feed .safe-box { inset: 8% 6%; }
+
+.region-preview { display: flex; flex-direction: column; gap: 4px; }
+.region-preview canvas { width: 100%; max-height: 260px; object-fit: contain; border-radius: 6px; background: #000; }

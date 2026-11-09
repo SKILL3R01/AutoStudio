@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { media } from '../render/media';
-import { clipMotionXform } from '../render/motion';
+import { clipMotionXform, isDepthMotion, parallaxCamera } from '../render/motion';
 import type { Clip, Motion } from '../types';
 
 export const MOTION_HELP: Partial<Record<Motion, string>> = {
@@ -35,7 +35,9 @@ export function MotionTile({ motion, label, assetId, clip, depth, on, onClick }:
       g.fillStyle = '#1b1f28';
       g.fillRect(0, 0, c.width, c.height);
       if (img) {
-        const x = clipMotionXform(fake, motion, prog, prog * 3, depth || 0.12, 1);
+        // Depth moves: approximate the 3D camera path on the flat image (offset + push-in).
+        const cam = isDepthMotion(motion) ? parallaxCamera(motion, prog, prog * 3, depth || 0.12, 1) : null;
+        const x = cam ? { scale: 1.06 + cam.push * 1.5, dx: cam.ox * 1.5, dy: cam.oy * 1.5 } : clipMotionXform(fake, motion, prog, prog * 3, depth || 0.12, 1);
         const s = Math.max(c.width / img.width, c.height / img.height);
         g.save();
         g.translate(c.width / 2 + x.dx * c.width, c.height / 2 + x.dy * c.height);
