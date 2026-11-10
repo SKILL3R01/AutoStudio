@@ -363,6 +363,7 @@ export interface VideoTrack {
   name: string;
   muted?: boolean;
   height?: number;
+  keep?: boolean;
 }
 
 export type PipShape = 'rect' | 'circle' | 'full' | 'half';
@@ -407,6 +408,10 @@ export interface AudioTrack {
   height?: number;
   /** Voice enhance chain applied to every clip on this track. */
   fx?: VoiceFx;
+  /** Added by the user: kept even while empty (auto-tidy removes other empty extra tracks). */
+  keep?: boolean;
+  /** Renamed by the user: auto-tidy keeps the name. */
+  custom?: boolean;
 }
 
 /** One audio clip on a track: a file (assetId) or a built-in synth sound (`sound`). */

@@ -739,3 +739,25 @@ pre.code-err { white-space: pre-wrap; font-size: 11.5px; margin: 0; }
 .frame-bar button.on { border-color: var(--accent); color: var(--accent); }
 
 .chip .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.4); vertical-align: -1px; }
+
+/* v3.7: smart rows */
+.tl-labels .slim { font-size: 9.5px; opacity: 0.55; cursor: pointer; overflow: hidden; padding-top: 0; padding-bottom: 0; }
+.tl-labels .slim:hover { opacity: 1; }
+.tl-labels .slim svg, .tl-labels .slim .trk-btns, .tl-labels .slim .trk-resize { display: none; }
+.tl-labels .slim::after { content: '+'; margin-left: auto; padding-right: 4px; opacity: 0.8; }
+.tl-labels .trk-head.slim { flex-direction: row; align-items: center !important; }
+.tl-labels .trk-head.slim b { font-size: 9.5px; font-weight: 500; }
+.track.slim { background: repeating-linear-gradient(90deg, transparent 0 6px, rgba(255, 255, 255, 0.03) 6px 12px); }
+
+/* v3.7: cleaner clips — plain cuts are invisible until hovered */
+.tr-chip.cut { width: 10px; min-width: 10px; padding: 0; background: transparent; border-color: transparent; color: transparent; }
+.tr-chip.cut:hover, .tr-chip.cut.on { background: var(--panel2); border-color: var(--line2); color: var(--text); }
+.tr-chip.cut:hover::after { content: '+'; color: var(--text); }
+.clip.flag-short::after, .clip.flag-long::after { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #fbbf24; right: 3px; top: 3px; box-shadow: 0 0 0 1px #000; }
+.clip.flag-short, .clip.flag-long { box-shadow: inset 0 -2px 0 #fbbf24; }
+
+.fix-chip { cursor: pointer; border: 1px solid #fbbf24; background: rgba(251, 191, 36, 0.12); color: #fbbf24; font: inherit; font-size: 12px; }
+.fix-list { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow: auto; }
+.fix-row { display: grid; grid-template-columns: 56px 1fr 190px auto; gap: 8px; align-items: center; padding: 4px; border: 1px solid var(--line); border-radius: 6px; }
+.fix-thumb { width: 56px; height: 32px; border-radius: 4px; background: #222 center / cover; }
+.fix-row select { font-size: 12px; }

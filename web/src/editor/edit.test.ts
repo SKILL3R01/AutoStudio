@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addVoiceTake, newProject, normalizeProject } from '../lib/project';
 import { clipEnd, projectLength } from '../store';
-import { TRACK_IDS, syncLinkedAudio, captionDrift, moveAudioClip, narrationClips, newAudioClip, resolveOverlap, resyncCaptions, splitAudioClip } from '../lib/audiotracks';
+import { TRACK_IDS, addTrack, tidyTracks, syncLinkedAudio, captionDrift, moveAudioClip, narrationClips, newAudioClip, resolveOverlap, resyncCaptions, splitAudioClip } from '../lib/audiotracks';
 import type { Asset, Clip, Project } from '../types';
 import {
   applyCuts, clipboardEnd, copyItems, detachAudio, insertClips, pasteItems, rippleDeleteClips, splitAudio, splitClipAt, splitOverlay,
@@ -173,5 +173,24 @@ describe('linked video sound', () => {
     p.clips.splice(1, 1);
     syncLinkedAudio(p);
     expect(a()).toBeUndefined();
+  });
+});
+
+describe('auto tidy', () => {
+  it('orders tracks by kind with the narration first, removes empty extras, renumbers, never moves clips', () => {
+    const p = fixture();
+    addVoiceTake(p, 'vo', 9);
+    addVoiceTake(p, 'vo2', 8);
+    const extra = addTrack(p, 'music');
+    p.audio.push({ ...newAudioClip(addTrack(p, 'voice'), 'vo', 3, 2, 'voice'), id: 'late' });
+    const keep = addTrack(p, 'other');
+    p.audioTracks.find((t) => t.id === keep)!.keep = true;
+    const starts = p.audio.map((c) => [c.id, c.start]);
+    tidyTracks(p);
+    expect(p.audioTracks[0].id).toBe(p.narrationTrackId);
+    expect(p.audioTracks.map((t) => t.kind)).toEqual(['voice', 'voice', 'voice', 'music', 'sfx', 'other']);
+    expect(p.audioTracks.some((t) => t.id === extra)).toBe(false);
+    expect(p.audioTracks.filter((t) => t.kind === 'voice').map((t) => t.name)).toEqual(['Voice', 'Voice 2', 'Voice 3']);
+    expect(p.audio.map((c) => [c.id, c.start])).toEqual(starts);
   });
 });

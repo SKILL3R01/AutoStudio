@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { durationFlags, fmtClock, moveClip, parseClock, setClipStart } from './timeline';
+import { applyFix, durationFlags, fixPlan, fmtClock, moveClip, parseClock, setClipStart } from './timeline';
 import { newProject, defaultClip } from './project';
 
 const proj = (starts: number[]) => {
@@ -36,5 +36,17 @@ describe('timeline helpers', () => {
     expect(durationFlags(p, 32).map((f) => [f.id, f.kind])).toEqual([['c0', 'short'], ['c2', 'long']]);
     p.clips[2].ignoreDuration = true;
     expect(durationFlags(p, 32).map((f) => f.id)).toEqual(['c0']);
+  });
+});
+
+describe('fix short clips', () => {
+  it('suggests merge for tiny clips, extend for short ones, ignore for long ones, and applies them', () => {
+    const p = proj([0, 3, 3.3, 4, 5, 30]);
+    const plan = fixPlan(p, 32);
+    expect(plan.map((f) => [f.id, f.action])).toEqual([['c1', 'mergePrev'], ['c2', 'extend'], ['c4', 'ignore']]);
+    applyFix(p, plan, 32, () => {});
+    expect(p.clips.map((c) => [c.id, c.start])).toEqual([['c0', 0], ['c2', 3], ['c3', 4], ['c4', 5], ['c5', 30]]);
+    expect(p.clips.find((c) => c.id === 'c4')!.ignoreDuration).toBe(true);
+    expect(durationFlags(p, 32)).toEqual([]);
   });
 });

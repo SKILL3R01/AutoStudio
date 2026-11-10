@@ -235,3 +235,29 @@ export function syncLinkedAudio(p: Project) {
     c.duration = Math.max(0.05, Math.min(end - start, (Math.min(clip.trimOut ?? Infinity, src) - clip.trimIn) / rate));
   }
 }
+
+const KIND_ORDER: Record<TrackKind, number> = { voice: 0, music: 1, sfx: 2, other: 3 };
+const BASE: Record<TrackKind, string> = { voice: 'Voice', music: 'Music', sfx: 'SFX', other: 'Audio' };
+const DEFAULT_IDS = new Set<string>(Object.values(TRACK_IDS));
+
+/**
+ * Automatic tidy (runs after every edit): order tracks by kind (★ narration first), drop empty extra tracks, and
+ * renumber names. Never moves a clip in time; tracks the user added (`keep`) or renamed (`custom`) are respected.
+ */
+export function tidyTracks(p: Project) {
+  const used = new Set(p.audio.map((c) => c.trackId));
+  const kept = p.audioTracks.filter((t) => used.has(t.id) || DEFAULT_IDS.has(t.id) || t.keep || t.id === p.narrationTrackId);
+  const pos = new Map(p.audioTracks.map((t, i) => [t.id, i]));
+  kept.sort((x, y) => KIND_ORDER[x.kind] - KIND_ORDER[y.kind] || (x.id === p.narrationTrackId ? -1 : y.id === p.narrationTrackId ? 1 : 0) || pos.get(x.id)! - pos.get(y.id)!);
+  const n: Partial<Record<TrackKind, number>> = {};
+  for (const t of kept) {
+    const k = (n[t.kind] = (n[t.kind] ?? 0) + 1);
+    if (!t.custom && (t.name === BASE[t.kind] || new RegExp(`^${BASE[t.kind]}( [0-9]+)?$`).test(t.name))) t.name = k === 1 ? BASE[t.kind] : `${BASE[t.kind]} ${k}`;
+  }
+  p.audioTracks = kept;
+  if (p.videoTracks?.length) {
+    const vused = new Set(p.pips.map((c) => c.trackId));
+    p.videoTracks = p.videoTracks.filter((t) => vused.has(t.id) || t.keep);
+    p.videoTracks.forEach((t, i) => /^V\d+$/.test(t.name) && (t.name = `V${i + 2}`));
+  }
+}

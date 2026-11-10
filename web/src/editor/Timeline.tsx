@@ -1,4 +1,5 @@
 import { useMenu } from './ContextMenu';
+import { FixClipsDialog } from './FixClipsDialog';
 import { addTrack, bindWords, captionDrift, moveAudioClip, resolveOverlap, resyncCaptions, unbindWords } from '../lib/audiotracks';
 import { addVideoTrack } from '../lib/pip';
 import type { PipClip } from '../types';
@@ -88,10 +89,10 @@ const ClipBlock = memo(function ClipBlock({ clip, i, end, zoom, selected, kind, 
         });
       }}
     >
-      {w > 34 && <span className="dur">{(end - start).toFixed(1)}s</span>}
+      {w > 46 && <span className="dur">{(end - start).toFixed(1)}s</span>}
       {clip.fill && w > 50 && <span className="blank-label">Blank</span>}
-      {w > 60 && <span className="ts">{stamp(start)}</span>}
-      {w > 20 && (kind === 'video' || clip.depthId || clip.regions?.length) && (
+      {w > 90 && <span className="ts">{stamp(start)}</span>}
+      {w > 36 && (kind === 'video' || clip.depthId || clip.regions?.length) && (
         <span className="vid">{kind === 'video' ? '▶' : ''}{clip.depthId ? '◆' : ''}{clip.regions?.length ? '✦' : ''}</span>
       )}
       {i > 0 && <div className="edge" onPointerDown={onEdge} />}
@@ -153,11 +154,11 @@ function TransitionMarker({ clip, i, zoom, duration, open, onOpen }: { clip: Cli
       <button
         className={`tr-chip ${kind === 'none' ? 'cut' : ''} ${open ? 'on' : ''}`}
         style={{ left: clip.start * zoom }}
-        title={`Transition into clip ${i + 1}: ${TRANSITION_LABELS[kind]}`}
+        title={kind === 'none' ? `Cut into clip ${i + 1} — click to add a transition` : `Transition into clip ${i + 1}: ${TRANSITION_LABELS[kind]}`}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => (setAnchor(e.currentTarget.getBoundingClientRect()), onOpen(open ? null : i))}
       >
-        {zoom * 3 > 40 ? SHORT[kind] ?? TRANSITION_LABELS[kind] : kind === 'none' ? '|' : '◆'}
+        {kind === 'none' ? '' : zoom * 3 > 60 ? SHORT[kind] ?? TRANSITION_LABELS[kind] : '◆'}
       </button>
       {open && anchor && createPortal(
         <div className="tr-pop" style={{ left: Math.min(window.innerWidth - 340, Math.max(8, anchor.left - 160)), bottom: window.innerHeight - anchor.top + 8 }} onPointerDown={(e) => e.stopPropagation()}>
@@ -359,16 +360,18 @@ export function Timeline() {
     if (!e.dataTransfer.types.includes(ASSET_MIME)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
+    if (!dragOver) setDragOver(true);
     const row = rowAt(e.clientX, e.clientY);
     document.querySelectorAll('.track.drop-on').forEach((x) => x !== row && x.classList.remove('drop-on'));
     row?.classList.add('drop-on');
   };
   const dropLeave = (e: React.DragEvent) => {
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) document.querySelectorAll('.track.drop-on').forEach((x) => x.classList.remove('drop-on'));
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) (document.querySelectorAll('.track.drop-on').forEach((x) => x.classList.remove('drop-on')), setDragOver(false));
   };
   /** Any drop on the timeline: the time comes from the pointer, the track from the row under it. */
   const dropAsset = (e: React.DragEvent) => {
     document.querySelectorAll('.track.drop-on').forEach((x) => x.classList.remove('drop-on'));
+    setDragOver(false);
     const id = e.dataTransfer.getData(ASSET_MIME);
     if (!id) return;
     e.preventDefault();
@@ -379,6 +382,10 @@ export function Timeline() {
   };
   const [rowH, setRowH] = useState<Record<string, number>>(() => JSON.parse(localStorage.getItem('tlRows') || '{}'));
   const base = { ...ROWS[tlSize], ...rowH };
+  const [fixOpen, setFixOpen] = useState(false);
+  const [showAll, setShowAll] = useState(() => localStorage.getItem('tlShowAll') === '1');
+  const [dragOver, setDragOver] = useState(false);
+  const [openRows, setOpenRows] = useState<Set<string>>(new Set());
   /** Drag the bottom edge of a row header to resize it (text, typography, video, captions, FX, overlay tracks). */
   const resizeRow = (key: string, e: React.PointerEvent, h0: number) => {
     e.stopPropagation();
@@ -397,7 +404,19 @@ export function Timeline() {
   const trackH = (t: AudioTrack) => t.height ?? base.audio;
   const vtracks = [...p.videoTracks].reverse();
   const vh = (id: string) => (base as Record<string, number>)[id] ?? Math.round(base.video * 0.7);
-  const rows = `${base.ruler}px ${base.text}px ${base.typo}px ${vtracks.map((t) => `${vh(t.id)}px`).join(' ')} ${base.video}px ${base.caps}px ${p.audioTracks.map((t) => `${trackH(t)}px`).join(' ')} ${base.fx}px`;
+  // Smart rows: empty rows shrink to a thin line (open on click, while dragging media, or with "Show all rows").
+  const empty: Record<string, boolean> = {
+    text: !p.overlays.length,
+    typo: !p.typo.length || p.captions.typography === false,
+    caps: !lines.length || !p.captions.enabled,
+    fx: !p.effects.some((e) => e.scope?.kind === 'range'),
+    ...Object.fromEntries(p.videoTracks.map((t) => [t.id, !p.pips.some((c) => c.trackId === t.id)])),
+    ...Object.fromEntries(p.audioTracks.map((t) => [t.id, !p.audio.some((c) => c.trackId === t.id)])),
+  };
+  const slim = (key: string) => !!empty[key] && !showAll && !dragOver && !openRows.has(key);
+  const hh = (key: string, full: number) => (slim(key) ? SLIM : full);
+  const openRow = (key: string) => slim(key) && setOpenRows((o) => new Set(o).add(key));
+  const rows = `${base.ruler}px ${hh('text', base.text)}px ${hh('typo', base.typo)}px ${vtracks.map((t) => `${hh(t.id, vh(t.id))}px`).join(' ')} ${base.video}px ${hh('caps', base.caps)}px ${p.audioTracks.map((t) => `${hh(t.id, trackH(t))}px`).join(' ')} ${hh('fx', base.fx)}px`;
   const grip = (key: string, h: number) => <i className="trk-resize" onPointerDown={(e) => resizeRow(key, e, h)} title="Drag to resize this row" />;
   const setTrack = (id: string, fn: (t: AudioTrack) => void) => update((d) => fn(d.audioTracks.find((t) => t.id === id)!));
 
@@ -420,8 +439,9 @@ export function Timeline() {
           {more && (
             <div className="ctx-menu tl-more-menu" style={{ left: more.left, bottom: window.innerHeight - more.top + 4 }} onMouseLeave={() => setMore(false)}>
               <button onClick={() => (setMore(false), insertBlank())}><Icon name="plus" size={13} /> Blank section at playhead</button>
-              {uiMode === 'pro' && <button onClick={() => (setMore(false), update((d) => void addVideoTrack(d)))}><Icon name="layers" size={13} /> Add video track (PiP / B-roll)</button>}
-              {uiMode === 'pro' && <button onClick={() => (setMore(false), update((d) => void addTrack(d, 'other')))}><Icon name="music" size={13} /> Add audio track</button>}
+              {uiMode === 'pro' && <button onClick={() => (setMore(false), update((d) => void (d.videoTracks.find((t) => t.id === addVideoTrack(d))!.keep = true)))}><Icon name="layers" size={13} /> Add video track (PiP / B-roll)</button>}
+              {uiMode === 'pro' && <button onClick={() => (setMore(false), update((d) => void (d.audioTracks.find((t) => t.id === addTrack(d, 'other'))!.keep = true)))}><Icon name="music" size={13} /> Add audio track</button>}
+              <button onClick={() => (setMore(false), setShowAll(!showAll), localStorage.setItem('tlShowAll', showAll ? '0' : '1'), setOpenRows(new Set()))}><Icon name="list" size={13} /> {showAll ? 'Shrink empty rows' : 'Show all rows'}</button>
               <button onClick={() => (setMore(false), setRowH({}), localStorage.removeItem('tlRows'))}><Icon name="undo" size={13} /> Reset row sizes</button>
               <hr />
               <button onClick={() => (setMore(false), clearTimeline())}><Icon name="trash" size={13} /> Clear timeline…</button>
@@ -431,7 +451,8 @@ export function Timeline() {
         <select className="tl-size" value={tlSize} onChange={(e) => setTlSize(e.target.value as TlSize)} title="Timeline size">
           <option value="compact">Compact</option><option value="comfortable">Comfortable</option><option value="large">Large</option>
         </select>
-        {flags.size > 0 && <span className="chip warn" title="Clips shorter than 1 s or longer than 20 s — right-click a clip to ignore">⚠ {flags.size}</span>}
+        {flags.size > 0 && <button className="chip warn fix-chip" onClick={() => setFixOpen(true)} title="Clips shorter than 1 s or longer than 20 s — click to fix them">⚠ {flags.size} to fix</button>}
+        {fixOpen && <FixClipsDialog onClose={() => setFixOpen(false)} />}
         {selCount > 1 && <span className="chip">{selCount} selected</span>}
         {drift > 0 && (
           <span className="chip warn sync-chip" title="The voice was moved or cut — captions and typography no longer line up with it">
@@ -450,10 +471,10 @@ export function Timeline() {
       <div className="tl-body">
         <div className="tl-labels" style={{ gridTemplateRows: rows }}>
           <span />
-          <span className="row-head" title="Text overlays"><Icon name="text" size={13} /> Text{grip('text', base.text)}</span>
-          <span className="row-head" title="Typography"><Icon name="keywords" size={13} /> Typo{grip('typo', base.typo)}</span>
+          <span className={`row-head ${slim('text') ? 'slim' : ''}`} title="Text overlays" onClick={() => openRow('text')}><Icon name="text" size={13} /> Text{grip('text', base.text)}</span>
+          <span className={`row-head ${slim('typo') ? 'slim' : ''}`} title="Typography" onClick={() => openRow('typo')}><Icon name="keywords" size={13} /> Typo{grip('typo', base.typo)}</span>
           {vtracks.map((t) => (
-            <span key={t.id} className={`trk-head ${t.muted ? 'muted' : ''}`}>
+            <span key={t.id} className={`trk-head ${t.muted ? 'muted' : ''} ${slim(t.id) ? 'slim' : ''}`} onClick={() => openRow(t.id)}>
               <b title="Video overlay track (picture-in-picture / B-roll)">{t.name}</b>
               <span className="trk-btns">
                 <button className={t.muted ? 'on' : ''} onClick={() => update((d) => void (d.videoTracks.find((x) => x.id === t.id)!.muted = !t.muted))} title="Hide this track">M</button>
@@ -463,9 +484,9 @@ export function Timeline() {
             </span>
           ))}
           <span className="row-head" title="Main video / images"><Icon name="film" size={13} /> Video{grip('video', base.video)}</span>
-          <span className="row-head" title="Captions"><Icon name="captions" size={13} /> Caps{grip('caps', base.caps)}</span>
+          <span className={`row-head ${slim('caps') ? 'slim' : ''}`} title="Captions" onClick={() => openRow('caps')}><Icon name="captions" size={13} /> Caps{grip('caps', base.caps)}</span>
           {p.audioTracks.map((t) => (
-            <span key={t.id} className={`trk-head ${t.muted ? 'muted' : ''}`}>
+            <span key={t.id} className={`trk-head ${t.muted ? 'muted' : ''} ${slim(t.id) ? 'slim' : ''}`} onClick={() => openRow(t.id)}>
               <b title={t.name}>{t.id === p.narrationTrackId ? '★ ' : ''}{t.name}</b>
               <span className="trk-btns">
                 <button className={t.muted ? 'on' : ''} onClick={() => setTrack(t.id, (x) => void (x.muted = !x.muted))} title="Mute">M</button>
@@ -476,7 +497,7 @@ export function Timeline() {
               <i className="trk-resize" onPointerDown={(e) => resizeTrack(t.id, e, trackH(t))} title="Drag to resize this track" />
             </span>
           ))}
-          <span className="row-head" title="Effects"><Icon name="sfx" size={13} /> FX{grip('fx', base.fx)}</span>
+          <span className={`row-head ${slim('fx') ? 'slim' : ''}`} title="Effects" onClick={() => openRow('fx')}><Icon name="sfx" size={13} /> FX{grip('fx', base.fx)}</span>
         </div>
         <div className="tl-scroll" ref={scroller} onDragOver={allowDrop} onDragLeave={dropLeave} onDrop={dropAsset} onWheel={(e) => {
           if (e.ctrlKey) {
@@ -486,7 +507,7 @@ export function Timeline() {
         }}>
           <div className="tl-inner" style={{ width, gridTemplateRows: rows }}>
             <Ruler length={length} zoom={zoom} />
-            <div className="track t-text">
+            <div className={`track t-text ${slim('text') ? 'slim' : ''}`}>
               {p.overlays.filter((o) => inView(o.start, o.start + o.duration)).map((o) => (
                 <div key={o.id} className={`item overlay ${sel?.id === o.id || multi.includes(o.id) ? 'sel' : ''}`} style={{ left: o.start * zoom, width: Math.max(8, o.duration * zoom) }} onPointerDown={(e) => moveItem('overlays', o.id, e)} onContextMenu={(e) => openMenu(e, { kind: 'overlay', id: o.id }, o.start + (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom)}>
                   <div className="resize left" onPointerDown={(e) => moveItem('overlays', o.id, e, 'trimStart')} />
@@ -495,7 +516,7 @@ export function Timeline() {
                 </div>
               ))}
             </div>
-            <div className="track t-kw">
+            <div className={`track t-kw ${slim('typo') ? 'slim' : ''}`}>
               {p.captions.typography !== false && p.typo.filter((k) => inView(k.start, k.end)).map((k) => (
                 <div key={k.id} className={`item kw ${sel?.id === k.id || multi.includes(k.id) ? 'sel' : ''}`} style={{ left: k.start * zoom, width: Math.max(10, (k.end - k.start) * zoom) }} onPointerDown={(e) => moveItem('typo', k.id, e)} onContextMenu={(e) => openMenu(e, { kind: 'keyword', id: k.id }, k.start)}>
                   {k.words.map((w) => w.text).join(' ')}
@@ -504,7 +525,7 @@ export function Timeline() {
               ))}
             </div>
             {vtracks.map((t) => (
-              <div key={t.id} className={`track t-vov ${t.muted ? 'muted' : ''}`} data-vtrack={t.id}>
+              <div key={t.id} className={`track t-vov ${t.muted ? 'muted' : ''} ${slim(t.id) ? 'slim' : ''}`} data-vtrack={t.id}>
                 {p.pips.filter((c) => c.trackId === t.id && inView(c.start, c.start + c.duration)).map((c) => (
                   <PipBlock key={c.id} c={c} zoom={zoom} sel={sel?.id === c.id || multi.includes(c.id)} name={assets.get(c.assetId)?.name ?? ''} kind={assets.get(c.assetId)?.kind}
                     onDown={(e, mode) => moveItem('pips', c.id, e, mode)} onMenu={(e) => openMenu(e, { kind: 'pip', id: c.id }, c.start + (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom)} />
@@ -526,7 +547,7 @@ export function Timeline() {
                 startDrag(e, zoom, (dt) => update((d) => void (d.length = Math.max(d.clips[d.clips.length - 1].start + 0.2, Math.round((l0 + dt) * 10) / 10)), 'mainEnd'));
               }} title="Drag to make the last clip longer / shorter" />}
             </div>
-            <div className="track t-caps">
+            <div className={`track t-caps ${slim('caps') ? 'slim' : ''}`}>
               {p.captions.enabled && lines.filter((l) => inView(l.start, l.end)).map((l, k) => (
                 <div key={`${l.start}-${k}`} className="item cap" style={{ left: l.start * zoom, width: Math.max(2, (l.end - l.start) * zoom) }} onPointerDown={() => useEditor.getState().seek(l.start + 0.001)}>
                   {(l.end - l.start) * zoom > 30 && l.words.map((w) => w.text).join(' ')}
@@ -534,7 +555,7 @@ export function Timeline() {
               ))}
             </div>
             {p.audioTracks.map((t) => (
-              <div key={t.id} className={`track t-aud k-${t.kind} ${t.muted ? 'muted' : ''}`} data-track={t.id}>
+              <div key={t.id} className={`track t-aud k-${t.kind} ${t.muted ? 'muted' : ''} ${slim(t.id) ? 'slim' : ''}`} data-track={t.id}>
                 {p.audio.filter((c) => c.trackId === t.id && inView(c.start, c.start + c.duration)).map((c) => {
                   const w = Math.max(8, c.duration * zoom);
                   const h = trackH(t) - 6;
@@ -558,7 +579,7 @@ export function Timeline() {
                 })}
               </div>
             ))}
-            <div className="track t-fx">
+            <div className={`track t-fx ${slim('fx') ? 'slim' : ''}`}>
               {p.effects.map((fx, k) => fx.scope?.kind === 'range' ? (
                 <div key={`fx-${fx.kind}`} className="item fxbar" style={{ left: fx.scope.start * zoom, width: Math.max(6, (fx.scope.end - fx.scope.start) * zoom) }} title={`${fx.kind} ${fx.scope.start.toFixed(1)}–${fx.scope.end.toFixed(1)} s`}
                   onPointerDown={(e) => {
@@ -580,6 +601,8 @@ export function Timeline() {
     </div>
   );
 }
+
+const SLIM = 12;
 
 const ROWS = {
   compact: { ruler: 22, text: 24, typo: 26, video: 58, caps: 22, audio: 40, fx: 24 },

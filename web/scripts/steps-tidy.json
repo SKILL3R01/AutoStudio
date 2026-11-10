@@ -1,0 +1,21 @@
+[
+  { "wait": 9000 },
+  { "eval": "[...document.querySelectorAll('.tl-labels .slim')].map((x) => x.textContent.replace('+', '').trim()).join(', ') + ' are slim'" },
+  { "eval": "(async () => { [...document.querySelectorAll('.tl-tools button')].find((b) => b.textContent.includes('More')).click(); await new Promise((r) => setTimeout(r, 200)); [...document.querySelectorAll('.tl-more-menu button')].find((b) => b.textContent.includes('Show all rows')).click(); await new Promise((r) => setTimeout(r, 300)); const n = document.querySelectorAll('.tl-labels .slim').length; [...document.querySelectorAll('.tl-tools button')].find((b) => b.textContent.includes('More')).click(); await new Promise((r) => setTimeout(r, 200)); [...document.querySelectorAll('.tl-more-menu button')].find((b) => b.textContent.includes('Shrink empty rows')).click(); return 'show all → ' + n + ' slim'; })()" },
+  { "wait": 300 },
+  { "eval": "(() => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.main-end').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 3.25 * z, clientY: r.top + 5 })); window.dispatchEvent(new PointerEvent('pointerup', {})); return 'seek 3.25'; })()" },
+  { "wait": 300 },
+  { "eval": "window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', bubbles: true })); 'split'" },
+  { "wait": 500 },
+  { "eval": "document.querySelector('.fix-chip')?.textContent ?? 'no warning chip'" },
+  { "eval": "document.querySelector('.fix-chip').click(); 'dialog'" },
+  { "wait": 400 },
+  { "eval": "[...document.querySelectorAll('.fix-row')].map((r) => r.querySelector('b').textContent + ': ' + r.querySelector('select').selectedOptions[0].textContent).join(' | ')" },
+  { "eval": "[...document.querySelectorAll('.modal button')].find((b) => b.textContent.includes('Apply')).click(); 'applied'" },
+  { "wait": 500 },
+  { "eval": "'after fix: ' + (document.querySelector('.fix-chip')?.textContent ?? 'no warnings') + ' · ' + document.querySelectorAll('.t-video .clip').length + ' clips'" },
+  { "eval": "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true })); 'undo'" },
+  { "wait": 500 },
+  { "eval": "'after undo: ' + (document.querySelector('.fix-chip')?.textContent ?? 'no warnings')" },
+  { "shot": "tidy" }
+]
