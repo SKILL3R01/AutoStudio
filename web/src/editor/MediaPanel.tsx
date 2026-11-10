@@ -158,7 +158,8 @@ export function MediaPanel() {
     if (a.kind !== 'audio') return update((d) => insertAssetAt(d, a.id, time));
     let info: ReturnType<typeof addVoiceTake> | undefined;
     update((d) => void (as === 'voice' ? (info = addVoiceTake(d, a.id, a.duration ?? 0, narrationClips(d).length ? 0 : time)) : placeAudio(d, a.id, as === 'sfx' ? 'sfx' : 'music', time, a.duration ?? 5)));
-    if (info?.replacedName) toast(`Added on “${info.trackName}” — your previous voice is kept on “${info.replacedName}” (muted)`, 'ok');
+    if (info?.take) toast(`Added as ${info.take} of the narration — switch takes in Properties`, 'ok');
+    else if (info?.replacedName) toast(`Added on “${info.trackName}” — your previous voice is kept on “${info.replacedName}” (muted)`, 'ok');
   };
   const replace = (a: Asset) => selection?.kind === 'clip' && update((d) => replaceClipAsset(d, selection.id, a.id));
 

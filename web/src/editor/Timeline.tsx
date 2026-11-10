@@ -1,6 +1,6 @@
 import { useMenu } from './ContextMenu';
 import { FixClipsDialog } from './FixClipsDialog';
-import { addTrack, bindWords, captionDrift, moveAudioClip, resolveOverlap, resyncCaptions, unbindWords } from '../lib/audiotracks';
+import { addTrack, bindWords, captionDrift, moveAudioClip, packTracks, resolveOverlap, resyncCaptions, switchTake, unbindWords } from '../lib/audiotracks';
 import { addVideoTrack } from '../lib/pip';
 import type { PipClip } from '../types';
 import { toast } from '../components/Toast';
@@ -383,6 +383,14 @@ export function Timeline() {
   const [rowH, setRowH] = useState<Record<string, number>>(() => JSON.parse(localStorage.getItem('tlRows') || '{}'));
   const base = { ...ROWS[tlSize], ...rowH };
   const [fixOpen, setFixOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem('tlCollapsed') || '[]')));
+  const toggleGroup = (k: string) => setCollapsed((c0) => {
+    const c = new Set(c0);
+    if (c.has(k)) c.delete(k);
+    else c.add(k);
+    localStorage.setItem('tlCollapsed', JSON.stringify([...c]));
+    return c;
+  });
   const [showAll, setShowAll] = useState(() => localStorage.getItem('tlShowAll') === '1');
   const [dragOver, setDragOver] = useState(false);
   const [openRows, setOpenRows] = useState<Set<string>>(new Set());
@@ -413,7 +421,8 @@ export function Timeline() {
     ...Object.fromEntries(p.videoTracks.map((t) => [t.id, !p.pips.some((c) => c.trackId === t.id)])),
     ...Object.fromEntries(p.audioTracks.map((t) => [t.id, !p.audio.some((c) => c.trackId === t.id)])),
   };
-  const slim = (key: string) => !!empty[key] && !showAll && !dragOver && !openRows.has(key);
+  const groupOf = new Map(p.audioTracks.map((t) => [t.id, t.kind]));
+  const slim = (key: string) => ((!!empty[key] && !openRows.has(key)) || (collapsed.has(groupOf.get(key) ?? '') && key !== p.narrationTrackId)) && !showAll && !dragOver;
   const hh = (key: string, full: number) => (slim(key) ? SLIM : full);
   const openRow = (key: string) => slim(key) && setOpenRows((o) => new Set(o).add(key));
   const rows = `${base.ruler}px ${hh('text', base.text)}px ${hh('typo', base.typo)}px ${vtracks.map((t) => `${hh(t.id, vh(t.id))}px`).join(' ')} ${base.video}px ${hh('caps', base.caps)}px ${p.audioTracks.map((t) => `${hh(t.id, trackH(t))}px`).join(' ')} ${hh('fx', base.fx)}px`;
@@ -441,6 +450,7 @@ export function Timeline() {
               <button onClick={() => (setMore(false), insertBlank())}><Icon name="plus" size={13} /> Blank section at playhead</button>
               {uiMode === 'pro' && <button onClick={() => (setMore(false), update((d) => void (d.videoTracks.find((t) => t.id === addVideoTrack(d))!.keep = true)))}><Icon name="layers" size={13} /> Add video track (PiP / B-roll)</button>}
               {uiMode === 'pro' && <button onClick={() => (setMore(false), update((d) => void (d.audioTracks.find((t) => t.id === addTrack(d, 'other'))!.keep = true)))}><Icon name="music" size={13} /> Add audio track</button>}
+              <button onClick={() => (setMore(false), update((d) => packTracks(d)), toast('Packed clips onto fewer tracks (times unchanged)', 'ok'))}><Icon name="layers" size={13} /> Pack tracks</button>
               <button onClick={() => (setMore(false), setShowAll(!showAll), localStorage.setItem('tlShowAll', showAll ? '0' : '1'), setOpenRows(new Set()))}><Icon name="list" size={13} /> {showAll ? 'Shrink empty rows' : 'Show all rows'}</button>
               <button onClick={() => (setMore(false), setRowH({}), localStorage.removeItem('tlRows'))}><Icon name="undo" size={13} /> Reset row sizes</button>
               <hr />
@@ -487,7 +497,7 @@ export function Timeline() {
           <span className={`row-head ${slim('caps') ? 'slim' : ''}`} title="Captions" onClick={() => openRow('caps')}><Icon name="captions" size={13} /> Caps{grip('caps', base.caps)}</span>
           {p.audioTracks.map((t) => (
             <span key={t.id} className={`trk-head ${t.muted ? 'muted' : ''} ${slim(t.id) ? 'slim' : ''}`} onClick={() => openRow(t.id)}>
-              <b title={t.name}>{t.id === p.narrationTrackId ? '★ ' : ''}{t.name}</b>
+              <b title={t.name}>{p.audioTracks.find((x) => x.kind === t.kind) === t && p.audioTracks.filter((x) => x.kind === t.kind).length > 1 && <i className="grp-toggle" title={collapsed.has(t.kind) ? 'Expand this group' : 'Collapse this group'} onClick={(e) => (e.stopPropagation(), toggleGroup(t.kind))}>{collapsed.has(t.kind) ? '▸' : '▾'}</i>}{t.id === p.narrationTrackId ? '★ ' : ''}{t.name}</b>
               <span className="trk-btns">
                 <button className={t.muted ? 'on' : ''} onClick={() => setTrack(t.id, (x) => void (x.muted = !x.muted))} title="Mute">M</button>
                 <button className={t.solo ? 'on' : ''} onClick={() => setTrack(t.id, (x) => void (x.solo = !x.solo))} title="Solo">S</button>
@@ -568,7 +578,7 @@ export function Timeline() {
                       {a && <div className="aclip-wave" style={{ left: (-c.trimIn / (c.rate ?? 1)) * zoom }}><Waveform assetId={a.id} length={a.duration ?? c.duration} zoom={zoom / (c.rate ?? 1)} /></div>}
                       {c.fadeIn > 0 && <FadeRamp dir="in" w={Math.min(c.duration, c.fadeIn) * zoom} />}
                       {c.fadeOut > 0 && <FadeRamp dir="out" w={Math.min(c.duration, c.fadeOut) * zoom} />}
-                      <span className="aclip-name">{t.kind === 'music' ? '♫ ' : ''}{a?.name ?? c.sound}{c.rate && c.rate !== 1 ? ` · ${c.rate}×` : ''}</span>
+                      <span className="aclip-name">{c.takes && c.takes.length > 1 ? <b className="take-badge" title="Click to play the next take" onPointerDown={(e) => e.stopPropagation()} onClick={() => update((d) => switchTake(d.audio.find((x) => x.id === c.id)!, ((c.activeTake ?? 0) + 1) % c.takes!.length))}>T{(c.activeTake ?? 0) + 1}/{c.takes.length}</b> : null}{t.kind === 'music' ? '♫ ' : ''}{a?.name ?? c.sound}{c.rate && c.rate !== 1 ? ` · ${c.rate}×` : ''}</span>
                       {w > 30 && <i className="vol-line" style={{ top: Math.max(2, Math.min(h - 2, (1 - c.volume / 2) * h)) }} onPointerDown={(e) => dragVolume(c.id, e, h)} />}
                       {w > 40 && <i className="fade-h in" style={{ left: Math.min(c.duration, c.fadeIn) * zoom }} onPointerDown={(e) => dragFade(c.id, 'fadeIn', e)} title="Drag: fade in" />}
                       {w > 40 && <i className="fade-h out" style={{ right: Math.min(c.duration, c.fadeOut) * zoom }} onPointerDown={(e) => dragFade(c.id, 'fadeOut', e)} title="Drag: fade out" />}

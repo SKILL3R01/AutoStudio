@@ -4,7 +4,7 @@ import { DEPTH_MOTIONS } from '../types';
 import { DepthAll } from './DepthAll';
 import { fmtTime } from '../lib/util';
 import { toast } from '../components/Toast';
-import { ensureTrack, narrationClips, narrationEnd, narrationTrack, newAudioClip, voiceStartOf } from '../lib/audiotracks';
+import { convertVoiceTracksToTakes, ensureTrack, narrationClips, narrationEnd, narrationTrack, newAudioClip, voiceStartOf } from '../lib/audiotracks';
 import { addVoiceTake, placeAudio } from '../lib/project';
 import { useEffect, useState } from 'react';
 import { useEditor, findAsset, projectLength } from '../store';
@@ -280,12 +280,20 @@ function MusicPanel() {
             {nt && <Slider label="Narration volume" value={nt.volume} min={0} max={2} onChange={(v) => update((d) => void (d.audioTracks.find((t) => t.id === nt.id)!.volume = v), 'vov')} fmt={(v) => `${Math.round(v * 100)}%`} />}
           </>
         ) : <p className="hint">No narration yet — record or generate one in Voice, or add a file.</p>}
+        {voiceTracks.length > 1 && (
+          <button className="btn sm ghost" title="Clips on extra voice tracks that overlap the narration become switchable takes" onClick={() => {
+            let n = 0;
+            update((d) => void (n = convertVoiceTracksToTakes(d)));
+            toast(n ? `${n} clip${n > 1 ? 's' : ''} became takes of the narration — switch them in Properties` : 'No overlapping voice clips to convert', n ? 'ok' : 'info');
+          }}><Icon name="layers" /> Turn extra voice tracks into takes</button>
+        )}
         <FilePick accept="audio/*" className="btn sm" onFiles={async ([f]) => {
           if (!f) return;
           const a = await probe(f, f.name, 'audio');
           let info: ReturnType<typeof addVoiceTake> | undefined;
           update((d) => void ((d.assets.push(a)), (info = addVoiceTake(d, a.id, a.duration ?? 0, narrationClips(d).length ? 0 : time))));
-          if (info?.replacedName) toast(`Added on “${info.trackName}”. Your previous voice is kept on “${info.replacedName}” (muted).`, 'ok');
+          if (info?.take) toast(`Added as ${info.take} of the narration — switch takes in Properties`, 'ok');
+          else if (info?.replacedName) toast(`Added on “${info.trackName}”. Your previous voice is kept on “${info.replacedName}” (muted).`, 'ok');
         }}><Icon name="upload" /> Add a voice file</FilePick>
       </Section>
       <VideosWithSound />

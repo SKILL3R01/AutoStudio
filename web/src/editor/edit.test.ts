@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addVoiceTake, newProject, normalizeProject } from '../lib/project';
 import { clipEnd, projectLength } from '../store';
-import { TRACK_IDS, addTrack, tidyTracks, syncLinkedAudio, captionDrift, moveAudioClip, narrationClips, newAudioClip, resolveOverlap, resyncCaptions, splitAudioClip } from '../lib/audiotracks';
+import { TRACK_IDS, addTrack, convertVoiceTracksToTakes, packTracks, switchTake, tidyTracks, syncLinkedAudio, captionDrift, moveAudioClip, narrationClips, newAudioClip, resolveOverlap, resyncCaptions, splitAudioClip } from '../lib/audiotracks';
 import type { Asset, Clip, Project } from '../types';
 import {
   applyCuts, clipboardEnd, copyItems, detachAudio, insertClips, pasteItems, rippleDeleteClips, splitAudio, splitClipAt, splitOverlay,
@@ -58,14 +58,28 @@ describe('audio tracks', () => {
     expect(p.length).toBe(12);
     expect('voiceover' in p).toBe(false);
   });
-  it('a new voice never replaces the old one: it gets its own track, the old one is muted', () => {
+  it('a new voice over the narration becomes a switchable take (nothing deleted, no extra track)', () => {
     const p = fixture();
     addVoiceTake(p, 'vo', 9);
     const r = addVoiceTake(p, 'vo2', 8);
-    expect(p.audio.filter((c) => c.assetId.startsWith('vo'))).toHaveLength(2);
-    expect(r.replacedName).toBe('Voice');
-    expect(p.audioTracks.find((t) => t.id === TRACK_IDS.voice)!.muted).toBe(true);
-    expect(narrationClips(p)[0].assetId).toBe('vo2');
+    expect(r.take).toBe('Take 2');
+    const c = narrationClips(p)[0];
+    expect([c.assetId, c.duration, c.takes!.map((x) => x.assetId)]).toEqual(['vo2', 8, ['vo', 'vo2']]);
+    switchTake(c, 0);
+    expect([c.assetId, c.duration]).toEqual(['vo', 9]);
+    expect(p.audioTracks.filter((x) => x.kind === 'voice')).toHaveLength(1);
+  });
+  it('extra voice tracks turn into takes; pack moves clips onto fewer tracks without moving them in time', () => {
+    const p = fixture();
+    addVoiceTake(p, 'vo', 9);
+    p.audio.push({ ...newAudioClip(addTrack(p, 'voice'), 'vo2', 0, 9, 'voice'), id: 'alt' });
+    expect(convertVoiceTracksToTakes(p)).toBe(1);
+    expect(narrationClips(p)[0].takes!.map((x) => x.assetId)).toEqual(['vo', 'vo2']);
+    const m2 = addTrack(p, 'music');
+    p.audio.push({ ...newAudioClip(m2, 'mus', 20, 5, 'music'), id: 'm2' });
+    packTracks(p);
+    expect(p.audio.find((c) => c.id === 'm2')!.trackId).toBe(TRACK_IDS.music);
+    expect(p.audio.find((c) => c.id === 'm2')!.start).toBe(20);
   });
   it('captions stay put when a voice clip moves, then re-sync on demand (also after a split + reorder)', () => {
     const p = fixture();
@@ -188,9 +202,9 @@ describe('auto tidy', () => {
     const starts = p.audio.map((c) => [c.id, c.start]);
     tidyTracks(p);
     expect(p.audioTracks[0].id).toBe(p.narrationTrackId);
-    expect(p.audioTracks.map((t) => t.kind)).toEqual(['voice', 'voice', 'voice', 'music', 'sfx', 'other']);
+    expect(p.audioTracks.map((t) => t.kind)).toEqual(['voice', 'voice', 'music', 'sfx', 'other']);
     expect(p.audioTracks.some((t) => t.id === extra)).toBe(false);
-    expect(p.audioTracks.filter((t) => t.kind === 'voice').map((t) => t.name)).toEqual(['Voice', 'Voice 2', 'Voice 3']);
+    expect(p.audioTracks.filter((t) => t.kind === 'voice').map((t) => t.name)).toEqual(['Voice', 'Voice 2']);
     expect(p.audio.map((c) => [c.id, c.start])).toEqual(starts);
   });
 });

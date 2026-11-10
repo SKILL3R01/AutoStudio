@@ -9,7 +9,7 @@ import { KOKORO_VOICES, transcribeLocal } from '../ai/vision';
 import { SilenceDialog } from './SilenceDialog';
 import { VoiceEnhance } from '../voice/VoicePanel';
 import { PIP_PRESETS } from '../lib/pip';
-import { mainVoiceAsset, moveAudioClip, voiceStartOf } from '../lib/audiotracks';
+import { mainVoiceAsset, moveAudioClip, switchTake, voiceStartOf } from '../lib/audiotracks';
 import { fmtClock, parseClock, setClipStart } from '../lib/timeline';
 import { useEffect, useState } from 'react';
 
@@ -813,6 +813,12 @@ function AudioClipInspector({ id }: { id: string }) {
             update((d) => moveAudioClip(d, id, v));
           }} />
         </label>
+        {m.takes && m.takes.length > 1 && (
+          <div className="row">
+            <Select label={`Take (${m.takes.length})`} value={String(m.activeTake ?? 0)} options={m.takes.map((t, k) => [String(k), t.label] as [string, string])} onChange={(v) => set((x) => switchTake(x, +v))} />
+            <button className="btn sm ghost" title="Keep only the take that plays" onClick={() => confirm('Keep only this take and forget the others? (Undo restores them)') && set((x) => void ((x.takes = undefined), (x.activeTake = undefined)))}>Keep this take</button>
+          </div>
+        )}
         <Select label="Track" value={m.trackId} options={p.audioTracks.map((x) => [x.id, `${x.id === p.narrationTrackId ? '★ ' : ''}${x.name}`] as [string, string])} onChange={(v) => set((x) => void (x.trackId = v))} />
         <Slider label="Volume" value={m.volume} min={0} max={2} onChange={(v) => set((x) => void (x.volume = v), 'mv')} fmt={(v) => `${Math.round(v * 100)}%`} />
         {asset && <Slider label="Trim in" value={m.trimIn} min={0} max={Math.max(0, (asset.duration ?? 1) - 0.2)} step={0.05} onChange={(v) => set((x) => void (x.trimIn = v), 'mt')} suffix="s" />}

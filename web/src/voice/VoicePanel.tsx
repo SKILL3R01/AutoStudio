@@ -274,7 +274,7 @@ export function VoicePanel() {
       const wav = await joinParagraphs(parts);
       const file = new File([wav], `voiceover_${voiceId ? 'cloned' : 'ai'}.wav`, { type: 'audio/wav' });
       const take = await addTake(file);
-      toast(`Voiceover ready (${paras.length} paragraphs, ${fmt((Date.now() - t0) / 1000)})${take.replacedName ? ` — your previous voice is kept on “${take.replacedName}” (muted)` : ''}`, 'ok');
+      toast(`Voiceover ready (${paras.length} paragraphs, ${fmt((Date.now() - t0) / 1000)})${take.take ? ` — added as ${take.take} (switch takes in Properties)` : ''}`, 'ok');
       if (captions) {
         setBusy('Creating captions on this PC…');
         const words = offsetWords((await transcribeLocal(wav, 'base', settings().language)).words, take.start);
@@ -298,7 +298,7 @@ export function VoicePanel() {
       const file = new File([rec.blob!], 'voiceover_recorded.webm', { type: rec.blob!.type });
       const take = await addTake(file);
       rec.reset();
-      toast(take.replacedName ? `Recording added on “${take.trackName}” — your previous voice is kept on “${take.replacedName}” (muted)` : 'Recording added as the narration — use Audio → Remove silences to tighten it', 'ok');
+      toast(take.take ? `Recording added as ${take.take} of the narration — switch takes in Properties` : take.replacedName ? `Recording added on “${take.trackName}” — your previous voice is kept on “${take.replacedName}” (muted)` : 'Recording added as the narration — use Audio → Remove silences to tighten it', 'ok');
     })();
   }, [rec.blob]);
 

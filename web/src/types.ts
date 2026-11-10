@@ -441,6 +441,9 @@ export interface AudioClip {
   curve?: { t: number; v: number }[];
   /** Sound separated from this main-track video clip: it follows the clip's position, length, trim and speed. */
   linkClipId?: string;
+  /** Alternative takes of this clip (voice re-recordings); the clip plays `takes[activeTake]`. */
+  takes?: { assetId: string; trimIn: number; duration: number; label: string }[];
+  activeTake?: number;
 }
 
 /** @deprecated v3.0 — kept for migration only. */

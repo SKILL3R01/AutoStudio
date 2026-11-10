@@ -261,3 +261,56 @@ export function tidyTracks(p: Project) {
     p.videoTracks.forEach((t, i) => /^V\d+$/.test(t.name) && (t.name = `V${i + 2}`));
   }
 }
+
+/** Add a take to a clip and make it the one that plays. */
+export function addTake(c: AudioClip, assetId: string, duration: number) {
+  const takes = c.takes ?? [{ assetId: c.assetId, trimIn: c.trimIn, duration: c.duration, label: 'Take 1' }];
+  takes.push({ assetId, trimIn: 0, duration, label: `Take ${takes.length + 1}` });
+  c.takes = takes;
+  switchTake(c, takes.length - 1);
+}
+
+/** Play take `k` of a clip (the current one is remembered). */
+export function switchTake(c: AudioClip, k: number) {
+  if (!c.takes?.[k]) return;
+  const cur = c.activeTake ?? 0;
+  if (c.takes[cur]) Object.assign(c.takes[cur], { assetId: c.assetId, trimIn: c.trimIn, duration: c.duration });
+  const t = c.takes[k];
+  Object.assign(c, { assetId: t.assetId, trimIn: t.trimIn, duration: t.duration, activeTake: k });
+}
+
+/** Clips on extra voice tracks that overlap a narration clip become takes of it (their tracks then disappear). */
+export function convertVoiceTracksToTakes(p: Project): number {
+  const narr = narrationClips(p);
+  let n = 0;
+  for (const c of [...p.audio]) {
+    const t = p.audioTracks.find((x) => x.id === c.trackId);
+    if (!t || t.kind !== 'voice' || t.id === p.narrationTrackId || !c.assetId) continue;
+    const host = narr.find((h) => h.start < clipEndOf(c) && clipEndOf(h) > c.start);
+    if (!host) continue;
+    const cur = host.activeTake ?? 0;
+    addTake(host, c.assetId, c.duration);
+    host.takes![host.takes!.length - 1].trimIn = c.trimIn;
+    switchTake(host, cur);
+    p.audio = p.audio.filter((x) => x.id !== c.id);
+    n++;
+  }
+  return n;
+}
+
+/** Move clips of each kind onto as few tracks as possible (times unchanged; the narration track is left alone). */
+export function packTracks(p: Project) {
+  for (const kind of ['voice', 'music', 'sfx', 'other'] as TrackKind[]) {
+    const tracks = p.audioTracks.filter((t) => t.kind === kind && t.id !== p.narrationTrackId && !t.muted);
+    if (tracks.length < 2) continue;
+    const ids = new Set(tracks.map((t) => t.id));
+    const clips = p.audio.filter((c) => ids.has(c.trackId)).sort((x, y) => x.start - y.start);
+    const ends = tracks.map(() => -Infinity);
+    for (const c of clips) {
+      const k = ends.findIndex((e) => e <= c.start + 0.001);
+      const slot = k >= 0 ? k : ends.indexOf(Math.min(...ends));
+      c.trackId = tracks[slot].id;
+      ends[slot] = Math.max(ends[slot], clipEndOf(c));
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import type { CaptionSettings, Asset, AssetKind, Clip, KeywordSettings, Project, TypoBlock, TypoSettings } from '../types';
 import { saveBlob } from './db';
 import { uid } from './util';
-import { clipEndOf, defaultTracks, ensureTrack, migrateAudio, narrationClips, narrationEnd, newAudioClip, addTrack, TRACK_IDS } from './audiotracks';
+import { addTake, clipEndOf, defaultTracks, ensureTrack, migrateAudio, narrationClips, narrationEnd, newAudioClip, addTrack, TRACK_IDS } from './audiotracks';
 export { setVoiceStart } from './audiotracks';
 
 export const defaultKeywordSettings = (): KeywordSettings => ({
@@ -137,13 +137,19 @@ export function placeAudio(p: Project, assetId: string, kind: 'voice' | 'music' 
  * A new voice (recording, AI voice, upload): becomes the narration when there is none. Otherwise it goes on a new
  * voice track that becomes the narration, and the previous narration track is muted — nothing is deleted.
  */
-export function addVoiceTake(p: Project, assetId: string, duration: number, at = 0): { trackName: string; replacedName?: string } {
+export function addVoiceTake(p: Project, assetId: string, duration: number, at = 0): { trackName: string; replacedName?: string; take?: string } {
   const prev = p.audioTracks.find((t) => t.id === p.narrationTrackId);
   if (!narrationClips(p).length) {
     const tid = prev ? prev.id : ensureTrack(p, 'voice');
     p.narrationTrackId = tid;
     p.audio.push(newAudioClip(tid, assetId, at, duration, 'voice'));
     return { trackName: p.audioTracks.find((t) => t.id === tid)!.name };
+  }
+  // A new voice over the narration becomes a take of the narration clip it starts in (switchable, nothing deleted).
+  const host = narrationClips(p).find((c) => at >= c.start - 0.5 && at < clipEndOf(c));
+  if (host) {
+    addTake(host, assetId, duration);
+    return { trackName: prev!.name, take: host.takes![host.activeTake!].label };
   }
   const tid = addTrack(p, 'voice', undefined, prev?.id);
   const t = p.audioTracks.find((x) => x.id === tid)!;
