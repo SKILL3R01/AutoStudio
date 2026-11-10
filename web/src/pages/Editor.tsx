@@ -57,7 +57,7 @@ export function Editor({ id }: { id: string }) {
   if (missing) return <main className="page"><h2>Project not found</h2><a href="#projects">Back to projects</a></main>;
   if (!project) return <main className="page"><p className="hint">Loading project…</p></main>;
   // The guided wizard starts in the workspace even before there are clips (voice comes first).
-  return project.clips.length || project.wizardStep !== undefined || project.assets.length || project.audio.length ? <Workspace /> : <ImportScreen />;
+  return project.clips.length || project.wizardStep !== undefined || project.startEmpty || project.assets.length || project.audio.length ? <Workspace /> : <ImportScreen />;
 }
 
 function Workspace() {

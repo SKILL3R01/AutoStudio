@@ -1,3 +1,6 @@
+import { pickedColor, usePicker } from './ChromaSection';
+import type { Clip } from '../types';
+import { clipFocus, dragFocus, pipHits } from '../lib/previewEdit';
 import { ASSET_MIME, dropAssetAt } from './actions';
 import { activePips } from '../lib/pip';
 import { syncProxies } from '../lib/proxy';
@@ -62,12 +65,13 @@ const audioKey = (p: Project) => JSON.stringify([
   p.audio, p.audioTracks, p.narrationTrackId, p.pips.map((c) => [c.assetId, c.start, c.trimIn, c.duration, c.volume]), p.clips.map((c) => [c.assetId, c.start, c.trimIn, c.trimOut, c.loop, c.volume]), p.words.length, p.lines.length,
 ]);
 
-type Draggable = { kind: 'overlay' | 'keyword'; id: string; x: number; y: number; w: number; h: number };
+type Draggable = { kind: 'overlay' | 'keyword' | 'pip'; id: string; x: number; y: number; w: number; h: number };
 
 /** Approximate on-screen boxes of overlays and keywords visible at time t, for click/drag hit-testing. */
 function hitBoxes(p: Project, t: number, W: number, H: number): Draggable[] {
   const g = document.createElement('canvas').getContext('2d')!;
-  const out: Draggable[] = [];
+  // Overlay clips first (drawn under text), bottom track first — later entries win the hit test.
+  const out: Draggable[] = pipHits(p, t, W, H).map((b) => ({ kind: 'pip' as const, ...b }));
   for (const o of p.overlays) {
     if (t < o.start || t > o.start + o.duration) continue;
     if (o.assetId) out.push({ kind: 'overlay', id: o.id, x: o.x, y: o.y, w: o.size, h: o.size * 0.6 * (W / H) });
@@ -198,19 +202,27 @@ export function Preview() {
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
+    if (usePicker.getState().target) {
+      // Eyedropper: read the colour under the pointer from the rendered frame.
+      const c = e.currentTarget;
+      const px = c.getContext('2d')!.getImageData(Math.floor(((e.clientX - r.left) / r.width) * c.width), Math.floor(((e.clientY - r.top) / r.height) * c.height), 1, 1).data;
+      return pickedColor('#' + [px[0], px[1], px[2]].map((v) => v.toString(16).padStart(2, '0')).join(''));
+    }
     const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
     const hit = hitBoxes(m.project, time, W, H).reverse().find((b) => Math.abs(px - b.x) <= b.w / 2 && Math.abs(py - b.y) <= b.h / 2);
     const st = useEditor.getState();
-    if (!hit) return st.select(null);
+    if (!hit) return reframeMain(e, r);
     st.select({ kind: hit.kind, id: hit.id });
     const x0 = hit.x, y0 = hit.y;
+    const pip0 = hit.kind === 'pip' ? m.project.pips.find((c) => c.id === hit.id) : undefined;
+    if (pip0 && (pip0.shape === 'full' || pip0.shape === 'half')) return;
     const move = (ev: PointerEvent) => {
       const nx = Math.min(1, Math.max(0, x0 + (ev.clientX - e.clientX) / r.width));
       const ny = Math.min(1, Math.max(0, y0 + (ev.clientY - e.clientY) / r.height));
       // Snap to centre lines.
       const sx = Math.abs(nx - 0.5) < 0.015 ? 0.5 : nx, sy = Math.abs(ny - 0.5) < 0.015 ? 0.5 : ny;
       st.update((d) => {
-        const it = hit.kind === 'overlay' ? d.overlays.find((o) => o.id === hit.id) : d.typo.find((k) => k.id === hit.id);
+        const it = hit.kind === 'overlay' ? d.overlays.find((o) => o.id === hit.id) : hit.kind === 'pip' ? d.pips.find((o) => o.id === hit.id) : d.typo.find((k) => k.id === hit.id);
         if (it) {
           it.x = sx;
           it.y = sy;
@@ -223,14 +235,39 @@ export function Preview() {
     window.addEventListener('pointerup', up);
   };
 
+  /** Click on an empty area: select the main clip under the playhead; dragging moves its framing for this format. */
+  const reframeMain = (e: React.PointerEvent, r: DOMRect) => {
+    const st = useEditor.getState();
+    const p = m.project;
+    if (!p.clips.length) return st.select(null);
+    const c = p.clips[clipIndexAt(p.clips, time)];
+    st.select({ kind: 'clip', id: c.id });
+    const a = p.assets.find((x) => x.id === c.assetId);
+    if (c.fill || c.fit === 'contain' || !a?.width || !a.height) return;
+    const f0 = clipFocus(c, p), aspect = p.export.aspect;
+    const move = (ev: PointerEvent) => {
+      const nf = dragFocus(f0, (ev.clientX - e.clientX) / r.width, (ev.clientY - e.clientY) / r.height, { width: a.width!, height: a.height! }, W, H);
+      st.update((d) => {
+        const cl = d.clips.find((x) => x.id === c.id);
+        if (cl) cl.focus = { ...cl.focus, [aspect]: nf };
+      }, `frame-${c.id}-${aspect}`);
+    };
+    const up = () => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up));
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   const clips = m.project.clips;
   const ci = clipIndexAt(clips, time);
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     useEditor.getState().seek(((e.clientX - r.left) / r.width) * m.length);
   };
-  const sel = selection && (selection.kind === 'overlay' || selection.kind === 'keyword') ? hitBoxes(m.project, time, W, H).find((b) => b.id === selection.id) : undefined;
-  const selItem = selection?.kind === 'overlay' ? m.project.overlays.find((o) => o.id === selection.id) : selection?.kind === 'keyword' ? m.project.typo.find((b) => b.id === selection.id) : undefined;
+  const selClip = selection?.kind === 'clip' ? m.project.clips.find((c) => c.id === selection.id) : undefined;
+  const clipVisible = selClip && clips[ci]?.id === selClip.id && !selClip.fill;
+  const sel = selection && (selection.kind === 'overlay' || selection.kind === 'keyword' || selection.kind === 'pip') ? hitBoxes(m.project, time, W, H).find((b) => b.id === selection.id)
+    : clipVisible ? { kind: 'clip', id: selClip.id, x: 0.5, y: 0.5, w: 1, h: 1 } : undefined;
+  const selItem = selection?.kind === 'overlay' ? m.project.overlays.find((o) => o.id === selection.id) : selection?.kind === 'keyword' ? m.project.typo.find((b) => b.id === selection.id) : selection?.kind === 'pip' ? m.project.pips.find((b) => b.id === selection.id) : undefined;
   const selRotation = selItem?.rotate ?? 0;
   /** Corner handles scale (overlay.size / typography.scale); the top knob rotates, snapping near 0/±15/±45/±90°. */
   const handleDrag = (e: React.PointerEvent, mode: 'scale' | 'rotate') => {
@@ -240,17 +277,33 @@ export function Preview() {
     const r = canvas.current.getBoundingClientRect();
     const cx = r.left + sel.x * r.width, cy = r.top + sel.y * r.height;
     const d0 = Math.hypot(e.clientX - cx, e.clientY - cy) || 1;
-    const item0 = selection.kind === 'overlay' ? m.project.overlays.find((o) => o.id === selection.id) : m.project.typo.find((b) => b.id === selection.id);
+    const st = useEditor.getState();
+    if (selection.kind === 'clip') {
+      // Corner handles on the main clip zoom its framing for this format.
+      const c0 = m.project.clips.find((c) => c.id === selection.id);
+      if (!c0) return;
+      const f0 = clipFocus(c0, m.project), aspect = m.project.export.aspect;
+      const mv = (ev: PointerEvent) => st.update((d) => {
+        const cl = d.clips.find((c) => c.id === selection.id);
+        if (cl) cl.focus = { ...cl.focus, [aspect]: { ...f0, zoom: Math.max(1, Math.min(2.5, (f0.zoom ?? 1) * (Math.hypot(ev.clientX - cx, ev.clientY - cy) / d0))) } };
+      }, `zoom-${selection.id}-${aspect}`);
+      const u = () => (window.removeEventListener('pointermove', mv), window.removeEventListener('pointerup', u));
+      window.addEventListener('pointermove', mv);
+      window.addEventListener('pointerup', u);
+      return;
+    }
+    const item0 = selection.kind === 'overlay' ? m.project.overlays.find((o) => o.id === selection.id) : selection.kind === 'pip' ? m.project.pips.find((o) => o.id === selection.id) : m.project.typo.find((b) => b.id === selection.id);
     if (!item0) return;
     const size0 = 'size' in item0 ? item0.size : item0.scale;
-    const st = useEditor.getState();
     const move = (ev: PointerEvent) => {
       st.update((d) => {
-        const it = selection.kind === 'overlay' ? d.overlays.find((o) => o.id === selection.id) : d.typo.find((b) => b.id === selection.id);
+        const it = selection.kind === 'overlay' ? d.overlays.find((o) => o.id === selection.id) : selection.kind === 'pip' ? d.pips.find((o) => o.id === selection.id) : d.typo.find((b) => b.id === selection.id);
         if (!it) return;
+        // Full-screen / half overlays become a free window as soon as they are resized.
+        if ('shape' in it && (it.shape === 'full' || it.shape === 'half')) Object.assign(it, { shape: 'rect', x: sel.x, y: sel.y, scale: sel.w });
         if (mode === 'scale') {
           const k = Math.hypot(ev.clientX - cx, ev.clientY - cy) / d0;
-          const v = Math.max(0.05, Math.min(5, size0 * k));
+          const v = Math.max(0.05, Math.min('shape' in it ? 1.2 : 5, size0 * k));
           if ('size' in it) it.size = v;
           else it.scale = v;
         } else {
@@ -281,11 +334,12 @@ export function Preview() {
           {guides && <SafeArea aspect={m.project.export.aspect} />}
           {dropping && <div className="preview-drop">Drop to add at {fmtTime(time)}</div>}
           {sel && (
-            <div className="sel-box" style={{ left: `${(sel.x - sel.w / 2) * 100}%`, top: `${(sel.y - sel.h / 2) * 100}%`, width: `${sel.w * 100}%`, height: `${sel.h * 100}%`, transform: `rotate(${selRotation}deg)` }}>
+            <div className={`sel-box ${sel.kind === 'clip' ? 'clip-box' : ''}`} title={sel.kind === 'clip' ? 'Drag the picture to reframe · corners zoom (this format only)' : undefined} style={{ left: `${(sel.x - sel.w / 2) * 100}%`, top: `${(sel.y - sel.h / 2) * 100}%`, width: `${sel.w * 100}%`, height: `${sel.h * 100}%`, transform: `rotate(${selRotation}deg)` }}>
               {(['nw', 'ne', 'sw', 'se'] as const).map((c) => <span key={c} className={`h-scale ${c}`} onPointerDown={(e) => handleDrag(e, 'scale')} title="Drag to resize" />)}
-              <span className="h-rot" onPointerDown={(e) => handleDrag(e, 'rotate')} title="Drag to rotate (snaps to 0/15/45/90°)" />
+              {sel.kind !== 'clip' && <span className="h-rot" onPointerDown={(e) => handleDrag(e, 'rotate')} title="Drag to rotate (snaps to 0/15/45/90°)" />}
             </div>
           )}
+          {selClip && clipVisible && <ClipFrameBar clip={selClip} />}
         </div>
         {status && <span className="stage-status">{status}</span>}
       </div>
@@ -320,4 +374,20 @@ function SafeArea({ aspect }: { aspect: string }) {
   }
   if (aspect === '16:9') return <div className="safe wide"><div className="safe-box action" title="Action safe (5 %)" /><div className="safe-box title" title="Title safe (10 %)" /><div className="zone endscreen" title="YouTube end-screen elements (last 20 s)">end screen</div></div>;
   return <div className="safe feed"><div className="safe-box" title="Keep text inside — feeds crop to 4:5 / 1:1" /></div>;
+}
+
+/** Quick framing actions for the selected main clip, shown on the preview. */
+function ClipFrameBar({ clip }: { clip: Clip }) {
+  const update = useEditor((s) => s.update);
+  const aspect = useEditor((s) => s.project!.export.aspect);
+  const set = (fn: (c: Clip) => void) => update((d) => fn(d.clips.find((c) => c.id === clip.id)!));
+  return (
+    <div className="frame-bar" onPointerDown={(e) => e.stopPropagation()}>
+      <span className="hint">Drag to reframe · {aspect}</span>
+      <button className={clip.fit !== 'contain' ? 'on' : ''} onClick={() => set((c) => void (c.fit = 'cover'))} title="Fill the frame (crop)">Fill</button>
+      <button className={clip.fit === 'contain' ? 'on' : ''} onClick={() => set((c) => void (c.fit = 'contain'))} title="Show the whole picture (blurred / black bars)">Fit</button>
+      <button onClick={() => set((c) => void (c.focus = { ...c.focus, [aspect]: { x: 0.5, y: 0.5, zoom: 1 } }))}>Centre</button>
+      <button title="Use this framing for every clip in this format" onClick={() => update((d) => d.clips.forEach((c) => !c.fill && (c.focus = { ...c.focus, [aspect]: { ...(clip.focus?.[aspect] ?? { x: 0.5, y: 0.5, zoom: 1 }) } })))}>All clips</button>
+    </div>
+  );
 }

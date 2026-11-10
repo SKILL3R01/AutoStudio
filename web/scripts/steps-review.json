@@ -1,16 +1,44 @@
 [
-  { "wait": 6000 },
-  { "eval": "(() => { const p = JSON.parse(JSON.stringify(window.__p ?? null)); const k = [...document.querySelectorAll('.item.kw')][1]; k.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); window.dispatchEvent(new PointerEvent('pointerup')); return k.textContent; })()" },
-  { "wait": 1500 },
-  { "shot": "keyword-frame" },
-  { "eval": "location.hash = 'projects'; 'p'" },
-  { "wait": 2500 },
-  { "eval": "document.querySelector('.pcard.new:not(.guided)').click(); 'new'" },
-  { "wait": 2500 },
-  { "eval": "(async () => { const mk = (name, color) => new Promise(r => { const c = document.createElement('canvas'); c.width = 320; c.height = 180; const g = c.getContext('2d'); g.fillStyle = color; g.fillRect(0,0,320,180); g.fillStyle='#fff'; g.font='bold 28px sans-serif'; g.fillText(name, 20, 100); c.toBlob(b => r(new File([b], name, { type: 'image/png' }))); }); const files = await Promise.all([['0-00.png','#346'],['0-03.png','#a54'],['image (16).png','#365'],['IMG_20240101_123456.jpg','#553'],['001_v1.png','#446'],['001_v2.png','#644'],['scene 7.png','#264'],['0-12.png','#622']].map(([n,c]) => mk(n,c))); const dt = new DataTransfer(); files.forEach(f => dt.items.add(f)); const drops = document.querySelectorAll('.drop'); drops[drops.length-1].dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt })); return files.length; })()" },
-  { "wait": 1500 },
-  { "shot": "review" },
-  { "eval": "[...document.querySelectorAll('.review-bulk button')].find(b => b.textContent.includes('Keep one variant')).click(); [...document.querySelectorAll('.review-bulk button')].find(b => b.textContent.includes('Fill missing')).click(); 'fixed'" },
-  { "wait": 800 },
-  { "shot": "review-fixed" }
+ {
+  "wait": 6000
+ },
+ {
+  "eval": "(() => { const p = JSON.parse(JSON.stringify(window.__p ?? null)); const k = [...document.querySelectorAll('.item.kw')][1]; k.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); window.dispatchEvent(new PointerEvent('pointerup')); return k.textContent; })()"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "shot": "keyword-frame"
+ },
+ {
+  "eval": "location.hash = 'projects'; 'p'"
+ },
+ {
+  "wait": 2500
+ },
+ {
+  "eval": "(async () => { document.querySelector('.pcard.new').click(); await new Promise((r) => setTimeout(r, 400)); [...document.querySelectorAll('.start-tile')].find((b) => b.textContent.includes('Organised import')).click(); [...document.querySelectorAll('.start-tile')].find((b) => b.textContent.includes('Horizontal')).click(); await new Promise((r) => setTimeout(r, 150)); [...document.querySelectorAll('.modal button')].find((b) => b.textContent.includes('Create')).click(); return 'new Organised import'; })()"
+ },
+ {
+  "wait": 2500
+ },
+ {
+  "eval": "(async () => { const mk = (name, color) => new Promise(r => { const c = document.createElement('canvas'); c.width = 320; c.height = 180; const g = c.getContext('2d'); g.fillStyle = color; g.fillRect(0,0,320,180); g.fillStyle='#fff'; g.font='bold 28px sans-serif'; g.fillText(name, 20, 100); c.toBlob(b => r(new File([b], name, { type: 'image/png' }))); }); const files = await Promise.all([['0-00.png','#346'],['0-03.png','#a54'],['image (16).png','#365'],['IMG_20240101_123456.jpg','#553'],['001_v1.png','#446'],['001_v2.png','#644'],['scene 7.png','#264'],['0-12.png','#622']].map(([n,c]) => mk(n,c))); const dt = new DataTransfer(); files.forEach(f => dt.items.add(f)); const drops = document.querySelectorAll('.drop'); drops[drops.length-1].dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt })); return files.length; })()"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "shot": "review"
+ },
+ {
+  "eval": "[...document.querySelectorAll('.review-bulk button')].find(b => b.textContent.includes('Keep one variant')).click(); [...document.querySelectorAll('.review-bulk button')].find(b => b.textContent.includes('Fill missing')).click(); 'fixed'"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "shot": "review-fixed"
+ }
 ]

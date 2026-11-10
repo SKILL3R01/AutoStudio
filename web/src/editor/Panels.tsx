@@ -1,3 +1,4 @@
+import { detachAudio } from './edit';
 import { isDepthMotion } from '../render/motion';
 import { DEPTH_MOTIONS } from '../types';
 import { DepthAll } from './DepthAll';
@@ -9,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { useEditor, findAsset, projectLength } from '../store';
 import { useClipTarget, useProject } from './hooks';
 import { MOTIONS, TRANSITIONS, EFFECTS, type Motion, type Transition, type Overlay, type EffectKind, type EffectLayer } from '../types';
-import { FilePick, Section, Seg, Select, Slider } from '../components/ui';
+import { FilePick, Section, Seg, Select, Slider, Toggle } from '../components/ui';
 import { Icon } from '../components/icons';
 import { CaptionsPanel } from './CaptionsPanel';
 import { KeywordsPanel } from './KeywordsPanel';
@@ -287,6 +288,7 @@ function MusicPanel() {
           if (info?.replacedName) toast(`Added on “${info.trackName}”. Your previous voice is kept on “${info.replacedName}” (muted).`, 'ok');
         }}><Icon name="upload" /> Add a voice file</FilePick>
       </Section>
+      <VideosWithSound />
       <Section title="Music & audio beds" hint="Drag clips on the timeline to time them, cut with S, drag the volume line; ducking lowers music under the narration.">
         <FilePick accept="audio/*" multiple onFiles={add} className="btn sm"><Icon name="upload" /> Add music</FilePick>
         {musicClips.map((m) => (
@@ -298,6 +300,40 @@ function MusicPanel() {
         ))}
       </Section>
     </>
+  );
+}
+
+/** Videos on the main track that still carry their own sound — separate one or all onto linked audio tracks. */
+function VideosWithSound() {
+  const p = useProject();
+  const { update, select } = useEditor();
+  const [auto, setAuto] = useState(() => localStorage.getItem('autoSeparate') === '1');
+  const vids = p.clips.filter((c) => c.volume > 0 && p.assets.find((a) => a.id === c.assetId)?.kind === 'video');
+  const linked = p.audio.filter((a) => a.linkClipId).length;
+  const sep = (ids: string[]) => {
+    let last = '';
+    update((d) => ids.forEach((id) => void (last = detachAudio(d, id, true) ?? last)));
+    if (last) select({ kind: 'audio', id: last });
+    toast(`Separated ${ids.length} video sound${ids.length > 1 ? 's' : ''} — linked to their clips (Unlink in Properties)`, 'ok');
+  };
+  return (
+    <Section title={`Videos with sound (${vids.length})`} hint="Separate the sound onto its own track to cut it, clean it, remove music or change the voice.">
+      {vids.length ? (
+        <>
+          <div className="list">
+            {vids.map((c) => (
+              <div key={c.id} className="list-item sfx-row">
+                <Icon name="film" /> <span>{findAsset(p, c.assetId)?.name}</span>
+                <span className="grow" />
+                <button className="btn sm" onClick={() => sep([c.id])}><Icon name="unlink" /> Separate</button>
+              </div>
+            ))}
+          </div>
+          {vids.length > 1 && <button className="btn sm" onClick={() => sep(vids.map((c) => c.id))}>Separate all</button>}
+        </>
+      ) : <p className="hint">{linked ? `${linked} video sound${linked > 1 ? 's are' : ' is'} already separated.` : 'No videos with sound on the main track.'}</p>}
+      <Toggle label="Separate sound automatically when adding videos" value={auto} onChange={(v) => (setAuto(v), localStorage.setItem('autoSeparate', v ? '1' : '0'))} />
+    </Section>
   );
 }
 

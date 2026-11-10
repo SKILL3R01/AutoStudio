@@ -1,4 +1,5 @@
 /** v3.1 video overlay tracks: picture-in-picture and B-roll above the main video. */
+import { keyed } from '../render/chroma';
 import type { Clip, PipClip, PipShape, Project } from '../types';
 import { uid } from './util';
 
@@ -77,7 +78,8 @@ type Src = CanvasImageSource & ({ width: number; height: number } | { videoWidth
 const dims = (d: Src) => ('videoWidth' in d ? { w: d.videoWidth, h: d.videoHeight } : { w: d.width as number, h: d.height as number });
 
 /** Draw one overlay clip (fades, rounded / round mask, border, shadow, slow zoom). */
-export function drawPip(g: CanvasRenderingContext2D, c: PipClip, t: number, d: Src | undefined, W: number, H: number) {
+export function drawPip(g: CanvasRenderingContext2D, c: PipClip, t: number, src: Src | undefined, W: number, H: number) {
+  let d = src;
   if (!d) return;
   const { w: sw, h: sh } = dims(d);
   if (!sw || !sh) return;
@@ -95,7 +97,7 @@ export function drawPip(g: CanvasRenderingContext2D, c: PipClip, t: number, d: S
   g.globalAlpha = a;
   g.translate(b.cx, b.cy);
   g.rotate((c.rotate * Math.PI) / 180);
-  if (c.shadow) {
+  if (c.shadow && !c.chroma?.on) {
     g.save();
     g.shadowColor = 'rgba(0,0,0,0.55)';
     g.shadowBlur = Math.min(W, H) * 0.03;
@@ -105,6 +107,7 @@ export function drawPip(g: CanvasRenderingContext2D, c: PipClip, t: number, d: S
     g.fill();
     g.restore();
   }
+  if (c.chroma?.on) d = keyed(d, c.chroma) as Src;
   g.save();
   path();
   g.clip();

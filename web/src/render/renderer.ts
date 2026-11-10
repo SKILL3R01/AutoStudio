@@ -1,3 +1,4 @@
+import { keyed } from './chroma';
 import { activePips, drawPip, pipAsClip } from '../lib/pip';
 import { focusShift } from '../lib/framing';
 import type { Asset, CaptionLine, Clip, EffectLayer, Overlay, Project, Transition } from '../types';
@@ -44,6 +45,7 @@ export function imagesNeededAt(m: RenderModel, t: number): string[] {
     const c = m.project.clips[i];
     if (m.assets.get(c.assetId)?.kind === 'image') ids.push(c.assetId);
     if (c.depthId) ids.push(c.depthId);
+    if (c.keyBg?.kind === 'image') ids.push(c.keyBg.assetId);
     c.regions?.forEach((r) => ids.push(r.maskId));
   }
   for (const o of m.project.overlays) if (o.assetId && t >= o.start && t <= o.start + o.duration) ids.push(o.assetId);
@@ -136,6 +138,24 @@ function drawClip(g: CanvasRenderingContext2D, m: RenderModel, i: number, t: num
     if (graded) (d = graded), (color = 'none');
   }
   const cover = Math.max(W / w, H / h), contain = Math.min(W / w, H / h);
+  // Chroma key on the main track: the background shows through the removed colour.
+  if (clip.chroma?.on) {
+    const bg = clip.keyBg ?? { kind: 'color', color: '#000000' };
+    if (bg.kind === 'color') (g.fillStyle = bg.color), g.fillRect(0, 0, W, H);
+    else if (bg.kind === 'image') {
+      const b = src.image(bg.assetId);
+      if (b) {
+        const bs = size(b), k = Math.max(W / bs.w, H / bs.h);
+        g.drawImage(b, (W - bs.w * k) / 2, (H - bs.h * k) / 2, bs.w * k, bs.h * k);
+      }
+    } else {
+      g.save();
+      g.filter = `blur(${Math.round(W / 30)}px) brightness(0.7)`;
+      g.drawImage(d, (W - w * cover * 1.1) / 2, (H - h * cover * 1.1) / 2, w * cover * 1.1, h * cover * 1.1);
+      g.restore();
+    }
+    d = keyed(d as never, clip.chroma) as Drawable;
+  }
   g.save();
   if (clip.fit === 'contain' && p.export.background === 'blur') {
     g.filter = `blur(${Math.round(W / 40)}px) ${color === 'none' ? '' : color} brightness(0.6)`;
@@ -259,7 +279,8 @@ function drawOverlay(ctx: CanvasRenderingContext2D, o: Overlay, t: number, src: 
     ctx.shadowOffsetY = H * 0.004;
   }
   if (o.assetId) {
-    const d = src.image(o.assetId);
+    const raw = src.image(o.assetId);
+    const d = raw && o.chroma?.on ? (keyed(raw as never, o.chroma) as Drawable) : raw;
     if (d) {
       const { w, h } = size(d);
       const dw = o.size * W, dh = (dw * h) / w;

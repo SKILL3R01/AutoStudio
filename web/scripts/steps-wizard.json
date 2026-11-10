@@ -12,7 +12,7 @@
   "eval": "[...document.querySelectorAll('.pcard.new')].map(c => c.textContent.trim().slice(0, 40)).join(' | ')"
  },
  {
-  "eval": "document.querySelector('.pcard.new.guided').click(); 'guided'"
+  "eval": "(async () => { document.querySelector('.pcard.new').click(); await new Promise((r) => setTimeout(r, 400)); [...document.querySelectorAll('.start-tile')].find((b) => b.textContent.includes('Guided')).click(); [...document.querySelectorAll('.start-tile')].find((b) => b.textContent.includes('Horizontal')).click(); await new Promise((r) => setTimeout(r, 150)); [...document.querySelectorAll('.modal button')].find((b) => b.textContent.includes('Create')).click(); return 'new Guided'; })()"
  },
  {
   "wait": 3000

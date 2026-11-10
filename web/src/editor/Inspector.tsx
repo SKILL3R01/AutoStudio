@@ -1,3 +1,4 @@
+import { ChromaSection } from './ChromaSection';
 import { isDepthMotion } from '../render/motion';
 import { DEPTH_MOTIONS } from '../types';
 import { FramingSection } from './Framing';
@@ -199,6 +200,13 @@ function ClipInspector({ id }: { id: string }) {
 
     <>
 
+      {asset.kind === 'video' && clip.volume > 0 && (
+        <div className="card notice sep-card">
+          <b>This video has sound</b>
+          <p className="hint">Separate it to edit, clean or remove music on its own track — it stays linked to the video.</p>
+          <button className="btn sm primary" onClick={detachSelectedAudio}><Icon name="unlink" /> Separate sound</button>
+        </div>
+      )}
       <Section title={`Clip ${i + 1} of ${p.clips.length}`}>
 
         {thumb && <img className="inspect-thumb" src={thumb} alt="" />}
@@ -328,7 +336,6 @@ function ClipInspector({ id }: { id: string }) {
 
           )}
 
-          <button className="btn sm" disabled={clip.volume <= 0} onClick={detachSelectedAudio}><Icon name="unlink" /> Detach audio to the music lane</button>
 
           <p className="hint">The clip's own sound is mixed under the narration and follows the speed; motion (zoom/pan) applies to videos too.</p>
 
@@ -339,6 +346,7 @@ function ClipInspector({ id }: { id: string }) {
       {asset.kind === 'image' && <AiVideoSection clip={clip} i={i} asset={asset} />}
 
       <FramingSection clipId={clip.id} />
+      <ChromaSection target={{ kind: 'clip', id: clip.id }} />
 
       <Section title="Depth & animated details" hint="Make the image come alive: 3D depth motion, and effects on a part of the image you click.">
 
@@ -453,6 +461,7 @@ function OverlayInspector({ id }: { id: string }) {
 
   return (
 
+    <>
     <Section title={o.assetId ? 'Image overlay' : 'Text overlay'}>
 
       {!o.assetId && <textarea value={o.text} rows={2} onChange={(e) => set((x) => void (x.text = e.target.value), 'text')} />}
@@ -522,6 +531,8 @@ function OverlayInspector({ id }: { id: string }) {
       <button className="btn sm ghost danger" onClick={deleteSelection}><Icon name="trash" /> Delete</button>
 
     </Section>
+    {o.assetId && <ChromaSection target={{ kind: 'overlay', id: o.id }} />}
+    </>
 
   );
 
@@ -897,6 +908,7 @@ function PipInspector({ id }: { id: string }) {
         </label>
         <Slider label="Length" value={c.duration} min={0.2} max={Math.max(30, c.duration)} step={0.1} onChange={(v) => set((x) => void (x.duration = v), 'pd')} suffix="s" />
       </Section>
+      <ChromaSection target={{ kind: 'pip', id: c.id }} />
       <Section title="Position & look">
         {free && (
           <>

@@ -143,6 +143,8 @@ export interface Clip {
   ignoreDuration?: boolean;
   /** Framing per output format: the point of the image kept in frame (0..1) and an extra zoom. */
   focus?: Partial<Record<Aspect, { x: number; y: number; zoom?: number }>>;
+  chroma?: Chroma;
+  keyBg?: KeyBg;
 }
 
 export const REGION_EFFECTS = ['sway', 'ripple', 'glow', 'flicker', 'shimmer', 'hue', 'blink', 'sparkle', 'pop'] as const;
@@ -335,9 +337,25 @@ export interface Overlay {
   penFont?: PenFont;
   /** Seconds to finish writing (default: natural pen speed for the text). */
   writeTime?: number;
+  /** Chroma key for image overlays (logos). */
+  chroma?: Chroma;
 }
 
 export type TrackKind = 'voice' | 'music' | 'sfx' | 'other';
+
+/** Chroma key: make `color` transparent (tolerance / softness 0..1, spill removes the colour's tint on edges). */
+export interface Chroma {
+  on: boolean;
+  color: string;
+  tolerance: number;
+  softness: number;
+  spill: number;
+  /** Show the cut-out mask (white = kept) instead of the picture. */
+  matte?: boolean;
+}
+
+/** What shows behind a keyed main-track clip. */
+export type KeyBg = { kind: 'color'; color: string } | { kind: 'image'; assetId: string } | { kind: 'blur' };
 
 /** A video overlay track above the main video (v3.1). */
 export interface VideoTrack {
@@ -374,6 +392,7 @@ export interface PipClip {
   zoom?: number;
   /** Sound of a video overlay (0 = muted). */
   volume: number;
+  chroma?: Chroma;
 }
 
 /** An audio track (v3.0): any number, any clip type. The narration track drives captions and ducking. */
@@ -476,6 +495,8 @@ export interface Project {
   luts: Lut[];
   /** Template applied by the guided wizard (Templates). */
   templateId?: string;
+  /** Created with "Empty editor": open the workspace even before any media is added. */
+  startEmpty?: boolean;
   /** Guided first-video wizard: current step (undefined = closed). */
   wizardStep?: number;
   /** Voice Studio script (paragraphs separated by blank lines). */

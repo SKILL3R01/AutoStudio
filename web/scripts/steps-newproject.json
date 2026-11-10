@@ -1,0 +1,6 @@
+[
+  { "wait": 6000 },
+  { "eval": "(async () => { document.querySelector('.pcard.new').click(); await new Promise((r) => setTimeout(r, 400)); const tiles = [...document.querySelectorAll('.start-tile')].map((b) => b.querySelector('b').textContent); [...document.querySelectorAll('.start-tile')].find((b) => b.textContent.includes('Empty editor')).click(); [...document.querySelectorAll('.start-tile')].find((b) => b.textContent.includes('Vertical')).click(); await new Promise((r) => setTimeout(r, 150)); [...document.querySelectorAll('.modal button')].find((b) => b.textContent.includes('Create')).click(); return tiles.join(', '); })()" },
+  { "wait": 2500 },
+  { "eval": "(() => { const c = document.querySelector('.stage canvas'); return 'workspace ' + !!document.querySelector('.timeline') + ' · import screen ' + !!document.querySelector('.import') + ' · canvas ' + (c ? c.width + 'x' + c.height : 'none'); })()" }
+]

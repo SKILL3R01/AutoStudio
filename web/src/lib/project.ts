@@ -178,15 +178,21 @@ export interface TimedFile {
 export async function importVisuals(p: Project, entries: TimedFile[], onProgress?: (done: number) => void): Promise<Project> {
   const next = structuredClone(p);
   const sorted = [...entries].sort((a, b) => a.time - b.time);
+  const toSeparate: string[] = [];
   for (const [i, e] of sorted.entries()) {
     const kind = e.file.type.startsWith('video') || /\.(mp4|webm|mov|mkv)$/i.test(e.name) ? 'video' : 'image';
     const asset = await probe(e.file, e.name, kind);
     next.assets.push(asset);
     next.clips.push(defaultClip(asset.id, e.time));
+    if (kind === 'video') toSeparate.push(next.clips[next.clips.length - 1].id);
     onProgress?.(i + 1);
   }
   next.clips.sort((a, b) => a.start - b.start);
   if (next.clips[0]) next.clips[0].start = Math.min(next.clips[0].start, 0);
+  if (globalThis.localStorage?.getItem('autoSeparate') === '1') {
+    const { detachAudio } = await import('../editor/edit');
+    toSeparate.forEach((id) => detachAudio(next, id, true));
+  }
   if (next.clips.length) {
     const last = next.clips[next.clips.length - 1];
     const lastAsset = next.assets.find((a) => a.id === last.assetId);

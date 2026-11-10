@@ -80,7 +80,7 @@ export function ContextMenu() {
       {clip && item('Set length…', 'clock', setLength, ci + 1 >= p.clips.length)}
       {music && item('Fade in…', 'music', () => fade('fadeIn'))}
       {music && item('Fade out…', 'music', () => fade('fadeOut'))}
-      {isVideo && item('Detach audio', 'unlink', detachSelectedAudio)}
+      {isVideo && clip!.volume > 0 && item('Separate sound', 'unlink', detachSelectedAudio)}
       {clip && !clip.fill && (
         <div className="ctx-sub">
           <span className="hint">Motion</span>

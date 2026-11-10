@@ -46,6 +46,8 @@ run typostudio "http://localhost:5173/#demo" steps-typostudio.json
 run timeline "http://localhost:5173/#demo" steps-timeline.json
 run dragdrop "http://localhost:5173/#demo" steps-dragdrop.json
 run formats "http://localhost:5173/#demo" steps-formats.json
+run newproject "http://localhost:5173/#projects" steps-newproject.json
+run v36 "http://localhost:5173/#demo" steps-v36.json
 run pip "http://localhost:5173/#demo" steps-pip.json
 run wizard "http://localhost:5173/" steps-wizard.json simple
 echo "=== done"

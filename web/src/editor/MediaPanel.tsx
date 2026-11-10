@@ -1,3 +1,4 @@
+import { detachAudio } from './edit';
 import { narrationEnd } from '../lib/audiotracks';
 import { keywordsFrom, siteLinks } from '../lib/stocklinks';
 import { useEffect, useRef, useState } from 'react';
@@ -101,6 +102,8 @@ function MediaItem({ a, uses, onInsert, onReplace, canReplace, match, list }: { 
   );
 }
 
+export const autoSeparate = () => globalThis.localStorage?.getItem('autoSeparate') === '1';
+
 /** Add a clip using `assetId` at timeline time t (splits nothing — the new clip starts at t). */
 export function insertAssetAt(d: Project, assetId: string, time: number) {
   const i = clipIndexAt(d.clips, time);
@@ -109,6 +112,8 @@ export function insertAssetAt(d: Project, assetId: string, time: number) {
   const start = d.clips.length ? at : 0;
   d.clips.push(defaultClip(assetId, start));
   d.clips.sort((x, y) => x.start - y.start);
+  const added = d.clips.find((c) => c.assetId === assetId && c.start === start);
+  if (added && autoSeparate() && d.assets.find((x) => x.id === assetId)?.kind === 'video') detachAudio(d, added.id, true);
   // Appended at the end: the main track grows by the new clip (video length, or 4 s for an image).
   if (d.clips[d.clips.length - 1].assetId === assetId && d.clips[d.clips.length - 1].start === start) {
     const a = d.assets.find((x) => x.id === assetId);

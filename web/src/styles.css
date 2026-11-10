@@ -720,3 +720,22 @@ pre.code-err { white-space: pre-wrap; font-size: 11.5px; margin: 0; }
 
 .region-preview { display: flex; flex-direction: column; gap: 4px; }
 .region-preview canvas { width: 100%; max-height: 260px; object-fit: contain; border-radius: 6px; background: #000; }
+
+/* v3.6: new project dialog */
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.start-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px; text-align: left; min-height: 96px; }
+.start-tile .hint { font-size: 11.5px; line-height: 1.35; }
+.fmt-shape { display: block; border: 2px solid currentColor; border-radius: 3px; opacity: 0.8; margin-bottom: 2px; }
+.fmt-shape.f16x9 { width: 32px; height: 18px; }
+.fmt-shape.f9x16 { width: 14px; height: 25px; }
+.fmt-shape.f1x1 { width: 22px; height: 22px; }
+.fmt-shape.f4x5 { width: 20px; height: 25px; }
+
+/* v3.6: on-preview framing */
+.sel-box.clip-box { border-style: dashed; border-color: rgba(179, 157, 255, 0.85); }
+.frame-bar { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); display: flex; gap: 4px; align-items: center; background: rgba(15, 17, 22, 0.85); border: 1px solid var(--line2); border-radius: 8px; padding: 3px 6px; z-index: 4; }
+.frame-bar .hint { font-size: 11px; margin-right: 4px; }
+.frame-bar button { font: inherit; font-size: 11.5px; padding: 2px 8px; border-radius: 5px; border: 1px solid var(--line2); background: var(--panel2); color: var(--text); cursor: pointer; }
+.frame-bar button.on { border-color: var(--accent); color: var(--accent); }
+
+.chip .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.4); vertical-align: -1px; }
