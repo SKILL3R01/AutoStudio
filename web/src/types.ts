@@ -364,6 +364,7 @@ export interface VideoTrack {
   muted?: boolean;
   height?: number;
   keep?: boolean;
+  locked?: boolean;
 }
 
 export type PipShape = 'rect' | 'circle' | 'full' | 'half';
@@ -412,6 +413,8 @@ export interface AudioTrack {
   keep?: boolean;
   /** Renamed by the user: auto-tidy keeps the name. */
   custom?: boolean;
+  /** Locked: its clips can't be selected, moved, trimmed, split or deleted. */
+  locked?: boolean;
 }
 
 /** One audio clip on a track: a file (assetId) or a built-in synth sound (`sound`). */
@@ -477,6 +480,8 @@ export interface Project {
   /** Shorts made from a long video: the original project and the range they came from. */
   sourceProjectId?: string;
   sourceRange?: [number, number];
+  /** Chapters on the ruler (YouTube chapters on export). */
+  chapters?: { id: string; t: number; title: string }[];
   /** Master audio fade in/out in seconds. */
   audioFade: { in: number; out: number };
   clips: Clip[];

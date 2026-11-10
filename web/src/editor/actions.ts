@@ -22,7 +22,7 @@ export function splitAtPlayhead(at?: number) {
   const t = at ?? time;
   let ok = false;
   update((d) => {
-    if (sel?.kind === 'audio') ok = splitAudio(d, sel.id, t);
+    if (sel?.kind === 'audio') ok = !d.audioTracks.find((x) => x.id === d.audio.find((c) => c.id === sel.id)?.trackId)?.locked && splitAudio(d, sel.id, t);
     else if (sel?.kind === 'overlay') ok = splitOverlay(d, sel.id, t);
     else if (sel?.kind === 'pip') ok = splitPip(d, sel.id, t);
     else ok = splitClipAt(d, t);
@@ -37,7 +37,7 @@ export function splitAllAtPlayhead() {
   let n = 0;
   update((d) => {
     if (splitClipAt(d, time)) n++;
-    for (const c of [...d.audio]) if (c.start < time - 0.05 && c.start + c.duration > time + 0.05 && splitAudio(d, c.id, time)) n++;
+    for (const c of [...d.audio]) if (!d.audioTracks.find((t) => t.id === c.trackId)?.locked && c.start < time - 0.05 && c.start + c.duration > time + 0.05 && splitAudio(d, c.id, time)) n++;
     for (const o of [...d.overlays]) if (o.start < time - 0.1 && o.start + o.duration > time + 0.1 && splitOverlay(d, o.id, time)) n++;
     for (const o of [...d.pips]) if (o.start < time - 0.1 && o.start + o.duration > time + 0.1 && splitPip(d, o.id, time)) n++;
   });

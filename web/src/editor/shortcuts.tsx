@@ -7,6 +7,8 @@ export function deleteSelection() {
   const { selection, update, select, multi } = useEditor.getState();
   if (!selection && !multi.length) return;
   const ids = new Set([...(selection ? [selection.id] : []), ...multi]);
+  const st0 = useEditor.getState().project!;
+  for (const c of [...st0.audio, ...st0.pips]) if (ids.has(c.id) && ([...st0.audioTracks, ...st0.videoTracks].find((t) => t.id === c.trackId)?.locked)) ids.delete(c.id);
   update((p) => {
     const firstStart = p.clips[0]?.start ?? 0;
     p.clips = p.clips.filter((c) => !ids.has(c.id));

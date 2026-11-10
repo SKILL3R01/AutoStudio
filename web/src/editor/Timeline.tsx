@@ -1,4 +1,7 @@
 import { useMenu } from './ContextMenu';
+import { chapterIssues, chaptersOf, suggestChapters, youtubeChapters } from '../lib/chapters';
+import { uid } from '../lib/util';
+import type { Project } from '../types';
 import { FixClipsDialog } from './FixClipsDialog';
 import { addTrack, bindWords, captionDrift, moveAudioClip, packTracks, resolveOverlap, resyncCaptions, switchTake, unbindWords } from '../lib/audiotracks';
 import { addVideoTrack } from '../lib/pip';
@@ -232,6 +235,41 @@ export function Timeline() {
   const width = Math.max(length * zoom + 200, 600);
   const assets = new Map(p.assets.map((a) => [a.id, a]));
   const fit = () => scroller.current && setZoom(Math.max(1, (scroller.current.clientWidth - 40) / length));
+  /** Fit the selected items (or the clip under the playhead) into view. */
+  const zoomToSelection = () => {
+    const el = scroller.current;
+    if (!el) return;
+    const st = useEditor.getState();
+    const ids = new Set([...(st.selection ? [st.selection.id] : []), ...st.multi]);
+    const spans: [number, number][] = [];
+    p.clips.forEach((c, i) => ids.has(c.id) && spans.push([i === 0 ? 0 : c.start, clipEnd(p, i)]));
+    for (const x of [...p.audio, ...p.overlays, ...p.pips]) if (ids.has(x.id)) spans.push([x.start, x.start + x.duration]);
+    for (const b of p.typo) if (ids.has(b.id)) spans.push([b.start, b.end]);
+    if (!spans.length && p.clips.length) {
+      const i = Math.max(0, p.clips.findIndex((_c, k) => st.time < clipEnd(p, k)));
+      spans.push([i === 0 ? 0 : p.clips[i].start, clipEnd(p, i)]);
+    }
+    if (!spans.length) return fit();
+    const a = Math.min(...spans.map((x) => x[0])), b = Math.max(...spans.map((x) => x[1]));
+    const z = Math.min(300, Math.max(1, (el.clientWidth - 80) / Math.max(0.5, (b - a) * 1.1)));
+    setZoom(z);
+    requestAnimationFrame(() => (el.scrollLeft = Math.max(0, a * z - 40)));
+  };
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.ctrlKey || e.metaKey) return;
+      if (e.key === 'z' || e.key === 'Z') zoomToSelection();
+      if (e.key === 'm' || e.key === 'M') addChapter();
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  });
+  const addChapter = () => {
+    const t0 = useEditor.getState().time;
+    const title = prompt('Chapter title', `Chapter ${(p.chapters?.length ?? 0) + 1}`)?.trim();
+    if (title) update((d) => void (d.chapters = [...(d.chapters ?? []), { id: uid(), t: t0, title }].sort((x, y) => x.t - y.t)));
+  };
   // Only render items near the visible window — long projects have hundreds of clips and caption lines.
   const v0 = (view.left - 400) / zoom, v1 = (view.left + view.width + 400) / zoom;
   const inView = (s: number, e: number) => e >= v0 && s <= v1;
@@ -251,6 +289,8 @@ export function Timeline() {
   const uiMode = useUi((u) => u.mode);
   /** Move an item, drag its right edge (`resize`) or its left edge (`trimStart`). Edges snap (Shift = no snap). */
   const moveItem = (key: 'audio' | 'overlays' | 'typo' | 'pips', id: string, e: React.PointerEvent, mode: 'move' | 'resize' | 'trimStart' = 'move') => {
+    const owner = key === 'audio' ? p.audioTracks.find((x) => x.id === p.audio.find((c) => c.id === id)?.trackId) : key === 'pips' ? p.videoTracks.find((x) => x.id === p.pips.find((c) => c.id === id)?.trackId) : undefined;
+    if (owner?.locked) return (e.stopPropagation(), toast(`“${owner.name}” is locked — unlock it with 🔒 to edit`, 'info'));
     const item = (p[key] as { id: string; start: number; duration?: number; end?: number; trimIn?: number; rate?: number }[]).find((x) => x.id === id)!;
     const s0 = item.start, d0 = item.duration ?? 0, e0 = item.end ?? 0, tin0 = item.trimIn ?? 0, rate = item.rate ?? 1;
     const len0 = item.end !== undefined ? e0 - s0 : d0;
@@ -451,6 +491,22 @@ export function Timeline() {
               {uiMode === 'pro' && <button onClick={() => (setMore(false), update((d) => void (d.videoTracks.find((t) => t.id === addVideoTrack(d))!.keep = true)))}><Icon name="layers" size={13} /> Add video track (PiP / B-roll)</button>}
               {uiMode === 'pro' && <button onClick={() => (setMore(false), update((d) => void (d.audioTracks.find((t) => t.id === addTrack(d, 'other'))!.keep = true)))}><Icon name="music" size={13} /> Add audio track</button>}
               <button onClick={() => (setMore(false), update((d) => packTracks(d)), toast('Packed clips onto fewer tracks (times unchanged)', 'ok'))}><Icon name="layers" size={13} /> Pack tracks</button>
+              <hr />
+              <button onClick={() => (setMore(false), addChapter())}><Icon name="plus" size={13} /> Add chapter at playhead (M)</button>
+              <button onClick={() => {
+                setMore(false);
+                const ws = p.words.length ? p.words : p.lines.flatMap((l) => l.words);
+                const ch = suggestChapters(ws, length);
+                if (!ch.length) return toast('Chapters are suggested from captions — create captions first', 'info');
+                update((d) => void (d.chapters = ch));
+                toast(`${ch.length} chapters suggested — double-click one to rename, drag to move`, 'ok');
+              }}><Icon name="wand" size={13} /> Suggest chapters from the transcript</button>
+              {(p.chapters?.length ?? 0) > 0 && <button onClick={() => {
+                setMore(false);
+                const issues = chapterIssues(p.chapters!, length);
+                void navigator.clipboard.writeText(youtubeChapters(p.chapters!));
+                toast(issues.length ? `Copied — note: ${issues[0]}` : 'YouTube chapters copied — paste them into the description', issues.length ? 'info' : 'ok');
+              }}><Icon name="copy" size={13} /> Copy YouTube chapters</button>}
               <button onClick={() => (setMore(false), setShowAll(!showAll), localStorage.setItem('tlShowAll', showAll ? '0' : '1'), setOpenRows(new Set()))}><Icon name="list" size={13} /> {showAll ? 'Shrink empty rows' : 'Show all rows'}</button>
               <button onClick={() => (setMore(false), setRowH({}), localStorage.removeItem('tlRows'))}><Icon name="undo" size={13} /> Reset row sizes</button>
               <hr />
@@ -476,17 +532,20 @@ export function Timeline() {
         <button className="icon-btn" onClick={() => setZoom(Math.max(1, zoom / 1.5))} title="Zoom out">−</button>
         <input type="range" min={1} max={300} value={zoom} onChange={(e) => setZoom(+e.target.value)} />
         <button className="icon-btn" onClick={() => setZoom(Math.min(300, zoom * 1.5))} title="Zoom in">+</button>
+        <button className="icon-btn" onClick={zoomToSelection} title="Zoom to selection (Z)"><Icon name="cursor" /></button>
         <button className="btn ghost sm" onClick={fit}>Fit</button>
       </div>
+      <Overview p={p} length={length} zoom={zoom} scroller={scroller} view={view} />
       <div className="tl-body">
         <div className="tl-labels" style={{ gridTemplateRows: rows }}>
           <span />
           <span className={`row-head ${slim('text') ? 'slim' : ''}`} title="Text overlays" onClick={() => openRow('text')}><Icon name="text" size={13} /> Text{grip('text', base.text)}</span>
           <span className={`row-head ${slim('typo') ? 'slim' : ''}`} title="Typography" onClick={() => openRow('typo')}><Icon name="keywords" size={13} /> Typo{grip('typo', base.typo)}</span>
           {vtracks.map((t) => (
-            <span key={t.id} className={`trk-head ${t.muted ? 'muted' : ''} ${slim(t.id) ? 'slim' : ''}`} onClick={() => openRow(t.id)}>
+            <span key={t.id} className={`trk-head k-${'kind' in t ? t.kind : 'video'} ${t.muted ? 'muted' : ''} ${slim(t.id) ? 'slim' : ''}`} onClick={() => openRow(t.id)}>
               <b title="Video overlay track (picture-in-picture / B-roll)">{t.name}</b>
               <span className="trk-btns">
+                <button className={t.locked ? 'on' : ''} onClick={(e) => (e.stopPropagation(), update((d) => void (d.videoTracks.find((x) => x.id === t.id)!.locked = !t.locked)))} title={t.locked ? 'Unlock' : 'Lock (protect from edits)'}>🔒</button>
                 <button className={t.muted ? 'on' : ''} onClick={() => update((d) => void (d.videoTracks.find((x) => x.id === t.id)!.muted = !t.muted))} title="Hide this track">M</button>
                 {uiMode === 'pro' && !p.pips.some((c) => c.trackId === t.id) && <button onClick={() => update((d) => void (d.videoTracks = d.videoTracks.filter((x) => x.id !== t.id)))} title="Remove empty track">×</button>}
               </span>
@@ -496,9 +555,10 @@ export function Timeline() {
           <span className="row-head" title="Main video / images"><Icon name="film" size={13} /> Video{grip('video', base.video)}</span>
           <span className={`row-head ${slim('caps') ? 'slim' : ''}`} title="Captions" onClick={() => openRow('caps')}><Icon name="captions" size={13} /> Caps{grip('caps', base.caps)}</span>
           {p.audioTracks.map((t) => (
-            <span key={t.id} className={`trk-head ${t.muted ? 'muted' : ''} ${slim(t.id) ? 'slim' : ''}`} onClick={() => openRow(t.id)}>
+            <span key={t.id} className={`trk-head k-${'kind' in t ? t.kind : 'video'} ${t.muted ? 'muted' : ''} ${slim(t.id) ? 'slim' : ''}`} onClick={() => openRow(t.id)}>
               <b title={t.name}>{p.audioTracks.find((x) => x.kind === t.kind) === t && p.audioTracks.filter((x) => x.kind === t.kind).length > 1 && <i className="grp-toggle" title={collapsed.has(t.kind) ? 'Expand this group' : 'Collapse this group'} onClick={(e) => (e.stopPropagation(), toggleGroup(t.kind))}>{collapsed.has(t.kind) ? '▸' : '▾'}</i>}{t.id === p.narrationTrackId ? '★ ' : ''}{t.name}</b>
               <span className="trk-btns">
+                <button className={t.locked ? 'on' : ''} onClick={(e) => (e.stopPropagation(), setTrack(t.id, (x) => void (x.locked = !x.locked)))} title={t.locked ? 'Unlock' : 'Lock (protect from edits)'}>🔒</button>
                 <button className={t.muted ? 'on' : ''} onClick={() => setTrack(t.id, (x) => void (x.muted = !x.muted))} title="Mute">M</button>
                 <button className={t.solo ? 'on' : ''} onClick={() => setTrack(t.id, (x) => void (x.solo = !x.solo))} title="Solo">S</button>
                 {t.kind === 'voice' && t.id !== p.narrationTrackId && <button onClick={() => update((d) => void ((d.narrationTrackId = t.id), (d.audioTracks.find((x) => x.id === t.id)!.muted = false)))} title="Make this the narration track (captions + ducking)">★</button>}
@@ -517,6 +577,21 @@ export function Timeline() {
         }}>
           <div className="tl-inner" style={{ width, gridTemplateRows: rows }}>
             <Ruler length={length} zoom={zoom} />
+            {chaptersOf(p).map((c) => (
+              <div key={c.id} className="chapter-mark" style={{ left: c.t * zoom }} title={`${c.title} — click to jump, double-click to rename, drag to move, right-click to delete`}
+                onPointerDown={(e) => {
+                  if (e.button === 2) return;
+                  const t0 = c.t;
+                  startDrag(e, zoom, (dt) => update((d) => void (d.chapters!.find((x) => x.id === c.id)!.t = Math.max(0, Math.min(length, t0 + dt))), `ch-${c.id}`), () => useEditor.getState().seek(c.t));
+                }}
+                onDoubleClick={() => {
+                  const title = prompt('Chapter title', c.title)?.trim();
+                  if (title) update((d) => void (d.chapters!.find((x) => x.id === c.id)!.title = title));
+                }}
+                onContextMenu={(e) => (e.preventDefault(), confirm(`Delete chapter “${c.title}”?`) && update((d) => void (d.chapters = d.chapters!.filter((x) => x.id !== c.id))))}>
+                <span>{c.title}</span>
+              </div>
+            ))}
             <div className={`track t-text ${slim('text') ? 'slim' : ''}`}>
               {p.overlays.filter((o) => inView(o.start, o.start + o.duration)).map((o) => (
                 <div key={o.id} className={`item overlay ${sel?.id === o.id || multi.includes(o.id) ? 'sel' : ''}`} style={{ left: o.start * zoom, width: Math.max(8, o.duration * zoom) }} onPointerDown={(e) => moveItem('overlays', o.id, e)} onContextMenu={(e) => openMenu(e, { kind: 'overlay', id: o.id }, o.start + (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom)}>
@@ -535,7 +610,7 @@ export function Timeline() {
               ))}
             </div>
             {vtracks.map((t) => (
-              <div key={t.id} className={`track t-vov ${t.muted ? 'muted' : ''} ${slim(t.id) ? 'slim' : ''}`} data-vtrack={t.id}>
+              <div key={t.id} className={`track t-vov ${t.muted ? 'muted' : ''} ${t.locked ? 'locked' : ''} ${slim(t.id) ? 'slim' : ''}`} data-vtrack={t.id}>
                 {p.pips.filter((c) => c.trackId === t.id && inView(c.start, c.start + c.duration)).map((c) => (
                   <PipBlock key={c.id} c={c} zoom={zoom} sel={sel?.id === c.id || multi.includes(c.id)} name={assets.get(c.assetId)?.name ?? ''} kind={assets.get(c.assetId)?.kind}
                     onDown={(e, mode) => moveItem('pips', c.id, e, mode)} onMenu={(e) => openMenu(e, { kind: 'pip', id: c.id }, c.start + (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom)} />
@@ -565,7 +640,7 @@ export function Timeline() {
               ))}
             </div>
             {p.audioTracks.map((t) => (
-              <div key={t.id} className={`track t-aud k-${t.kind} ${t.muted ? 'muted' : ''} ${slim(t.id) ? 'slim' : ''}`} data-track={t.id}>
+              <div key={t.id} className={`track t-aud k-${t.kind} ${t.muted ? 'muted' : ''} ${t.locked ? 'locked' : ''} ${slim(t.id) ? 'slim' : ''}`} data-track={t.id}>
                 {p.audio.filter((c) => c.trackId === t.id && inView(c.start, c.start + c.duration)).map((c) => {
                   const w = Math.max(8, c.duration * zoom);
                   const h = trackH(t) - 6;
@@ -648,4 +723,36 @@ function PipBlock({ c, zoom, sel, name, kind, onDown, onMenu }: { c: PipClip; zo
 /** The timeline row under the pointer (main video, overlay or audio track); null over the ruler / text rows. */
 function rowAt(x: number, y: number): HTMLElement | null {
   return ((document.elementFromPoint(x, y) as HTMLElement | null)?.closest('[data-vtrack], [data-track], .t-video') as HTMLElement | null) ?? null;
+}
+
+/** Miniature of the whole project with the visible window; drag the window or click to jump. */
+function Overview({ p, length, zoom, scroller, view }: { p: Project; length: number; zoom: number; scroller: React.RefObject<HTMLDivElement | null>; view: { left: number; width: number } }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const total = Math.max(1, length * zoom + 200);
+  const go = (clientX: number, grab = 0) => {
+    const el = scroller.current, bar = ref.current;
+    if (!el || !bar) return;
+    const r = bar.getBoundingClientRect();
+    el.scrollLeft = Math.max(0, ((clientX - r.left - grab) / r.width) * total);
+  };
+  const down = (e: React.PointerEvent) => {
+    const r = ref.current!.getBoundingClientRect();
+    const boxL = (view.left / total) * r.width, boxW = Math.max(6, (view.width / total) * r.width);
+    const inside = e.clientX - r.left >= boxL && e.clientX - r.left <= boxL + boxW;
+    const grab = inside ? e.clientX - r.left - boxL : boxW / 2;
+    go(e.clientX, grab);
+    const move = (ev: PointerEvent) => go(ev.clientX, grab);
+    const up = () => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up));
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  const pct = (t: number) => `${((t * zoom) / total) * 100}%`;
+  return (
+    <div className="overview" ref={ref} onPointerDown={down} title="Overview — drag the window or click to jump">
+      {p.clips.map((c, i) => <i key={c.id} className="ov-clip" style={{ left: pct(i === 0 ? 0 : c.start), width: pct(clipEnd(p, i) - (i === 0 ? 0 : c.start)), background: c.fill ?? undefined }} />)}
+      {p.audio.filter((c) => c.trackId === p.narrationTrackId).map((c) => <i key={c.id} className="ov-voice" style={{ left: pct(c.start), width: pct(c.duration) }} />)}
+      {chaptersOf(p).map((c) => <i key={c.id} className="ov-chapter" style={{ left: pct(c.t) }} />)}
+      <span className="ov-window" style={{ left: `${(view.left / total) * 100}%`, width: `${Math.min(100, (view.width / total) * 100)}%` }} />
+    </div>
+  );
 }

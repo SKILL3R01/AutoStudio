@@ -1,0 +1,18 @@
+[
+  { "wait": 9000 },
+  { "eval": "'overview ' + !!document.querySelector('.overview') + ' · clips in overview ' + document.querySelectorAll('.ov-clip').length" },
+  { "eval": "(() => { const c = [...document.querySelectorAll('.t-video .clip')][3]; const r = c.getBoundingClientRect(); c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 10, clientY: r.top + 10, button: 0 })); window.dispatchEvent(new PointerEvent('pointerup', { clientX: r.left + 10, clientY: r.top + 10 })); window.__z0 = document.querySelector('.tl-tools input[type=range]').value; return 'clip 4 selected, zoom ' + window.__z0; })()" },
+  { "wait": 300 },
+  { "eval": "document.querySelector('.tl-tools button[title^=\"Zoom to selection\"]').click(); 'zoom to selection'" },
+  { "wait": 500 },
+  { "eval": "'zoom ' + window.__z0 + ' → ' + document.querySelector('.tl-tools input[type=range]').value + ' · scrolled ' + document.querySelector('.tl-scroll').scrollLeft" },
+  { "eval": "[...document.querySelectorAll('.tl-tools button')].find((b) => b.textContent === 'Fit').click(); 'fit'" },
+  { "wait": 300 },
+  { "eval": "(async () => { [...document.querySelectorAll('.tl-tools button')].find((b) => b.textContent.includes('More')).click(); await new Promise((r) => setTimeout(r, 200)); [...document.querySelectorAll('.tl-more-menu button')].find((b) => b.textContent.includes('Suggest chapters')).click(); await new Promise((r) => setTimeout(r, 400)); return document.querySelectorAll('.chapter-mark').length + ' chapters: ' + [...document.querySelectorAll('.chapter-mark span')].map((s) => s.textContent).join(' | '); })()" },
+  { "eval": "(() => { const lock = document.querySelector('[data-track=trk_sfx]') && [...document.querySelectorAll('.trk-head')].find((h) => h.textContent.includes('SFX')).querySelector('button[title^=\"Lock\"]'); lock.click(); return 'sfx locked'; })()" },
+  { "wait": 300 },
+  { "eval": "(() => { const c = document.querySelector('[data-track=trk_sfx] .aclip'); const r = c.getBoundingClientRect(); const before = c.style.left; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 5, clientY: r.top + 5, button: 0 })); for (let k = 1; k <= 6; k++) window.dispatchEvent(new PointerEvent('pointermove', { clientX: r.left + 5 + k * 20, clientY: r.top + 5 })); window.dispatchEvent(new PointerEvent('pointerup', {})); window.__sfxBefore = before; return 'tried to drag locked sfx'; })()" },
+  { "wait": 400 },
+  { "eval": "'locked sfx stayed: ' + (document.querySelector('[data-track=trk_sfx] .aclip').style.left === window.__sfxBefore)" },
+  { "shot": "overview" }
+]
