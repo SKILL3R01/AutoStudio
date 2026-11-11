@@ -27,6 +27,9 @@ run() { # name url steps [ui-mode]
     echo "$bad"; FAILED=1
     # In CI, show the whole suite log so the cause is visible in the job output.
     if [ -n "$STRICT" ]; then echo "--- $1 log (last 40 lines) ---"; grep -vE "$EXPECTED" "$OUT/$1.log" | tail -40; echo "---"; fi
+    # On GitHub Actions also raise an annotation (visible on the run page and through the public API).
+    if [ -n "$GITHUB_ACTIONS" ]; then echo "::error title=UI suite $1::$(echo "$bad" | head -3 | tr '
+' ' ' | cut -c1-600)"; fi
   fi
 }
 run v3 "http://localhost:5173/#demo" steps-v3.json
