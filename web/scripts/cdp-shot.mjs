@@ -3,7 +3,7 @@
 // steps.json: [{ "wait": ms } | { "eval": "js" } | { "shot": "name" } | { "drag": { "from": "js → [x, y]", "to": "js → [x, y]" } }]
 // "drag" is a real mouse drag: the browser runs its own HTML5 drag-and-drop (CDP drag interception).
 import { spawn } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -11,8 +11,10 @@ const [url, prefix, stepsFile] = process.argv.slice(2);
 const steps = stepsFile ? JSON.parse(readFileSync(stepsFile, 'utf8')) : [{ wait: 4000 }, { shot: 'page' }];
 const browser = process.env.BROWSER ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 const port = 9333;
+// A throwaway browser profile per run (removed again at the end; a fixed USER_DATA_DIR is kept).
+const profile = process.env.USER_DATA_DIR ?? mkdtempSync(join(tmpdir(), 'cdp-'));
 const proc = spawn(browser, ['--headless=new', `--remote-debugging-port=${port}`, '--no-first-run', '--window-size=1600,1000',
-  `--user-data-dir=${process.env.USER_DATA_DIR ?? mkdtempSync(join(tmpdir(), 'cdp-'))}`, '--autoplay-policy=no-user-gesture-required', ...(process.env.EXTRA_ARGS ? process.env.EXTRA_ARGS.split(' ') : ['about:blank'])], { stdio: 'ignore' });
+  `--user-data-dir=${profile}`, '--autoplay-policy=no-user-gesture-required', ...(process.env.EXTRA_ARGS ? process.env.EXTRA_ARGS.split(' ') : ['about:blank'])], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let targets;
@@ -74,4 +76,16 @@ for (const s of steps) {
 }
 ws.close();
 proc.kill();
+if (!process.env.USER_DATA_DIR) {
+  // Edge keeps files locked for a moment after it is killed: retry for a few seconds.
+  await new Promise((r) => (proc.exitCode !== null ? r() : proc.once('exit', r)));
+  for (let k = 0; k < 20; k++) {
+    try {
+      rmSync(profile, { recursive: true, force: true });
+      break;
+    } catch {
+      await sleep(250);
+    }
+  }
+}
 process.exit(0);

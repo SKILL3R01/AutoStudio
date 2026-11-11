@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useEditor, projectLength } from '../store';
 import { Icon } from '../components/icons';
+import { removeMotion } from '../motion/edit';
 import { copySelection, duplicate, paste, rippleDelete, splitAtPlayhead } from './actions';
 
 export function deleteSelection() {
@@ -18,6 +19,7 @@ export function deleteSelection() {
     p.audio = p.audio.filter((o) => !ids.has(o.id));
     p.typo = p.typo.filter((o) => !ids.has(o.id));
     p.pips = p.pips.filter((o) => !ids.has(o.id));
+    if (selection?.kind === 'motion') removeMotion(p, selection.id);
   });
   select(null);
 }

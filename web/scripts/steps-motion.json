@@ -73,5 +73,59 @@
  },
  {
   "shot": "motion-final"
+ },
+ {
+  "eval": "'motion row blocks: ' + document.querySelectorAll('.t-mgfx .item.mgfx').length"
+ },
+ {
+  "eval": "(__seek(8.9), 'seek 8.9')"
+ },
+ {
+  "wait": 700
+ },
+ {
+  "eval": "(() => { const c = document.querySelector('.stage canvas'); const r = c.getBoundingClientRect(); const x = r.left + r.width * 0.5, y = r.top + r.height * (445 / 1080); c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y, button: 0 })); window.dispatchEvent(new PointerEvent('pointerup', { clientX: x, clientY: y })); return 'clicked the headline'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "'selected layer: ' + (document.querySelector('.mgfx-layer.on')?.textContent ?? 'none') + ' · box ' + !!document.querySelector('.sel-box')"
+ },
+ {
+  "eval": "(async () => { window.__h3 = __px(); const ta = [...document.querySelectorAll('.inspector textarea, aside textarea')].find((t) => t.value === 'She brings the calm.'); if (!ta) return 'no text field'; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'She brings peace.'); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 600)); return 'edited text, frame changed ' + (__px() !== window.__h3); })()"
+ },
+ {
+  "shot": "motion-edited"
+ },
+ {
+  "eval": "(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true })); await new Promise((r) => setTimeout(r, 500)); return 'after undo text field: ' + ([...document.querySelectorAll('aside textarea')].map((t) => t.value).find((v) => v.startsWith('She')) ?? 'none'); })()"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '9:16').click(); return '9:16'; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.rail button')].find((x) => x.title === 'Motion AI').click(); return 'motion tab'; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.mgfx button')].find((b) => b.textContent.trim() === 'Top band').click(); return 'top band'; })()"
+ },
+ {
+  "eval": "(async () => { const ta = [...document.querySelectorAll('.mgfx textarea')][1]; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, \"{\\\"palette\\\": \\\"dark\\\", \\\"items\\\": [{\\\"type\\\": \\\"background\\\", \\\"kind\\\": \\\"gradient\\\", \\\"colors\\\": [\\\"#101820\\\", \\\"#2a3a50\\\"], \\\"start\\\": 0, \\\"dur\\\": 3}, {\\\"type\\\": \\\"text\\\", \\\"text\\\": \\\"\\u0627\\u0644\\u0635\\u0628\\u0631 \\u0645\\u0641\\u062a\\u0627\\u062d \\u0627\\u0644\\u0641\\u0631\\u062c\\\", \\\"start\\\": 0, \\\"dur\\\": 3, \\\"y\\\": -30, \\\"size\\\": 130, \\\"font\\\": \\\"Cairo\\\", \\\"weight\\\": 900, \\\"color\\\": \\\"#ffffff\\\", \\\"in\\\": \\\"saas-words\\\", \\\"highlight\\\": [{\\\"word\\\": \\\"\\u0627\\u0644\\u0641\\u0631\\u062c\\\", \\\"style\\\": \\\"marker\\\", \\\"bg\\\": \\\"#e8b86a\\\", \\\"at\\\": 0.2}]}, {\\\"type\\\": \\\"icon\\\", \\\"name\\\": \\\"sparkles\\\", \\\"style\\\": \\\"badge\\\", \\\"color\\\": \\\"#e8b86a\\\", \\\"size\\\": 70, \\\"x\\\": 0, \\\"y\\\": 150, \\\"start\\\": 0.3, \\\"dur\\\": 2.7, \\\"in\\\": \\\"pop\\\"}]}\"); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 300)); [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Insert at playhead')).click(); await new Promise((r) => setTimeout(r, 400)); return 'arabic band inserted · blocks '  + document.querySelectorAll('.t-mgfx .item.mgfx').length; })()"
+ },
+ {
+  "eval": "(__seek(10.4), 'seek 10.4')"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "shot": "motion-arabic-band"
  }
 ]

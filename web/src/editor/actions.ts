@@ -1,4 +1,5 @@
 /** Timeline actions used by the toolbar, keyboard shortcuts and the Properties panel. */
+import { splitGroup } from '../motion/edit';
 import { addVideoTrack, newPip, splitPip } from '../lib/pip';
 import { addTrack, newAudioClip, resolveOverlap } from '../lib/audiotracks';
 import { insertAssetAt } from './MediaPanel';
@@ -25,6 +26,7 @@ export function splitAtPlayhead(at?: number) {
     if (sel?.kind === 'audio') ok = !d.audioTracks.find((x) => x.id === d.audio.find((c) => c.id === sel.id)?.trackId)?.locked && splitAudio(d, sel.id, t);
     else if (sel?.kind === 'overlay') ok = splitOverlay(d, sel.id, t);
     else if (sel?.kind === 'pip') ok = splitPip(d, sel.id, t);
+    else if (sel?.kind === 'motion') ok = !!splitGroup(d, sel.id.split('/')[0], t);
     else ok = splitClipAt(d, t);
   });
   if (!ok) toast('Put the playhead (or the mouse) inside the item to split it', 'info');
@@ -40,6 +42,7 @@ export function splitAllAtPlayhead() {
     for (const c of [...d.audio]) if (!d.audioTracks.find((t) => t.id === c.trackId)?.locked && c.start < time - 0.05 && c.start + c.duration > time + 0.05 && splitAudio(d, c.id, time)) n++;
     for (const o of [...d.overlays]) if (o.start < time - 0.1 && o.start + o.duration > time + 0.1 && splitOverlay(d, o.id, time)) n++;
     for (const o of [...d.pips]) if (o.start < time - 0.1 && o.start + o.duration > time + 0.1 && splitPip(d, o.id, time)) n++;
+    for (const g of [...(d.motion ?? [])]) if (splitGroup(d, g.id, time)) n++;
   });
   toast(n ? `Split ${n} item${n > 1 ? 's' : ''} at the playhead` : 'Nothing under the playhead to split', n ? 'ok' : 'info');
 }

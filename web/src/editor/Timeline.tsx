@@ -1,4 +1,6 @@
 import { useMenu } from './ContextMenu';
+import { stretchGroup } from '../motion/edit';
+import type { MotionGroup } from '../motion/types';
 import { chapterIssues, chaptersOf, suggestChapters, youtubeChapters } from '../lib/chapters';
 import { uid } from '../lib/util';
 import type { Project } from '../types';
@@ -26,6 +28,29 @@ import { Slider } from '../components/ui';
 import { TRANSITION_LABELS } from './Panels';
 import { stampFor } from '../lib/timecode';
 import { blankClip } from '../lib/project';
+
+/** A Motion AI block: drag to move, drag the right edge to stretch (its layers scale in time), click to select. */
+function MotionBlock({ g, zoom, sel }: { g: MotionGroup; zoom: number; sel: boolean }) {
+  const update = useEditor((s) => s.update);
+  const select = () => useEditor.getState().select({ kind: 'motion', id: g.id });
+  const beats = g.items.filter((i) => i.type === 'background').map((i) => i.start);
+  return (
+    <div className={`item mgfx ${sel ? 'sel' : ''} ${g.hidden ? 'muted' : ''}`} style={{ left: g.start * zoom, width: Math.max(10, g.dur * zoom) }} title={`${g.name} · ${g.items.length} layers · ${fmtTime(g.dur)} — drag to move, drag the right edge to stretch`}
+      onPointerDown={(e) => {
+        const s0 = g.start;
+        select();
+        startDrag(e, zoom, (dt) => update((d) => void (d.motion!.find((x) => x.id === g.id)!.start = Math.max(0, Math.round((s0 + dt) * 100) / 100)), `mg-${g.id}`));
+      }}>
+      {beats.slice(1).map((t) => <i key={t} className="mgfx-beat" style={{ left: t * zoom }} />)}
+      {g.dur * zoom > 40 && <span>✦ {g.name}</span>}
+      <div className="resize" onPointerDown={(e) => {
+        const d0 = g.dur;
+        e.stopPropagation();
+        startDrag(e, zoom, (dt) => update((d) => stretchGroup(d.motion!.find((x) => x.id === g.id)!, Math.max(0.5, d0 + dt)), `mgs-${g.id}`));
+      }} />
+    </div>
+  );
+}
 
 /** Pointer-drag helper reporting the horizontal delta in seconds. */
 function startDrag(e: React.PointerEvent, zoom: number, onMove: (dt: number, ev: PointerEvent) => void, onClick?: () => void, onDrop?: (dt: number, ev: PointerEvent) => void) {
@@ -454,6 +479,7 @@ export function Timeline() {
   const vh = (id: string) => (base as Record<string, number>)[id] ?? Math.round(base.video * 0.7);
   // Smart rows: empty rows shrink to a thin line (open on click, while dragging media, or with "Show all rows").
   const empty: Record<string, boolean> = {
+    mgfx: !p.motion?.length,
     text: !p.overlays.length,
     typo: !p.typo.length || p.captions.typography === false,
     caps: !lines.length || !p.captions.enabled,
@@ -465,7 +491,7 @@ export function Timeline() {
   const slim = (key: string) => ((!!empty[key] && !openRows.has(key)) || (collapsed.has(groupOf.get(key) ?? '') && key !== p.narrationTrackId)) && !showAll && !dragOver;
   const hh = (key: string, full: number) => (slim(key) ? SLIM : full);
   const openRow = (key: string) => slim(key) && setOpenRows((o) => new Set(o).add(key));
-  const rows = `${base.ruler}px ${hh('text', base.text)}px ${hh('typo', base.typo)}px ${vtracks.map((t) => `${hh(t.id, vh(t.id))}px`).join(' ')} ${base.video}px ${hh('caps', base.caps)}px ${p.audioTracks.map((t) => `${hh(t.id, trackH(t))}px`).join(' ')} ${hh('fx', base.fx)}px`;
+  const rows = `${base.ruler}px ${hh('mgfx', base.text)}px ${hh('text', base.text)}px ${hh('typo', base.typo)}px ${vtracks.map((t) => `${hh(t.id, vh(t.id))}px`).join(' ')} ${base.video}px ${hh('caps', base.caps)}px ${p.audioTracks.map((t) => `${hh(t.id, trackH(t))}px`).join(' ')} ${hh('fx', base.fx)}px`;
   const grip = (key: string, h: number) => <i className="trk-resize" onPointerDown={(e) => resizeRow(key, e, h)} title="Drag to resize this row" />;
   const setTrack = (id: string, fn: (t: AudioTrack) => void) => update((d) => fn(d.audioTracks.find((t) => t.id === id)!));
 
@@ -539,6 +565,7 @@ export function Timeline() {
       <div className="tl-body">
         <div className="tl-labels" style={{ gridTemplateRows: rows }}>
           <span />
+          <span className={`row-head ${slim('mgfx') ? 'slim' : ''}`} title="Motion graphics (Motion AI)" onClick={() => openRow('mgfx')}><Icon name="wand" size={13} /> Motion{grip('mgfx', base.text)}</span>
           <span className={`row-head ${slim('text') ? 'slim' : ''}`} title="Text overlays" onClick={() => openRow('text')}><Icon name="text" size={13} /> Text{grip('text', base.text)}</span>
           <span className={`row-head ${slim('typo') ? 'slim' : ''}`} title="Typography" onClick={() => openRow('typo')}><Icon name="keywords" size={13} /> Typo{grip('typo', base.typo)}</span>
           {vtracks.map((t) => (
@@ -592,6 +619,11 @@ export function Timeline() {
                 <span>{c.title}</span>
               </div>
             ))}
+            <div className={`track t-mgfx ${slim('mgfx') ? 'slim' : ''}`}>
+              {(p.motion ?? []).filter((g) => inView(g.start, g.start + g.dur)).map((g) => (
+                <MotionBlock key={g.id} g={g} zoom={zoom} sel={sel?.kind === 'motion' && sel.id.split('/')[0] === g.id} />
+              ))}
+            </div>
             <div className={`track t-text ${slim('text') ? 'slim' : ''}`}>
               {p.overlays.filter((o) => inView(o.start, o.start + o.duration)).map((o) => (
                 <div key={o.id} className={`item overlay ${sel?.id === o.id || multi.includes(o.id) ? 'sel' : ''}`} style={{ left: o.start * zoom, width: Math.max(8, o.duration * zoom) }} onPointerDown={(e) => moveItem('overlays', o.id, e)} onContextMenu={(e) => openMenu(e, { kind: 'overlay', id: o.id }, o.start + (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom)}>

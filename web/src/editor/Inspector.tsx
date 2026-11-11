@@ -1,4 +1,5 @@
 import { ChromaSection } from './ChromaSection';
+import { MotionInspector } from './MotionInspector';
 import { isDepthMotion } from '../render/motion';
 import { DEPTH_MOTIONS } from '../types';
 import { FramingSection } from './Framing';
@@ -1007,6 +1008,8 @@ export function Inspector() {
         {sel?.kind === 'audio' && <AudioClipInspector key={sel.id} id={sel.id} />}
 
         {sel?.kind === 'pip' && <PipInspector key={sel.id} id={sel.id} />}
+
+        {sel?.kind === 'motion' && <MotionInspector id={sel.id} />}
 
       </div>
 

@@ -330,12 +330,25 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
   const p = m.project;
   setEffectQuality(m.draft ? 0.5 : 1);
   ctx.save();
+  // Split-screen band: the main video (and its overlays) moves into the other half, centred.
+  const band = p.motion?.find((g) => !g.hidden && g.placement === 'band' && t >= g.start && t < g.start + g.dur);
+  ctx.save();
+  if (band) {
+    const h = H * (1 - (band.band?.h ?? 0.5)), y = band.band?.side === 'bottom' ? 0 : H - h;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    ctx.beginPath();
+    ctx.rect(0, y, W, h);
+    ctx.clip();
+    ctx.translate(0, y + h / 2 - H / 2);
+  }
   drawVisuals(ctx, m, t, src, W, H);
-  if (p.motion?.length) drawMotion(ctx, p.motion, 'full', t, W, H);
   for (const c of activePips(p, t)) {
     const a = m.assets.get(c.assetId);
     if (a) drawPip(ctx, c, t, (a.kind === 'video' ? src.clip(pipAsClip(c), a, c.trimIn + (t - c.start)) : src.image(a.id)) as never, W, H);
   }
+  ctx.restore();
+  if (p.motion?.length) drawMotion(ctx, p.motion, 'full', t, W, H);
   for (const fx of p.effects) {
     if (fx.kind === 'none') continue;
     const k = effectAmount(fx, t, p.clips, m.length);

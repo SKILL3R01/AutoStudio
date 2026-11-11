@@ -468,3 +468,34 @@ function drawLight(ctx: CanvasRenderingContext2D, it: MotionItem, t: number, R: 
     ctx.fillRect(x, y + h * 0.9, w, h * 0.1);
   }
 }
+
+let measureCtx: CanvasRenderingContext2D | null = null;
+/** Layer boxes on the preview at time t (normalised 0..1 like `hitBoxes`), topmost last. `k` = canvas px per recipe px. */
+export function motionHits(groups: MotionGroup[] | undefined, t: number, W: number, H: number) {
+  const out: { ref: string; x: number; y: number; w: number; h: number; k: number }[] = [];
+  measureCtx ??= document.createElement('canvas').getContext('2d');
+  for (const g of groups ?? []) {
+    if (g.hidden || t < g.start || t >= g.start + g.dur) continue;
+    const lt = t - g.start, R = groupRect(g, W, H), cam = cameraAt(g.items, lt), k = R.s * cam.zoom;
+    for (const it of g.items) {
+      if (lt < it.start || lt >= it.start + it.dur || ['background', 'light', 'camera', 'marker'].includes(it.type)) continue;
+      if (it.type === 'widget' && FX_WIDGETS.has(String(it.widget))) continue;
+      const p = poseAt(it, lt - it.start, 100);
+      const sc = (it.scale ?? 1) * p.scale;
+      let w = it.w ?? 0, h = it.h ?? 0;
+      if (it.type === 'text') {
+        const size = typeof it.size === 'number' ? it.size : 80;
+        measureCtx!.font = `${it.weight ?? 800} ${size}px "${String(it.font ?? g.palette.font ?? 'Montserrat')}"`;
+        const tw = measureCtx!.measureText(String(it.text ?? '')).width, maxW = typeof it.width === 'number' ? it.width : 1600;
+        const lines = Math.max(1, Math.ceil(tw / maxW));
+        w = Math.min(tw, maxW);
+        h = lines * size * (typeof it.lineHeight === 'number' ? it.lineHeight : 1.15);
+      } else if (it.type === 'icon') w = h = (typeof it.size === 'number' ? it.size : 120) * (/badge|squircle|soft|glass|gradient/.test(String(it.style)) ? 1.5 : 1);
+      else if (it.type === 'widget' || it.type === 'placeholder') (w ||= 520), (h ||= 300);
+      else (w ||= 100), (h ||= w);
+      const cx = R.cx + ((it.x ?? 0) + p.dx - cam.x) * k, cy = R.cy + ((it.y ?? 0) + p.dy - cam.y) * k;
+      out.push({ ref: `${g.id}/${it.id}`, x: cx / W, y: cy / H, w: (w * sc * k) / W, h: (h * sc * k) / H, k });
+    }
+  }
+  return out;
+}

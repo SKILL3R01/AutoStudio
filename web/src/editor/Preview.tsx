@@ -1,5 +1,6 @@
 import { pickedColor, usePicker } from './ChromaSection';
-import { onMotionAsset } from '../motion/render';
+import { motionHits, onMotionAsset } from '../motion/render';
+import { motionRef } from '../motion/edit';
 import type { Clip } from '../types';
 import { clipFocus, dragFocus, pipHits } from '../lib/previewEdit';
 import { ASSET_MIME, dropAssetAt } from './actions';
@@ -213,7 +214,11 @@ export function Preview() {
     const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
     const hit = hitBoxes(m.project, time, W, H).reverse().find((b) => Math.abs(px - b.x) <= b.w / 2 && Math.abs(py - b.y) <= b.h / 2);
     const st = useEditor.getState();
-    if (!hit) return reframeMain(e, r);
+    if (!hit) {
+      const mh = motionHits(m.project.motion, time, W, H).reverse().find((b) => Math.abs(px - b.x) <= Math.max(b.w, 0.02) / 2 && Math.abs(py - b.y) <= Math.max(b.h, 0.02) / 2);
+      if (mh) return dragMotion(e, r, mh.ref, mh.k);
+      return reframeMain(e, r);
+    }
     st.select({ kind: hit.kind, id: hit.id });
     const x0 = hit.x, y0 = hit.y;
     const pip0 = hit.kind === 'pip' ? m.project.pips.find((c) => c.id === hit.id) : undefined;
@@ -231,6 +236,25 @@ export function Preview() {
           if ('locked' in it) it.locked = true;
         }
       }, `drag-${hit.id}`);
+    };
+    const up = () => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up));
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  /** Motion layer: select it, drag to move (recipe pixels, snaps to the centre lines). */
+  const dragMotion = (e: React.PointerEvent, r: DOMRect, ref: string, k: number) => {
+    const st = useEditor.getState();
+    st.select({ kind: 'motion', id: ref });
+    const it0 = motionRef(m.project, ref).it;
+    if (!it0) return;
+    const x0 = it0.x ?? 0, y0 = it0.y ?? 0;
+    const move = (ev: PointerEvent) => {
+      const nx = x0 + (((ev.clientX - e.clientX) / r.width) * W) / k, ny = y0 + (((ev.clientY - e.clientY) / r.height) * H) / k;
+      st.update((d) => {
+        const it = motionRef(d, ref).it;
+        if (it) (it.x = Math.abs(nx) < 12 ? 0 : Math.round(nx)), (it.y = Math.abs(ny) < 12 ? 0 : Math.round(ny));
+      }, `mdrag-${ref}`);
     };
     const up = () => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up));
     window.addEventListener('pointermove', move);
@@ -268,9 +292,11 @@ export function Preview() {
   const selClip = selection?.kind === 'clip' ? m.project.clips.find((c) => c.id === selection.id) : undefined;
   const clipVisible = selClip && clips[ci]?.id === selClip.id && !selClip.fill;
   const sel = selection && (selection.kind === 'overlay' || selection.kind === 'keyword' || selection.kind === 'pip') ? hitBoxes(m.project, time, W, H).find((b) => b.id === selection.id)
+    : selection?.kind === 'motion' && selection.id.includes('/') ? (() => { const b = motionHits(m.project.motion, time, W, H).find((x) => x.ref === selection.id); return b && { kind: 'motion', id: b.ref, x: b.x, y: b.y, w: b.w, h: b.h }; })()
     : clipVisible ? { kind: 'clip', id: selClip.id, x: 0.5, y: 0.5, w: 1, h: 1 } : undefined;
   const selItem = selection?.kind === 'overlay' ? m.project.overlays.find((o) => o.id === selection.id) : selection?.kind === 'keyword' ? m.project.typo.find((b) => b.id === selection.id) : selection?.kind === 'pip' ? m.project.pips.find((b) => b.id === selection.id) : undefined;
-  const selRotation = selItem?.rotate ?? 0;
+  const selMotion = selection?.kind === 'motion' ? motionRef(m.project, selection.id).it : undefined;
+  const selRotation = selItem?.rotate ?? selMotion?.rotation ?? 0;
   /** Corner handles scale (overlay.size / typography.scale); the top knob rotates, snapping near 0/±15/±45/±90°. */
   const handleDrag = (e: React.PointerEvent, mode: 'scale' | 'rotate') => {
     e.stopPropagation();
@@ -289,6 +315,25 @@ export function Preview() {
         const cl = d.clips.find((c) => c.id === selection.id);
         if (cl) cl.focus = { ...cl.focus, [aspect]: { ...f0, zoom: Math.max(1, Math.min(2.5, (f0.zoom ?? 1) * (Math.hypot(ev.clientX - cx, ev.clientY - cy) / d0))) } };
       }, `zoom-${selection.id}-${aspect}`);
+      const u = () => (window.removeEventListener('pointermove', mv), window.removeEventListener('pointerup', u));
+      window.addEventListener('pointermove', mv);
+      window.addEventListener('pointerup', u);
+      return;
+    }
+    if (selection.kind === 'motion') {
+      const it0 = motionRef(m.project, selection.id).it;
+      if (!it0) return;
+      const s0 = it0.scale ?? 1;
+      const mv = (ev: PointerEvent) => st.update((d) => {
+        const it = motionRef(d, selection.id).it;
+        if (!it) return;
+        if (mode === 'scale') it.scale = Math.max(0.05, Math.min(8, s0 * (Math.hypot(ev.clientX - cx, ev.clientY - cy) / d0)));
+        else {
+          let deg = (Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180) / Math.PI + 90;
+          if (deg > 180) deg -= 360;
+          it.rotation = Math.round([0, 15, -15, 45, -45, 90, -90].find((a) => Math.abs(deg - a) < 4) ?? deg);
+        }
+      }, `m${mode}-${selection.id}`);
       const u = () => (window.removeEventListener('pointermove', mv), window.removeEventListener('pointerup', u));
       window.addEventListener('pointermove', mv);
       window.addEventListener('pointerup', u);
