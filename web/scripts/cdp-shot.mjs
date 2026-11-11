@@ -3,25 +3,29 @@
 // steps.json: [{ "wait": ms } | { "eval": "js" } | { "shot": "name" } | { "drag": { "from": "js → [x, y]", "to": "js → [x, y]" } }]
 // "drag" is a real mouse drag: the browser runs its own HTML5 drag-and-drop (CDP drag interception).
 import { spawn } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const [url, prefix, stepsFile] = process.argv.slice(2);
 const steps = stepsFile ? JSON.parse(readFileSync(stepsFile, 'utf8')) : [{ wait: 4000 }, { shot: 'page' }];
 const browser = process.env.BROWSER ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
-const port = 9333;
 // A throwaway browser profile per run (removed again at the end; a fixed USER_DATA_DIR is kept).
 const profile = process.env.USER_DATA_DIR ?? mkdtempSync(join(tmpdir(), 'cdp-'));
-const proc = spawn(browser, ['--headless=new', `--remote-debugging-port=${port}`, '--no-first-run', '--window-size=1600,1000',
+// Port 0 = the browser picks a free port and writes it to <profile>/DevToolsActivePort (no clash with a browser still closing).
+const portFile = join(profile, 'DevToolsActivePort');
+if (existsSync(portFile)) unlinkSync(portFile);
+const proc = spawn(browser, ['--headless=new', '--remote-debugging-port=0', '--no-first-run', '--window-size=1600,1000',
   `--user-data-dir=${profile}`, '--autoplay-policy=no-user-gesture-required', ...(process.env.EXTRA_ARGS ? process.env.EXTRA_ARGS.split(' ') : ['about:blank'])], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-let targets;
-for (let i = 0; i < 50 && !targets; i++) {
+let targets, port;
+for (let i = 0; i < 150 && !targets; i++) {
   await sleep(200);
-  targets = await fetch(`http://127.0.0.1:${port}/json`).then((r) => r.json()).catch(() => undefined);
+  if (!port && existsSync(portFile)) port = +readFileSync(portFile, 'utf8').split(String.fromCharCode(10))[0].trim() || undefined;
+  if (port) targets = await fetch(`http://127.0.0.1:${port}/json`).then((r) => r.json()).catch(() => undefined);
 }
+if (!targets) throw new Error('The browser did not start (no DevTools port)');
 const page = targets.find((t) => t.type === 'page');
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((r) => (ws.onopen = r));
@@ -46,8 +50,19 @@ await send('Page.enable');
 if (process.env.UI_MODE) await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('uiMode', ${JSON.stringify(process.env.UI_MODE)}); } catch {}` });
 await send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
 await send('Page.navigate', { url });
+// The demo editor can take much longer to open on a slow / cold machine (CI): after the first long wait,
+// keep waiting (up to 40 s more) until the editor is really there, so suites never start on a half-loaded page.
+const ready = async () => (await send('Runtime.evaluate', { expression: "!!(document.querySelector('.rail button') && document.querySelector('.tl-inner') && document.querySelector('.stage canvas'))", returnByValue: true })).result?.result?.value;
+let first = true;
 for (const s of steps) {
   if (s.wait) await sleep(s.wait);
+  if (first && s.wait >= 5000 && url.includes('#demo')) {
+    const t0 = Date.now();
+    while (!(await ready()) && Date.now() - t0 < 40000) await sleep(500);
+    if (Date.now() - t0 > 600) console.log('[wait]', `editor ready after ${((Date.now() - t0) / 1000).toFixed(1)} s more`);
+    await sleep(1500);
+  }
+  first = false;
   if (s.eval) {
     const r = await send('Runtime.evaluate', { expression: s.eval, awaitPromise: true, returnByValue: true });
     console.log('[eval]', JSON.stringify(r.result?.result?.value ?? r.result?.exceptionDetails?.exception?.description ?? null).slice(0, 2000));
