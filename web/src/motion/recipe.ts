@@ -107,6 +107,8 @@ export function validateRecipe(r: unknown): ValidateResult {
     if (!x || typeof x !== 'object') return;
     const it = { ...(x as Record<string, unknown>) } as MotionItem;
     if (!TYPES.has(String(it.type))) return void warnings.push(`Item ${k + 1}: unknown type "${it.type}" skipped`);
+    if (it.type === 'widget' && typeof it.id === 'string' && !it.widget) it.widget = it.id;
+    if (it.type === 'light' && typeof it.id === 'string' && !it.light) it.light = it.id;
     it.id = `m${k}`;
     it.start = Math.max(0, num(it.start, 0));
     it.dur = Math.max(0.05, num(it.dur, it.type === 'camera' ? 3 : 2));
@@ -118,11 +120,11 @@ export function validateRecipe(r: unknown): ValidateResult {
 }
 
 /** Parse + repair + validate pasted text into a group placed at `at`. */
-export function recipeToGroup(raw: string, at: number, placement: MotionPlacement, idea = ''): { group?: MotionGroup; report: RepairReport; warnings: string[] } {
+export function recipeToGroup(raw: string, at: number, placement: MotionPlacement, idea = '', frameSize?: { w: number; h: number }): { group?: MotionGroup; report: RepairReport; warnings: string[] } {
   const { text, report } = repairJson(raw);
   if (report.error) return { report, warnings: [] };
   const v = validateRecipe(JSON.parse(text));
-  const frame = placement === 'band' ? { w: 1920, h: 540 } : { w: 1920, h: 1080 };
+  const frame = frameSize ?? (placement === 'band' ? { w: 1920, h: 540 } : { w: 1920, h: 1080 });
   return {
     report, warnings: v.warnings,
     group: { id: 'mg_' + Math.random().toString(36).slice(2, 9), name: idea.slice(0, 40) || 'Motion', start: at, dur: v.dur, placement, band: placement === 'band' ? { side: 'top', h: 0.5 } : undefined, frame, palette: v.palette, items: v.items, idea },

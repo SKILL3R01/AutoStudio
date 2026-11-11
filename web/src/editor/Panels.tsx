@@ -20,6 +20,7 @@ import { useUi } from '../lib/uimode';
 import { EffectsLab } from './EffectsLab';
 import { MotionTile } from './MotionGallery';
 import { AiPanel } from './AiPanel';
+import { MotionAiPanel } from './MotionAiPanel';
 import { SilenceDialog } from './SilenceDialog';
 import { GradeEditor } from './GradeEditor';
 import { EFFECT_COST, EFFECT_LABELS } from '../render/effects';
@@ -29,7 +30,7 @@ import { uid } from '../lib/util';
 
 export const TABS = [
   ['media', 'Media', 'media'], ['motion', 'Motion', 'motion'], ['transitions', 'Transitions', 'transition'], ['captions', 'Captions', 'captions'],
-  ['keywords', 'Typography', 'keywords'], ['text', 'Text', 'text'], ['voice', 'Voice', 'mic'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['color', 'Colour', 'image'], ['ai', 'AI', 'wand'],
+  ['keywords', 'Typography', 'keywords'], ['text', 'Text', 'text'], ['voice', 'Voice', 'mic'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['color', 'Colour', 'image'], ['mgfx', 'Motion AI', 'sparkles'], ['ai', 'AI', 'wand'],
 ] as const;
 export type Tab = (typeof TABS)[number][0];
 
@@ -39,7 +40,7 @@ const GROUPS: { id: string; name: string; icon: string; hint: string; tabs: Tab[
   { id: 'voice', name: 'Voice', icon: 'mic', hint: 'Voiceover, music and sound effects', tabs: ['voice', 'music', 'sfx'] },
   { id: 'text', name: 'Text', icon: 'captions', hint: 'Captions, typography and titles', tabs: ['captions', 'keywords', 'text'] },
   { id: 'style', name: 'Style', icon: 'effects', hint: 'Motion, transitions, colour and effects', tabs: ['motion', 'transitions', 'color', 'effects'] },
-  { id: 'ai', name: 'AI', icon: 'wand', hint: 'AI assistant, depth maps and prompts', tabs: ['ai'] },
+  { id: 'ai', name: 'AI', icon: 'wand', hint: 'Motion graphics by AI, assistant, depth maps and prompts', tabs: ['mgfx', 'ai'] },
 ];
 const lastInGroup = new Map<string, Tab>();
 
@@ -105,6 +106,7 @@ export function Sidebar() {
           {tab === 'sfx' && <SfxPanel />}
           {tab === 'effects' && <EffectsPanel />}
           {tab === 'color' && <ColorPanel />}
+          {tab === 'mgfx' && <MotionAiPanel />}
           {tab === 'ai' && <AiPanel />}
         </div>
       </aside>

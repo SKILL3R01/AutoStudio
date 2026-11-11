@@ -482,6 +482,8 @@ export interface Project {
   sourceRange?: [number, number];
   /** Chapters on the ruler (YouTube chapters on export). */
   chapters?: { id: string; t: number; title: string }[];
+  /** Motion Studio groups (v4.0): AI-designed motion graphics, one block per recipe. */
+  motion?: import('./motion/types').MotionGroup[];
   /** Master audio fade in/out in seconds. */
   audioFade: { in: number; out: number };
   clips: Clip[];

@@ -1,5 +1,5 @@
 /** Inline stroke icons (24×24 grid, Lucide-style paths drawn by hand). */
-const PATHS: Record<string, string> = {
+export const PATHS: Record<string, string> = {
   film: 'M3 5h18v14H3zM7 5v14M17 5v14M3 9h4M3 15h4M17 9h4M17 15h4',
   play: 'M7 4l13 8-13 8z',
   pause: 'M7 4h3v16H7zM14 4h3v16h-3z',

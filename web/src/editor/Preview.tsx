@@ -1,4 +1,5 @@
 import { pickedColor, usePicker } from './ChromaSection';
+import { onMotionAsset } from '../motion/render';
 import type { Clip } from '../types';
 import { clipFocus, dragFocus, pipHits } from '../lib/previewEdit';
 import { ASSET_MIME, dropAssetAt } from './actions';
@@ -134,6 +135,7 @@ export function Preview() {
   const fitScale = box.w && box.h ? Math.min(box.w / W, box.h / H) : 0;
 
   useEffect(() => media.onLoad(() => setTick((x) => x + 1)), []);
+  useEffect(() => onMotionAsset(() => setTick((x) => x + 1)), []);
 
   // Preload the media around the playhead (clip pixels, depth maps, masks, overlay images).
   useEffect(() => {

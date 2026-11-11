@@ -22,6 +22,7 @@ describe('recipe import', () => {
     expect(r.palette.bg).toBe('#1d1a22');
     const g = recipeToGroup(PASTED, 5, 'full', 'how the man need a woman').group!;
     expect(g.items.map((i) => i.type)).toEqual(['background', 'text', 'widget']);
+    expect(g.items[2].widget).toBe('wipe');
     expect(g.start).toBe(5);
     expect(g.dur).toBeCloseTo(4);
     expect(g.palette.accents[0]).toBe('#ff6b4a');

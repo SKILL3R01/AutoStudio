@@ -1,4 +1,5 @@
 import { keyed } from './chroma';
+import { drawMotion } from '../motion/render';
 import { activePips, drawPip, pipAsClip } from '../lib/pip';
 import { focusShift } from '../lib/framing';
 import type { Asset, CaptionLine, Clip, EffectLayer, Overlay, Project, Transition } from '../types';
@@ -330,6 +331,7 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
   setEffectQuality(m.draft ? 0.5 : 1);
   ctx.save();
   drawVisuals(ctx, m, t, src, W, H);
+  if (p.motion?.length) drawMotion(ctx, p.motion, 'full', t, W, H);
   for (const c of activePips(p, t)) {
     const a = m.assets.get(c.assetId);
     if (a) drawPip(ctx, c, t, (a.kind === 'video' ? src.clip(pipAsClip(c), a, c.trimIn + (t - c.start)) : src.image(a.id)) as never, W, H);
@@ -344,6 +346,7 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
       else if (c?.kind === 'particles' && c.particles) drawParticles(ctx, c.particles, fx.intensity * k, t, W, H, effectQuality());
     } else drawEffect(ctx, fx.kind, fx.intensity * k, t, W, H, fx.params);
   }
+  if (p.motion?.length) drawMotion(ctx, p.motion, 'overlay', t, W, H);
   for (const o of p.overlays) drawOverlay(ctx, o, t, src, W, H);
   if (p.captions.enabled) drawCaptions(ctx, m.lines, t, p.captions, W, H);
   if (p.captions.typography !== false) drawTypography(ctx, p.typo, t, W, H, m.beats, p.captions.enabled && m.lines.length ? p.captions.position / 100 : null);

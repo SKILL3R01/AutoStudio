@@ -26,6 +26,7 @@
     "electron-builder": "26.17.0",
     "idb-keyval": "6.2.2",
     "kokoro-js": "1.2.1",
+    "lucide-static": "1.66.0",
     "mediabunny": "1.61.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",

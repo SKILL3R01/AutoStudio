@@ -1,4 +1,5 @@
 import { activePips, pipAsClip } from '../lib/pip';
+import { preloadMotion } from '../motion/render';
 import {
   ALL_FORMATS, AudioBufferSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, Input, Mp4OutputFormat, OggOutputFormat, Output,
   WebMOutputFormat, getFirstEncodableAudioCodec, getFirstEncodableVideoCodec,
@@ -121,6 +122,7 @@ export async function exportVideo(p: Project, lines: CaptionLine[], onProgress: 
     clip: (clip, asset) => (asset.kind === 'video' ? frames.get(clip) : media.image(asset.id)),
     image: (id) => media.image(id),
   };
+  await preloadMotion(p.motion ?? []);
   const started = performance.now();
   for (let f = 0; f < total; f++) {
     if (signal.aborted) {

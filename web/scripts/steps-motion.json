@@ -1,0 +1,77 @@
+[
+ {
+  "wait": 12000
+ },
+ {
+  "eval": "(() => { const b = [...document.querySelectorAll('.rail button')].find((x) => x.title === 'Motion AI'); b.click(); return 'motion tab ' + !!b; })()"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "(async () => { const txt = await (await fetch('/scripts/fixtures/recipe-example.json')).text(); const L = String.fromCharCode(8220), R = String.fromCharCode(8221); const damaged = txt.split('\"').map((s, i) => (i ? (i % 2 ? L : R) + s : s)).join('').split(L + '#').join(L + String.fromCharCode(10) + '#'); const ta = [...document.querySelectorAll('.mgfx textarea')][1]; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, damaged); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 400)); return 'report: ' + document.querySelector('.mgfx-report').innerText.split(String.fromCharCode(10)).join(' | '); })()"
+ },
+ {
+  "eval": "(() => { const b = [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Insert at playhead')); b.click(); return 'inserted, enabled ' + !b.disabled; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "'blocks listed: ' + document.querySelectorAll('.mgfx-row').length + ' · ' + (document.querySelector('.mgfx-row')?.innerText.split(String.fromCharCode(10)).join(' ') ?? 'none')"
+ },
+ {
+  "eval": "(window.__seek = (t) => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.main-end').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + t * z, clientY: r.top + 5 })); window.dispatchEvent(new PointerEvent('pointerup', {})); }, window.__px = () => { const c = document.querySelector('.stage canvas'); const g = c.getContext('2d'); const d = g.getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i += 4000) h = (h * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) % 1000003; return h; }, 'helpers')"
+ },
+ {
+  "eval": "(__seek(2.2), 'seek 2.2')"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "eval": "'frame 2.2 hash ' + (window.__h1 = __px())"
+ },
+ {
+  "shot": "motion-beat1"
+ },
+ {
+  "eval": "(__seek(5.5), 'seek 5.5')"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "eval": "'frame 5.5 hash ' + (window.__h2 = __px()) + ' changed ' + (window.__h1 !== window.__h2)"
+ },
+ {
+  "shot": "motion-beat2"
+ },
+ {
+  "eval": "(__seek(8.9), 'seek 8.9')"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "shot": "motion-beat3"
+ },
+ {
+  "eval": "(__seek(15.6), 'seek 15.6')"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "shot": "motion-beat5"
+ },
+ {
+  "eval": "(__seek(21), 'seek 21')"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "shot": "motion-final"
+ }
+]

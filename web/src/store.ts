@@ -5,7 +5,8 @@ import { saveProject } from './lib/db';
 import { snapshot } from './lib/history';
 
 /** `voice` selections use the segment index as id. */
-export type Selection = { kind: 'clip' | 'overlay' | 'audio' | 'keyword' | 'pip'; id: string } | null;
+/** `motion` ids are `groupId` or `groupId/itemId`. */
+export type Selection = { kind: 'clip' | 'overlay' | 'audio' | 'keyword' | 'pip' | 'motion'; id: string } | null;
 
 interface EditorState {
   project: Project | null;
@@ -111,6 +112,7 @@ export const projectLength = (p: Project) =>
     ...p.overlays.map((o) => o.start + o.duration),
     ...(p.pips ?? []).map((o) => o.start + o.duration),
     ...p.typo.map((b) => b.end),
+    ...(p.motion ?? []).map((g) => g.start + g.dur),
   );
 
 /** Clip i spans [clips[i].start, clips[i+1].start) — the last one runs to the end of the main track (`p.length`). */
