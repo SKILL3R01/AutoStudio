@@ -3,6 +3,8 @@ import type { MotionGroup, MotionItem, MotionPalette } from './types';
 import { cameraAt, poseAt, type Pose } from './anim';
 import { PATHS } from '../components/icons';
 import { LUCIDE } from './lucide';
+import { CONTENT_WIDGETS, widgetBox, type WidgetApi } from './widgets';
+import { FX_WIDGET_DRAW, SCREEN_WIDGETS } from './fxwidgets';
 
 /** Closest icon name in the bundled set ("house" ← "home", "chart" ← "chart-line"…). */
 export function iconName(name: string): string {
@@ -61,15 +63,15 @@ export async function preloadMotion(groups: MotionGroup[]) {
 }
 
 /** Draw every visible group of one placement layer at time t. */
-export function drawMotion(g2: CanvasRenderingContext2D, groups: MotionGroup[] | undefined, layer: 'full' | 'overlay', t: number, W: number, H: number) {
+export function drawMotion(g2: CanvasRenderingContext2D, groups: MotionGroup[] | undefined, layer: 'full' | 'overlay', t: number, W: number, H: number, words: { text: string; start: number }[] = []) {
   for (const g of groups ?? []) {
     if (g.hidden || t < g.start || t >= g.start + g.dur) continue;
     if ((layer === 'full') !== (g.placement === 'full' || g.placement === 'band')) continue;
-    drawGroup(g2, g, t - g.start, W, H);
+    drawGroup(g2, g, t - g.start, W, H, words);
   }
 }
 
-export function drawGroup(ctx: CanvasRenderingContext2D, g: MotionGroup, lt: number, W: number, H: number) {
+export function drawGroup(ctx: CanvasRenderingContext2D, g: MotionGroup, lt: number, W: number, H: number, words: { text: string; start: number }[] = []) {
   const R = groupRect(g, W, H);
   ctx.save();
   ctx.beginPath();
@@ -80,16 +82,22 @@ export function drawGroup(ctx: CanvasRenderingContext2D, g: MotionGroup, lt: num
     if (lt < it.start || lt >= it.start + it.dur || it.type === 'camera' || it.type === 'marker') continue;
     const local = lt - it.start;
     ctx.save();
+    const api = apiFor(ctx, g, it, words);
     if (it.type === 'background') drawBackground(ctx, it, local, g.palette, R);
     else if (it.type === 'light') drawLight(ctx, it, local, R);
-    else {
+    else if (it.type === 'widget' && SCREEN_WIDGETS.has(String(it.widget))) {
+      // Transitions cover the frame: no camera.
+      ctx.translate(R.cx, R.cy);
+      ctx.scale(R.s, R.s);
+      drawItem(ctx, it, local, g.palette, api);
+    } else {
       // Camera: zoom around its look-at point, everything except backgrounds and lights follows it.
       ctx.translate(R.cx, R.cy);
       ctx.scale(R.s, R.s);
       ctx.scale(cam.zoom, cam.zoom);
       ctx.rotate((cam.rot * Math.PI) / 180);
       ctx.translate(-cam.x, -cam.y);
-      drawItem(ctx, it, local, g.palette);
+      drawItem(ctx, it, local, g.palette, api);
     }
     ctx.restore();
   }
@@ -118,11 +126,42 @@ function revealClip(ctx: CanvasRenderingContext2D, dir: string | undefined, k: n
   ctx.clip();
 }
 
-function drawItem(ctx: CanvasRenderingContext2D, it: MotionItem, t: number, pal: MotionPalette) {
+/** Helpers a widget draws with (text layers, icons, narration words, palette). */
+function apiFor(ctx: CanvasRenderingContext2D, g: MotionGroup, it: MotionItem, words: { text: string; start: number }[]): WidgetApi {
+  const t0 = g.start + it.start;
+  return {
+    pal: g.palette,
+    frame: g.frame,
+    text: (props, t) => {
+      ctx.save();
+      drawItem(ctx, { id: 'w', type: 'text', start: 0, dur: it.dur, x: 0, y: 0, ...props } as MotionItem, t, g.palette);
+      ctx.restore();
+    },
+    icon: (name, color, size, style) => {
+      ctx.save();
+      drawIcon(ctx, name, color, size, style ?? 'line');
+      ctx.restore();
+    },
+    words: it.type === 'widget' && it.widget === 'say' ? words.filter((w) => w.start >= t0 - 0.05 && w.start < t0 + it.dur).map((w) => ({ w: w.text, t: w.start - t0 })) : [],
+    shade,
+  };
+}
+
+function drawItem(ctx: CanvasRenderingContext2D, it: MotionItem, t: number, pal: MotionPalette, api?: WidgetApi) {
   const size = typeof it.size === 'number' ? it.size : Math.max(it.w ?? 0, it.h ?? 0, 100);
   const p = poseAt(it, t, size);
   place(ctx, it, p);
   if (it.type === 'text') return drawText(ctx, it, t, p, pal);
+  if (it.type === 'widget' && api) {
+    const id = String(it.widget), fn = CONTENT_WIDGETS[id] ?? FX_WIDGET_DRAW[id];
+    if (fn) {
+      if (p.reveal < 1) {
+        const b = widgetBox(it);
+        revealClip(ctx, typeof it.reveal === 'string' ? it.reveal : 'right', p.reveal, b.w * 1.2, b.h * 1.2);
+      }
+      return fn(ctx, it, t, api);
+    }
+  }
   const w = it.w ?? size, h = it.h ?? size;
   revealClip(ctx, typeof it.reveal === 'string' ? it.reveal : 'right', p.reveal, w * 1.2, h * 1.2);
   if (it.type === 'shape') return drawShape(ctx, it, t, pal, w, h);
@@ -479,7 +518,7 @@ export function motionHits(groups: MotionGroup[] | undefined, t: number, W: numb
     const lt = t - g.start, R = groupRect(g, W, H), cam = cameraAt(g.items, lt), k = R.s * cam.zoom;
     for (const it of g.items) {
       if (lt < it.start || lt >= it.start + it.dur || ['background', 'light', 'camera', 'marker'].includes(it.type)) continue;
-      if (it.type === 'widget' && FX_WIDGETS.has(String(it.widget))) continue;
+      if (it.type === 'widget' && (FX_WIDGETS.has(String(it.widget)) || FX_WIDGET_DRAW[String(it.widget)])) continue;
       const p = poseAt(it, lt - it.start, 100);
       const sc = (it.scale ?? 1) * p.scale;
       let w = it.w ?? 0, h = it.h ?? 0;
@@ -491,7 +530,8 @@ export function motionHits(groups: MotionGroup[] | undefined, t: number, W: numb
         w = Math.min(tw, maxW);
         h = lines * size * (typeof it.lineHeight === 'number' ? it.lineHeight : 1.15);
       } else if (it.type === 'icon') w = h = (typeof it.size === 'number' ? it.size : 120) * (/badge|squircle|soft|glass|gradient/.test(String(it.style)) ? 1.5 : 1);
-      else if (it.type === 'widget' || it.type === 'placeholder') (w ||= 520), (h ||= 300);
+      else if (it.type === 'widget') ({ w, h } = widgetBox(it));
+      else if (it.type === 'placeholder') (w ||= 520), (h ||= 300);
       else (w ||= 100), (h ||= w);
       const cx = R.cx + ((it.x ?? 0) + p.dx - cam.x) * k, cy = R.cy + ((it.y ?? 0) + p.dy - cam.y) * k;
       out.push({ ref: `${g.id}/${it.id}`, x: cx / W, y: cy / H, w: (w * sc * k) / W, h: (h * sc * k) / H, k });
