@@ -5,6 +5,7 @@ import { PATHS } from '../components/icons';
 import { LUCIDE } from './lucide';
 import { CONTENT_WIDGETS, widgetBox, type WidgetApi } from './widgets';
 import { FX_WIDGET_DRAW, SCREEN_WIDGETS } from './fxwidgets';
+import { PAPER_WIDGETS } from './packs/paper';
 
 /** Closest icon name in the bundled set ("house" ← "home", "chart" ← "chart-line"…). */
 export function iconName(name: string): string {
@@ -63,15 +64,35 @@ export async function preloadMotion(groups: MotionGroup[]) {
 }
 
 /** Draw every visible group of one placement layer at time t. */
-export function drawMotion(g2: CanvasRenderingContext2D, groups: MotionGroup[] | undefined, layer: 'full' | 'overlay', t: number, W: number, H: number, words: { text: string; start: number }[] = []) {
+export interface MotionEnv {
+  /** Narration words (project time). */
+  words?: { text: string; start: number }[];
+  /** A loaded picture for an asset name / id (my files), if any. */
+  image?: (ref: string) => CanvasImageSource | undefined;
+}
+
+export function drawMotion(g2: CanvasRenderingContext2D, groups: MotionGroup[] | undefined, layer: 'full' | 'overlay', t: number, W: number, H: number, env: MotionEnv = {}) {
   for (const g of groups ?? []) {
     if (g.hidden || t < g.start || t >= g.start + g.dur) continue;
     if ((layer === 'full') !== (g.placement === 'full' || g.placement === 'band')) continue;
-    drawGroup(g2, g, t - g.start, W, H, words);
+    drawGroup(g2, g, t - g.start, W, H, env);
   }
 }
 
-export function drawGroup(ctx: CanvasRenderingContext2D, g: MotionGroup, lt: number, W: number, H: number, words: { text: string; start: number }[] = []) {
+/** Asset references (names or ids) used by layers of these groups active at project time t. */
+export function motionAssetRefs(groups: MotionGroup[] | undefined, t: number): string[] {
+  const out: string[] = [];
+  for (const g of groups ?? []) {
+    if (g.hidden || t < g.start - 0.5 || t >= g.start + g.dur) continue;
+    for (const it of g.items) if (typeof it.asset === 'string' && t >= g.start + it.start - 0.5 && t < g.start + it.start + it.dur) out.push(it.asset);
+  }
+  return out;
+}
+
+let envNow: MotionEnv = {};
+export function drawGroup(ctx: CanvasRenderingContext2D, g: MotionGroup, lt: number, W: number, H: number, env: MotionEnv = {}) {
+  envNow = env;
+  const words = env.words ?? [];
   const R = groupRect(g, W, H);
   ctx.save();
   ctx.beginPath();
@@ -142,6 +163,8 @@ function apiFor(ctx: CanvasRenderingContext2D, g: MotionGroup, it: MotionItem, w
       drawIcon(ctx, name, color, size, style ?? 'line');
       ctx.restore();
     },
+    image: (ref) => envNow.image?.(ref),
+    cover: (img, w, h, r = 0) => drawCover(ctx, img, w, h, r),
     words: it.type === 'widget' && it.widget === 'say' ? words.filter((w) => w.start >= t0 - 0.05 && w.start < t0 + it.dur).map((w) => ({ w: w.text, t: w.start - t0 })) : [],
     shade,
   };
@@ -153,7 +176,7 @@ function drawItem(ctx: CanvasRenderingContext2D, it: MotionItem, t: number, pal:
   place(ctx, it, p);
   if (it.type === 'text') return drawText(ctx, it, t, p, pal);
   if (it.type === 'widget' && api) {
-    const id = String(it.widget), fn = CONTENT_WIDGETS[id] ?? FX_WIDGET_DRAW[id];
+    const id = String(it.widget), fn = CONTENT_WIDGETS[id] ?? FX_WIDGET_DRAW[id] ?? PAPER_WIDGETS[id];
     if (fn) {
       if (p.reveal < 1) {
         const b = widgetBox(it);
@@ -171,6 +194,14 @@ function drawItem(ctx: CanvasRenderingContext2D, it: MotionItem, t: number, pal:
     return;
   }
   if (it.type === 'icon') return drawIcon(ctx, String(it.name ?? 'star'), col(it.color, pal, pal.accents[0]), typeof it.size === 'number' ? it.size : 120, String(it.style ?? 'line'));
+  if ((it.type === 'asset' || it.type === 'placeholder') && typeof it.asset === 'string') {
+    const img = envNow.image?.(it.asset);
+    if (img) {
+      const iw = (img as HTMLImageElement).width || 1, ih = (img as HTMLImageElement).height || 1;
+      const dw = it.w ?? (it.h ? (it.h * iw) / ih : 600), dh = it.h ?? (dw * ih) / iw;
+      return drawCover(ctx, img, dw, dh, typeof it.radius === 'number' ? it.radius : it.type === 'placeholder' ? 22 : 0);
+    }
+  }
   if (it.type === 'widget' && FX_WIDGETS.has(String(it.widget))) return;
   drawPlaceholder(ctx, it, pal);
 }
@@ -269,6 +300,16 @@ function drawIcon(ctx: CanvasRenderingContext2D, name: string, color: string, si
     ctx.lineWidth = 2;
     ctx.stroke(new Path2D(PATHS[name]));
   }
+}
+
+/** Draw a picture filling w×h around the origin (cropped to cover), optionally with rounded corners. */
+export function drawCover(ctx: CanvasRenderingContext2D, img: CanvasImageSource, w: number, h: number, r = 0) {
+  const iw = (img as HTMLImageElement).width || w, ih = (img as HTMLImageElement).height || h;
+  const s = Math.max(w / iw, h / ih), sw = w / s, sh = h / s;
+  ctx.save();
+  if (r > 0) (ctx.beginPath(), ctx.roundRect(-w / 2, -h / 2, w, h, r), ctx.clip());
+  ctx.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, -w / 2, -h / 2, w, h);
+  ctx.restore();
 }
 
 /** Lighten (k > 0) or darken (k < 0) a #hex colour. */
@@ -450,7 +491,10 @@ function drawBackground(ctx: CanvasRenderingContext2D, it: MotionItem, t: number
     ctx.globalAlpha = fade * (kind === 'hud' ? 0.25 : kind === 'paper' ? 0.06 : 0.35);
     ctx.lineWidth = 1;
     if (kind === 'dots') for (let i = x; i < x + w; i += step) for (let j = y; j < y + h; j += step) ctx.fillRect(i, j, 2, 2);
-    else if (kind === 'paper') for (let k = 0; k < 400; k++) ctx.fillRect(x + ((k * 7919) % w), y + ((k * 104729) % h), 2, 2);
+    else if (kind === 'paper') {
+      ctx.globalAlpha = fade;
+      ctx.drawImage(paperTexture(c0, Math.round(w), Math.round(h), cs[1] === 'creased'), x, y, w, h);
+    }
     else {
       ctx.beginPath();
       for (let j = y; j < y + h; j += step) (ctx.moveTo(x, j), ctx.lineTo(x + w, j));
@@ -476,6 +520,73 @@ function drawBackground(ctx: CanvasRenderingContext2D, it: MotionItem, t: number
     ctx.stroke();
   }
 }
+
+const paperCache = new Map<string, HTMLCanvasElement>();
+/** Warm paper: fibre noise, soft blotches, a few creases and a darker edge. Built once per colour / size. */
+function paperTexture(color: string, w: number, h: number, creased: boolean): HTMLCanvasElement {
+  const key = `${color}|${w}|${h}|${creased}`;
+  const hit = paperCache.get(key);
+  if (hit) return hit;
+  const c = document.createElement('canvas');
+  c.width = Math.max(64, Math.min(1920, w));
+  c.height = Math.max(64, Math.min(1920, h));
+  const g = c.getContext('2d')!;
+  g.fillStyle = color;
+  g.fillRect(0, 0, c.width, c.height);
+  // Soft blotches.
+  for (let i = 0; i < 26; i++) {
+    const bx = rnd(i, 3) * c.width, by = rnd(i, 4) * c.height, r = (0.1 + rnd(i, 5) * 0.3) * Math.max(c.width, c.height);
+    const gr = g.createRadialGradient(bx, by, 0, bx, by, r);
+    gr.addColorStop(0, rnd(i, 6) > 0.4 ? 'rgba(255,252,240,0.22)' : 'rgba(150,110,60,0.05)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, c.width, c.height);
+  }
+  // Fibre noise.
+  const img = g.getImageData(0, 0, c.width, c.height), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const v = (rnd(i, 1) - 0.5) * 18;
+    d[i] += v;
+    d[i + 1] += v;
+    d[i + 2] += v * 0.9;
+  }
+  g.putImageData(img, 0, 0);
+  g.strokeStyle = 'rgba(110,80,40,0.05)';
+  g.lineWidth = 1;
+  for (let i = 0; i < 260; i++) {
+    const fx = rnd(i, 7) * c.width, fy = rnd(i, 8) * c.height, a = rnd(i, 9) * Math.PI;
+    g.beginPath();
+    g.moveTo(fx, fy);
+    g.lineTo(fx + Math.cos(a) * 18, fy + Math.sin(a) * 18);
+    g.stroke();
+  }
+  if (creased)
+    for (let i = 0; i < 3; i++) {
+      const y0 = rnd(i, 11) * c.height, y1 = rnd(i, 12) * c.height;
+      g.strokeStyle = 'rgba(255,255,255,0.35)';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(0, y0);
+      g.lineTo(c.width, y1);
+      g.stroke();
+      g.strokeStyle = 'rgba(90,60,30,0.12)';
+      g.beginPath();
+      g.moveTo(0, y0 + 2);
+      g.lineTo(c.width, y1 + 2);
+      g.stroke();
+    }
+  const v = g.createRadialGradient(c.width / 2, c.height / 2, Math.min(c.width, c.height) * 0.35, c.width / 2, c.height / 2, Math.max(c.width, c.height) * 0.75);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, 'rgba(110,75,35,0.12)');
+  g.fillStyle = v;
+  g.fillRect(0, 0, c.width, c.height);
+  paperCache.set(key, c);
+  return c;
+}
+const rnd = (i: number, s = 1) => {
+  const x = Math.sin(i * 127.1 + s * 311.7) * 43758.5453;
+  return x - Math.floor(x);
+};
 
 function drawLight(ctx: CanvasRenderingContext2D, it: MotionItem, t: number, R: { x: number; y: number; w: number; h: number }) {
   const kind = String(it.light ?? it.name ?? '');

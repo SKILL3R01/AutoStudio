@@ -11,6 +11,9 @@ import { chat, useLlm } from '../lib/llm';
 import { fmtTime } from '../lib/util';
 import { buildMotionPrompt, frameFor } from '../motion/prompt';
 import { PALETTES, recipeToGroup } from '../motion/recipe';
+import { STYLE_PACKS } from '../motion/packs/paper';
+import { importPack, loadUserPacks, saveUserPacks, type UserPack } from '../motion/packs/importer';
+import { FilePick } from '../components/ui';
 import type { MotionGroup } from '../motion/types';
 
 type Place = 'full' | 'overlay' | 'band-top' | 'band-bottom';
@@ -32,6 +35,10 @@ export function MotionAiPanel() {
   const [useVoice, setUseVoice] = useState(true);
   const [paste, setPaste] = useState('');
   const [busy, setBusy] = useState(false);
+  const [packs, setPacks] = useState<UserPack[]>(loadUserPacks);
+  const [review, setReview] = useState<UserPack | null>(null);
+  const [allowed, setAllowed] = useState(false);
+  const userPack = packs.find((x) => style === `user:${x.id}`);
   const placement = place.startsWith('band') ? 'band' : (place as 'full' | 'overlay');
   const aspect = p.export.aspect;
   const frame = frameFor(placement, aspect);
@@ -42,7 +49,7 @@ export function MotionAiPanel() {
     const span = length === 'auto' ? 25 : +length;
     return p.lines.flatMap((l) => l.words).filter((w) => w.start >= time - 0.05 && w.start < time + span).map((w) => ({ t: Math.max(0, w.start - time), w: w.text }));
   }, [p.lines, time, length, useVoice]);
-  const prompt = useMemo(() => buildMotionPrompt({ idea, placement, aspect, length, style, language, narration, assets: p.assets.filter((a) => a.kind === 'image').slice(0, 30).map((a) => a.name) }), [idea, placement, aspect, length, style, language, narration, p.assets]);
+  const prompt = useMemo(() => buildMotionPrompt({ idea, placement, aspect, length, style, language, narration, assets: p.assets.filter((a) => a.kind === 'image').slice(0, 30).map((a) => a.name), userPack }), [idea, placement, aspect, length, style, language, narration, p.assets, userPack]);
 
   const check = useMemo(() => (paste.trim() ? recipeToGroup(paste, time, placement, idea, frame) : null), [paste, time, placement, idea, frame]);
 
@@ -82,9 +89,34 @@ export function MotionAiPanel() {
         <Seg options={PLACES} value={place} onChange={setPlace} />
         <div className="row wrap">
           <Select label="Length" value={length} options={LENGTHS} onChange={setLength} />
-          <Select label="Style" value={style} options={[['free', 'Free (AI invents)'], ...Object.keys(PALETTES).map((k) => [k, k[0].toUpperCase() + k.slice(1)] as [string, string])]} onChange={setStyle} />
+          <Select label="Style" value={style} options={[['free', 'Free (AI invents)'], ...STYLE_PACKS.map((x) => [`pack:${x.id}`, `★ ${x.name}`] as [string, string]), ...packs.map((x) => [`user:${x.id}`, `◆ ${x.name}`] as [string, string]), ...Object.keys(PALETTES).map((k) => [k, k[0].toUpperCase() + k.slice(1)] as [string, string])]} onChange={setStyle} />
           <Select label="Language" value={language} options={[['auto', 'Auto'], ['en', 'English'], ['ar', 'Arabic']]} onChange={setLanguage} />
         </div>
+        <div className="row wrap">
+          <FilePick className="btn sm" accept=".zip,.plugin,.md" onFiles={async ([f]) => {
+            if (!f) return;
+            try {
+              setAllowed(false);
+              setReview(await importPack(f));
+            } catch (e) {
+              toast(`Could not read the pack: ${(e as Error).message}`, 'error');
+            }
+          }}><Icon name="upload" /> Import style pack…</FilePick>
+          {userPack && <button className="btn sm ghost" onClick={() => { const next = packs.filter((x) => x.id !== userPack.id); setPacks(next); saveUserPacks(next); setStyle('free'); }}><Icon name="trash" /> Remove “{userPack.name}”</button>}
+        </div>
+        {review && (
+          <div className="mgfx-report ok">
+            <p><b>{review.name}</b> · from {review.source}</p>
+            {review.description && <p className="hint">{review.description.slice(0, 220)}</p>}
+            <p>Licence: {review.licence === 'open' ? '✓ open (MIT / ISC / Apache / CC0…)' : review.licence === 'restricted' ? '⚠ restricted — “all rights reserved”' : '? not stated'}</p>
+            <p className="hint">Kept: {review.files.filter((f) => f.use === 'kept').length} instruction files ({review.direction.length.toLocaleString()} characters) · ignored, never run: {review.files.filter((f) => f.use === 'code').length} code files, {review.files.filter((f) => f.use === 'asset').length} images / fonts / sounds.</p>
+            {review.licence !== 'open' && <Toggle label={review.licence === 'restricted' ? 'I own this pack or have the owner’s permission to use it' : 'I am allowed to use this pack'} value={allowed} onChange={setAllowed} />}
+            <div className="row wrap">
+              <button className="btn sm primary" disabled={review.licence !== 'open' && !allowed} onClick={() => { const next = [...packs, review]; setPacks(next); saveUserPacks(next); setStyle(`user:${review.id}`); setReview(null); toast(`Style pack “${review.name}” added — it is now the style`, 'ok'); }}>Use this style</button>
+              <button className="btn sm ghost" onClick={() => setReview(null)}>Cancel</button>
+            </div>
+          </div>
+        )}
         <Toggle label={narration.length ? `Sync to the voice (${narration.length} words from ${fmtTime(time)})` : 'Sync to the voice (no captions at the playhead)'} value={useVoice} onChange={setUseVoice} />
         <p className="hint">Frame {frame.w}×{frame.h} · inserted at the playhead ({fmtTime(time)}).</p>
       </Section>

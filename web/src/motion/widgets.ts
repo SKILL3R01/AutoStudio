@@ -15,6 +15,10 @@ export interface WidgetApi {
   /** Narration words inside the widget's time (t relative to the widget start). */
   words: { w: string; t: number }[];
   shade: (hex: string, k: number) => string;
+  /** One of my files by name / id (loaded picture), if any. */
+  image: (ref: string) => CanvasImageSource | undefined;
+  /** Draw a picture covering w×h around the origin. */
+  cover: (img: CanvasImageSource, w: number, h: number, r?: number) => void;
 }
 type W = (ctx: CanvasRenderingContext2D, it: MotionItem, t: number, a: WidgetApi) => void;
 
@@ -676,7 +680,8 @@ export function widgetBox(it: MotionItem): { w: number; h: number } {
     cards: [n(it.w, Math.min(1500, items * 400)), n(it.cardH, 260)], chips: [Math.min(1600, items * 300), 96], checklist: [n(it.w, 900), items * 96], steps: [n(it.w, 1400) + 160, 260],
     compare: [n(it.w, 1400), n(it.h, 440)], bento: [n(it.w, 1500), n(it.h, 460)], stat: [n(it.size, 200) * 3, n(it.size, 200) * 1.5], 'chart-line': [n(it.w, 760), n(it.h, 440)],
     bars: [n(it.w, 800), n(it.h, 460)], donut: [n(it.size, 360) * 1.15, n(it.size, 360) * 1.15], progress: [n(it.w, 900), 130], window: [n(it.w, 900), n(it.h, 560)], phone: [n(it.w, 330), n(it.w, 330) * 2.05],
-    chat: [n(it.w, 900), Math.max(1, Array.isArray(it.messages) ? it.messages.length : 2) * 74], typing: [n(it.w, 1000), 110], button: [n(it.w, 420), 100], 'logo-reveal': [n(it.size, 220) * 2.5, n(it.size, 220) * 2.2],
+    chat: [n(it.w, 900), Math.max(1, Array.isArray(it.messages) ? it.messages.length : 2) * 74], cutout: [n(it.w, 520) + 32, n(it.h, 380) + 32], 'graph-panel': [n(it.w, 900), n(it.h, 560)],
+    slam: [Math.min(1700, str(it.text).length * n(it.size, 130) * 0.5), n(it.size, 130)], 'typewriter-tag': [str(it.text).length * 18 + 40, 52], tally: [Math.ceil(n(it.count, 7) / 5) * 170, 130], tape: [n(it.w, 220), 46], typing: [n(it.w, 1000), 110], button: [n(it.w, 420), 100], 'logo-reveal': [n(it.size, 220) * 2.5, n(it.size, 220) * 2.2],
   };
   const [w, h] = box[id] ?? [n(it.w, 520), n(it.h, 300)];
   return { w, h };

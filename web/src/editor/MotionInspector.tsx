@@ -124,9 +124,56 @@ function LayerEditor({ it, set, remove }: { it: MotionItem; set: (fn: (x: Motion
           </div>
         </>
       )}
-      {it.type === 'widget' && <p className="hint">Widget “{String(it.widget)}” — its full design arrives with the widget library; edit its fields in the recipe for now.</p>}
+      {it.type === 'widget' && <WidgetFields it={it} set={set} />}
       <Toggle label="Hidden" value={num('opacity', 1) === 0} onChange={(v) => set((x) => void (x.opacity = v ? 0 : 1))} />
       <button className="btn sm ghost" onClick={remove}><Icon name="trash" /> Delete layer</button>
     </Section>
+  );
+}
+
+const NL = String.fromCharCode(10);
+const TEXT_FIELDS = ['title', 'gold', 'sub', 'text', 'key', 'value', 'label', 'delta', 'name', 'tagline', 'role', 'placeholder', 'button', 'caption', 'vs', 'asset'];
+const NUM_FIELDS = ['size', 'w', 'h', 'count', 'press', 'markAt', 'tiltDeg', 'spread'];
+/** Edit a widget's own fields: texts, numbers, list items (one per line), values and colours. */
+function WidgetFields({ it, set }: { it: MotionItem; set: (fn: (x: MotionItem) => void, k?: string) => void }) {
+  const list = (k: string) => (Array.isArray(it[k]) ? (it[k] as unknown[]) : null);
+  const itemText = (v: unknown) => (typeof v === 'string' ? v : v && typeof v === 'object' ? String((v as { title?: string; text?: string }).title ?? (v as { text?: string }).text ?? '') : String(v));
+  const setList = (k: string, lines: string[]) => set((x) => {
+    const old = Array.isArray(x[k]) ? (x[k] as unknown[]) : [];
+    x[k] = lines.map((l, i) => {
+      const o = old[i];
+      if (o && typeof o === 'object') return 'title' in (o as object) ? { ...(o as object), title: l } : { ...(o as object), text: l };
+      return typeof old[0] === 'number' ? Number(l) || 0 : l;
+    });
+  }, `mgl${k}`);
+  return (
+    <>
+      <p className="hint">Widget “{String(it.widget)}”</p>
+      {TEXT_FIELDS.filter((k) => typeof it[k] === 'string').map((k) => (
+        <label key={k} className="field"><span>{k}</span><input value={String(it[k])} onChange={(e) => set((x) => void (x[k] = e.target.value), `mgf${k}`)} /></label>
+      ))}
+      {NUM_FIELDS.filter((k) => typeof it[k] === 'number').map((k) => (
+        <label key={k} className="field"><span>{k}</span><input type="number" value={Number(it[k])} onChange={(e) => set((x) => void (x[k] = Number(e.target.value)), `mgn${k}`)} /></label>
+      ))}
+      {['items', 'lines', 'values', 'labels', 'messages', 'highlight'].filter((k) => list(k)).map((k) => (
+        <label key={k} className="field"><span>{k} (one per line)</span>
+          <textarea rows={Math.min(6, list(k)!.length + 1)} value={list(k)!.map(itemText).join(NL)} onChange={(e) => setList(k, e.target.value.split(NL))} /></label>
+      ))}
+      {(['left', 'right'] as const).filter((k) => it[k] && typeof it[k] === 'object').map((k) => {
+        const side = it[k] as { title?: string; items?: string[] };
+        return (
+          <label key={k} className="field"><span>{k}: title, then items</span>
+            <textarea rows={4} value={[side.title ?? '', ...(side.items ?? [])].join(NL)} onChange={(e) => set((x) => { const [title, ...items] = e.target.value.split(NL); x[k] = { title, items }; }, `mgs${k}`)} /></label>
+        );
+      })}
+      {typeof it.color === 'string' && <label className="field"><span>Accent</span><input type="color" value={hex(it.color, '#ff6b4a')} onChange={(e) => set((x) => void (x.color = e.target.value), 'mgwc')} /></label>}
+      {Array.isArray(it.colors) && (
+        <div className="row wrap">
+          {(it.colors as string[]).slice(0, 4).map((c, i) => (
+            <label key={i} className="field"><span>Colour {i + 1}</span><input type="color" value={hex(c, '#ffffff')} onChange={(e) => set((x) => { const cs = [...(x.colors as string[])]; cs[i] = e.target.value; x.colors = cs; }, 'mgwcs')} /></label>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

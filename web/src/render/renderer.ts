@@ -1,5 +1,5 @@
 import { keyed } from './chroma';
-import { drawMotion } from '../motion/render';
+import { drawMotion, motionAssetRefs, type MotionEnv } from '../motion/render';
 import { activePips, drawPip, pipAsClip } from '../lib/pip';
 import { focusShift } from '../lib/framing';
 import type { Asset, CaptionLine, Clip, EffectLayer, Overlay, Project, Transition } from '../types';
@@ -51,7 +51,20 @@ export function imagesNeededAt(m: RenderModel, t: number): string[] {
   }
   for (const o of m.project.overlays) if (o.assetId && t >= o.start && t <= o.start + o.duration) ids.push(o.assetId);
   for (const c of activePips(m.project, t)) if (m.assets.get(c.assetId)?.kind === 'image') ids.push(c.assetId);
+  for (const ref of motionAssetRefs(m.project.motion, t)) {
+    const a = assetByRef(m, ref);
+    if (a?.kind === 'image') ids.push(a.id);
+  }
   return ids;
+}
+
+/** A motion layer's "asset": an asset id, a file name, or a file name without its extension. */
+export function assetByRef(m: RenderModel, ref: string) {
+  const hit = m.assets.get(ref);
+  if (hit) return hit;
+  const r = ref.toLowerCase();
+  for (const a of m.assets.values()) if (a.name.toLowerCase() === r || a.name.toLowerCase().replace(/\.[^.]+$/, '') === r) return a;
+  return undefined;
 }
 
 export const outputSize = (p: Project, preview?: number) => {
@@ -348,7 +361,8 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
     if (a) drawPip(ctx, c, t, (a.kind === 'video' ? src.clip(pipAsClip(c), a, c.trimIn + (t - c.start)) : src.image(a.id)) as never, W, H);
   }
   ctx.restore();
-  if (p.motion?.length) drawMotion(ctx, p.motion, 'full', t, W, H, m.lines.flatMap((l) => l.words));
+  const menv: MotionEnv = { words: m.lines.flatMap((l) => l.words), image: (ref) => { const a = assetByRef(m, ref); return a?.kind === 'image' ? (src.image(a.id) as CanvasImageSource | undefined) : undefined; } };
+  if (p.motion?.length) drawMotion(ctx, p.motion, 'full', t, W, H, menv);
   for (const fx of p.effects) {
     if (fx.kind === 'none') continue;
     const k = effectAmount(fx, t, p.clips, m.length);
@@ -359,7 +373,7 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
       else if (c?.kind === 'particles' && c.particles) drawParticles(ctx, c.particles, fx.intensity * k, t, W, H, effectQuality());
     } else drawEffect(ctx, fx.kind, fx.intensity * k, t, W, H, fx.params);
   }
-  if (p.motion?.length) drawMotion(ctx, p.motion, 'overlay', t, W, H, m.lines.flatMap((l) => l.words));
+  if (p.motion?.length) drawMotion(ctx, p.motion, 'overlay', t, W, H, menv);
   for (const o of p.overlays) drawOverlay(ctx, o, t, src, W, H);
   if (p.captions.enabled) drawCaptions(ctx, m.lines, t, p.captions, W, H);
   if (p.captions.typography !== false) drawTypography(ctx, p.typo, t, W, H, m.beats, p.captions.enabled && m.lines.length ? p.captions.position / 100 : null);

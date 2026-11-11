@@ -1,0 +1,14 @@
+{"autoStudioRecipe":1,"palette":{"bg":"#efe6d4","card":"#fdfbf6","text":"#1f1e1d","muted":"#6b604e","accents":["#d8342c","#ffe14a","#2f6fde"],"font":"Oswald"},"items":[
+{"type":"background","kind":"paper","colors":["#efe6d4","creased"],"start":0,"dur":9},
+{"type":"widget","id":"cutout","start":0.2,"dur":3.6,"x":-420,"y":30,"w":560,"h":380,"asset":"0-03","caption":"Sunrise run · 2026","tiltDeg":-4},
+{"type":"widget","id":"slam","start":0.6,"dur":3.2,"x":420,"y":-120,"text":"Why mornings win","key":"mornings","size":120},
+{"type":"widget","id":"typewriter-tag","start":1.2,"dur":2.6,"x":420,"y":40,"text":"LONDON, 1952"},
+{"type":"widget","id":"arrow","start":1.8,"dur":2,"from":[200,140],"to":[-120,60],"bend":-0.35,"color":"#d8342c"},
+{"type":"camera","start":0,"dur":4,"keys":[{"t":0,"zoom":1},{"t":4,"zoom":1.05,"ease":"ease"}]},
+{"type":"widget","id":"graph-panel","start":4,"dur":5,"x":-360,"y":0,"w":820,"h":520,"title":"The problem","items":["Late nights","No plan","Snooze x3"]},
+{"type":"widget","id":"tally","start":4.6,"dur":4.4,"x":420,"y":-60,"count":7},
+{"type":"widget","id":"cutout","start":5.2,"dur":3.8,"x":440,"y":170,"w":360,"h":240,"label":"Alarm clock","tiltDeg":5},
+{"type":"widget","id":"circle-draw","start":6,"dur":3,"x":-470,"y":3,"w":260,"h":80,"color":"#d8342c"},
+{"type":"light","id":"film-grain","start":0,"dur":9},
+{"type":"light","id":"vignette","start":0,"dur":9}
+]}

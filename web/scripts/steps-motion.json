@@ -127,5 +127,38 @@
  },
  {
   "shot": "motion-arabic-band"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '16:9').click(); [...document.querySelectorAll('.mgfx button')].find((b) => b.textContent.trim() === 'Full frame').click(); return '16:9 full'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(async () => { const txt = await (await fetch('/scripts/fixtures/recipe-paper.json')).text(); const ta = [...document.querySelectorAll('.mgfx textarea')][1]; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, txt); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 300)); [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Insert at playhead')).click(); await new Promise((r) => setTimeout(r, 400)); return 'paper inserted · blocks ' + document.querySelectorAll('.t-mgfx .item.mgfx').length + ' · layers listed ' + [...document.querySelectorAll('.mgfx-layer')].filter((b) => /cutout|slam|graph-panel/.test(b.textContent)).length; })()"
+ },
+ {
+  "eval": "(__seek(14), 'seek 14')"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "eval": "'paper frame hash ' + __px()"
+ },
+ {
+  "shot": "motion-paper"
+ },
+ {
+  "eval": "(async () => { const txt = await (await fetch('/scripts/fixtures/recipe-widgets.json')).text(); const ta = [...document.querySelectorAll('.mgfx textarea')][1]; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, txt); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 300)); const rep = document.querySelector('.mgfx-report').innerText.split(String.fromCharCode(10))[0]; [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Insert at playhead')).click(); await new Promise((r) => setTimeout(r, 400)); return 'widget gallery: ' + rep; })()"
+ },
+ {
+  "eval": "(__seek(20.9), 'seek 20.9')"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "shot": "motion-widgets"
  }
 ]

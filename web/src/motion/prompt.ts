@@ -2,6 +2,8 @@
 import type { MotionPlacement } from './types';
 import { PALETTES } from './recipe';
 import { LUCIDE } from './lucide';
+import { STYLE_PACKS } from './packs/paper';
+import { userPackDirection, type UserPack } from './packs/importer';
 
 export const MOTION_FONTS = ['Montserrat', 'Poppins', 'Bebas Neue', 'Anton', 'Oswald', 'Playfair Display', 'League Spartan', 'Archivo Black', 'Barlow Condensed', 'Bungee', 'Inter', 'Permanent Marker', 'Caveat Brush', 'Pacifico', 'Cairo', 'Tajawal', 'Almarai', 'Changa', 'El Messiri', 'Reem Kufi', 'Lalezar', 'Amiri', 'Noto Kufi Arabic', 'Noto Naskh Arabic'];
 export const TEXT_INS = ['fade-in', 'cinematic-rise', 'line-rise', 'slide-up', 'drop-bounce', 'pop-up', 'elastic-pop', 'stomp', 'blur-in', 'pro-rise-glow', 'wipe-reveal', 'saas-mask-up', 'typewriter', 'saas-words', 'slide-left-words', 'glitch-in', 'neon-flicker', 'rotate-in', 'zoom-blur-in'];
@@ -48,6 +50,10 @@ export const WIDGETS: Record<string, string> = {
   arrow: '{from:[x,y], to:[x,y], bend:0.3, color} (frame coords, draws on)',
   'circle-draw': '{x, y, w, h, color} (hand-drawn circle around something)',
   confetti: '{x, y, count:40, colors:[…]}',
+  starburst: '{text:"BOOM!", color, color2, size:420, points:14} (comic burst behind a punch word)',
+  'plus-badge': '{text:"+1", icon:"heart", color, at:[0.3, 1.2]}',
+  'hud-rings': '{size:520, color, label:"TARGET LOCKED"}',
+  spotlight: '{w:700, color, on:0.2} (stage light cone from above onto x / y)',
 };
 
 export interface PromptOptions {
@@ -60,6 +66,8 @@ export interface PromptOptions {
   /** Narration in the chosen range: "0.42 word" lines, times relative to the recipe start. */
   narration?: { t: number; w: string }[];
   assets?: string[];
+  /** An imported style pack (style = `user:<id>`). */
+  userPack?: UserPack;
 }
 
 export function frameFor(placement: MotionPlacement, aspect: string) {
@@ -77,7 +85,10 @@ export function buildMotionPrompt(o: PromptOptions): string {
   const where = o.placement === 'band' ? 'the TOP band of a split-screen vertical reel (the person talking fills the other half — not in your recipe)'
     : o.placement === 'overlay' ? 'a TRANSPARENT layer over my video: no full-frame backgrounds, keep the centre mostly clear, use cards / titles / callouts at the sides'
     : 'the FULL frame (the motion graphics are the whole picture)';
-  const style = o.style === 'free' ? 'Free: invent a bold, coherent art direction for THIS idea (palette 3–5 colours, a font pairing, a motif that links the scenes, a camera language). Never the default "dark radial background + neon ring + big title".'
+  const pack = STYLE_PACKS.find((x) => o.style === `pack:${x.id}`);
+  const style = o.userPack && o.style === `user:${o.userPack.id}` ? userPackDirection(o.userPack) : pack ? `${pack.direction}
+Use this palette: ${JSON.stringify(pack.palette)}.${pack.script ? `
+If I gave no script, structure the story as: ${pack.script}.` : ''}` : o.style === 'free' ? 'Free: invent a bold, coherent art direction for THIS idea (palette 3–5 colours, a font pairing, a motif that links the scenes, a camera language). Never the default "dark radial background + neon ring + big title".'
     : `Use the palette "${o.style}" and its mood.`;
   const narr = o.narration?.length ? `\nVOICE (sync to it — times in seconds from the recipe start; land each key word / number on its spoken word, one beat per sentence):\n${o.narration.map((w) => `${w.t.toFixed(2)} ${w.w}`).join(' ')}\n` : '';
   const icons = Object.keys(LUCIDE).join(', ');
@@ -110,7 +121,7 @@ ITEM TYPES:
 • svg — {"type":"svg","svg":"<svg viewBox='0 0 400 300'>…</svg>","x","y","w","h","start","dur","in"} (flat vector drawing; single quotes inside; no text, no external images)
 • icon — {"type":"icon","name","style":"line"|"gradient"|"neon"|"badge"|"squircle"|"glass","color","size","x","y","start","dur","in","loop"}
 • widget — {"type":"widget","id":"…","start","dur","x","y","scale","color", …fields}. Widgets:
-${Object.entries(WIDGETS).map(([k, v]) => `  - ${k}: ${v}`).join('\n')}
+${Object.entries({ ...WIDGETS, ...(pack?.widgets ?? {}) }).map(([k, v]) => `  - ${k}: ${v}`).join('\n')}
 • placeholder — {"type":"placeholder","kind":"person"|"photo"|"product"|"logo"|"screen","label","w","h","x","y","start","dur"} (a picture I replace)
 • light — {"type":"light","id":${LIGHTS.map((k) => `"${k}"`).join('|')},"start","dur"}
 • camera — {"type":"camera","start","dur","shake":0,"keys":[{"t":0,"zoom":1.12,"x":0,"y":0},{"t":1.5,"zoom":1,"x":0,"y":0,"ease":"fast-slow"}]} (every layer in its time follows it; zoom ≥ 1)
