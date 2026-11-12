@@ -2,6 +2,13 @@
 export interface NewsItem { title: string; text: string; tryIt?: { event: string; detail?: string } }
 export const WHATS_NEW: { version: string; items: NewsItem[] }[] = [
   {
+    version: '5.3.0',
+    items: [
+      { title: 'Cartoon style', text: 'Bean-head cartoon characters with big eyes, ink outlines and bright painted sets — same 18 scene designs, poses and talking as Stick figure. Try the “Max and the 3,000 coffees” sample.', tryIt: { event: 'autostudio:dialog', detail: 'story' } },
+      { title: 'Smart layers for gameplay', text: 'The app finds the game HUD and your facecam, then adds hype alerts, a kill counter, round tabs and a facecam frame — never over the HUD or the action.', tryIt: { event: 'autostudio:tab', detail: 'mgfx' } },
+    ],
+  },
+  {
     version: '5.2.0',
     items: [
       { title: 'Stick figure story', text: 'A new style with characters that act out your story — 13 poses, 7 faces, blinking, talking with your voice, 7 sets and props. Try the “Sam and the one-hour rule” sample.', tryIt: { event: 'autostudio:dialog', detail: 'story' } },

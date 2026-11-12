@@ -15,12 +15,13 @@ import { getKit, variantOf } from '../motion/styles';
 import { frameOf } from '../motion/story/model';
 
 /** Preview overlay switch: show detected faces (green) and calm zones (blue). */
-export const useZones = create<{ on: boolean; set: (on: boolean) => void }>((set) => ({ on: false, set: (on) => set({ on }) }));
+export const useZones = create<{ on: boolean; game: boolean; set: (on: boolean) => void; setGame: (game: boolean) => void }>((set) => ({ on: false, game: false, set: (on) => set({ on }), setGame: (game) => set({ game }) }));
 
-const KIND_LABEL: Record<Suggestion['kind'], string> = { name: 'Name tag', number: 'Number card', list: 'Checklist', quote: 'Quote card', topic: 'Topic tab', cta: 'Call to action', emoji: 'Reaction' };
+const KIND_LABEL: Record<Suggestion['kind'], string> = { name: 'Name tag', number: 'Number card', list: 'Checklist', quote: 'Quote card', topic: 'Topic tab', cta: 'Call to action', emoji: 'Reaction', alert: 'Hype alert', counter: 'Kill counter', facecam: 'Facecam frame' };
 const PRESETS = [
   { id: 'talking', name: 'Talking head', kinds: ['name', 'number', 'list', 'quote', 'topic', 'cta', 'emoji'] as Suggestion['kind'][] },
   { id: 'podcast', name: 'Podcast / interview', kinds: ['name', 'quote', 'topic', 'number', 'cta'] as Suggestion['kind'][] },
+  { id: 'gameplay', name: 'Gameplay', kinds: ['facecam', 'alert', 'counter', 'topic', 'cta', 'emoji'] as Suggestion['kind'][], game: true },
 ];
 
 export function SmartLayers() {
@@ -58,17 +59,18 @@ export function SmartLayers() {
     }
   };
   const suggest = () => {
-    if (!words.length) return toast('Smart layers follow what is said — create captions first (Captions panel → Transcribe)', 'info');
-    const ch = p.chapters?.length ? p.chapters : suggestChapters(words, words[words.length - 1].end);
-    const kinds = PRESETS.find((x) => x.id === preset)!.kinds;
-    setList(suggestLayers(words, ch).filter((s) => kinds.includes(s.kind)));
+    if (!words.length && !(preset === 'gameplay' && p.footage?.cam)) return toast('Smart layers follow what is said — create captions first (Captions panel → Transcribe)', 'info');
+    const ch = p.chapters?.length ? p.chapters : words.length ? suggestChapters(words, words[words.length - 1].end) : [];
+    const pr = PRESETS.find((x) => x.id === preset)!;
+    setList(suggestLayers(words, ch, { game: !!pr.game, an: p.footage, length: p.length }).filter((s) => pr.kinds.includes(s.kind)));
   };
+  const game = !!PRESETS.find((x) => x.id === preset)?.game;
   const add = () => {
     const chosen = list.filter((s) => s.on);
     if (!chosen.length) return;
     update((d) => {
       d.motion = (d.motion ?? []).filter((g) => !chosen.some((s) => g.id.startsWith(`smart_${s.id}_`)));
-      for (const s of chosen) d.motion.push(placeSuggestion(s, d.footage, frameOf(d), pal));
+      for (const s of chosen) d.motion.push(placeSuggestion(s, d.footage, frameOf(d), pal, game));
       d.motion.sort((a, b) => a.start - b.start);
     });
     toast(`${chosen.length} smart layers added around the faces — drag any of them on the preview to adjust`, 'ok');
@@ -80,18 +82,26 @@ export function SmartLayers() {
     <div className="smart" data-tour="smart">
       <div className="look-grid">
         {PRESETS.map((pr) => (
-          <LiveThumb key={pr.id} width={128} height={72} className={preset === pr.id ? 'on' : ''} title={pr.name} onClick={() => setPreset(pr.id)}
+          <LiveThumb key={pr.id} width={128} height={72} className={preset === pr.id ? 'on' : ''} title={pr.name} onClick={() => (setPreset(pr.id), zones.setGame(!!pr.game))}
             group={makeGroup([
               { id: 'bg', type: 'background', kind: 'gradient', colors: ['#2a2f3a', '#151820'], start: 0, dur: 3 },
-              ...(pr.id === 'podcast' ? [-480, 480] : [-380]).map((x, i) => ({ id: `f${i}`, type: 'shape' as const, shape: 'ellipse', w: 260, h: 320, x, y: -60, color: '#c9a184', start: 0, dur: 3 })),
-              { id: 'n', type: 'widget', widget: 'headline', title: pr.id === 'podcast' ? 'Sarah · Guest' : 'Your name', size: 64, x: pr.id === 'podcast' ? -480 : 300, y: 300, start: 0.3, dur: 2.7, in: 'slide-from-left' },
-              { id: 't', type: 'widget', widget: 'tag', text: 'TOPIC', x: 620, y: -380, start: 0.6, dur: 2.4 },
+              ...(pr.id === 'gameplay' ? [
+                { id: 'hp', type: 'shape' as const, shape: 'roundrect', w: 420, h: 40, x: -660, y: 440, color: '#e74c3c', start: 0, dur: 3 },
+                { id: 'mm', type: 'shape' as const, shape: 'roundrect', w: 240, h: 240, x: 760, y: -360, color: '#3a4256', start: 0, dur: 3 },
+                { id: 'cam', type: 'shape' as const, shape: 'roundrect', w: 360, h: 270, x: 690, y: 330, color: pal.accents[0], fill: false, lineWidth: 12, start: 0, dur: 3 },
+                { id: 'face', type: 'shape' as const, shape: 'ellipse', w: 130, h: 160, x: 690, y: 330, color: '#c9a184', start: 0, dur: 3 },
+                { id: 'al', type: 'text' as const, text: 'NO WAY!', size: 130, weight: 900, font: 'Oswald', color: '#ffffff', stroke: { color: '#111', width: 10 }, rotation: -6, x: -60, y: -330, start: 0.4, dur: 2.6, in: 'stomp' },
+              ] : [
+                ...(pr.id === 'podcast' ? [-480, 480] : [-380]).map((x, i) => ({ id: `f${i}`, type: 'shape' as const, shape: 'ellipse', w: 260, h: 320, x, y: -60, color: '#c9a184', start: 0, dur: 3 })),
+                { id: 'n', type: 'widget' as const, widget: 'headline', title: pr.id === 'podcast' ? 'Sarah · Guest' : 'Your name', size: 64, x: pr.id === 'podcast' ? -480 : 300, y: 300, start: 0.3, dur: 2.7, in: 'slide-from-left' },
+                { id: 't', type: 'widget' as const, widget: 'tag', text: 'TOPIC', x: 620, y: -380, start: 0.6, dur: 2.4 },
+              ]),
             ], { w: 1920, h: 1080 }, pal, 3)}>
             <span className="thumb-label">{pr.name}</span>
           </LiveThumb>
         ))}
       </div>
-      <p className="hint">{an ? `Analysed ${fmtTime(an.faces.length / an.fps)} · faces in ${stats!.pct}% of it${stats!.two ? ' · two people (podcast)' : ''}${stale ? ' · the video changed — analyse again' : ''}` : 'The app looks at your video on this PC to find faces and empty space, then places name tags, quotes and topic tabs from what is said.'}</p>
+      <p className="hint">{an ? `Analysed ${fmtTime(an.faces.length / an.fps)} · faces in ${stats!.pct}% of it${stats!.two ? ' · two people (podcast)' : ''}${an.hud?.length ? ` · ${an.hud.length} HUD area${an.hud.length === 1 ? '' : 's'}` : ''}${an.cam ? ' · facecam found' : ''}${stale ? ' · the video changed — analyse again' : ''}` : 'The app looks at your video on this PC to find faces and empty space, then places name tags, quotes and topic tabs from what is said.'}</p>
       <div className="row wrap">
         <button className="btn sm primary" disabled={!!busy || (!p.clips.length && !p.pips?.length)} onClick={() => void analyse()}><Icon name="scan-face" /> {busy || (an ? 'Analyse again' : 'Analyse the video')}</button>
         {busy && <button className="btn sm ghost" onClick={() => stop.current?.abort()}>Stop</button>}
@@ -102,7 +112,7 @@ export function SmartLayers() {
         <>
           <div className="smart-list">
             {list.map((s) => {
-              const g = placeSuggestion(s, an, frame, pal);
+              const g = placeSuggestion(s, an, frame, pal, game);
               return (
                 <div key={s.id} className={`smart-item ${s.on ? '' : 'off'}`}>
                   <LiveThumb width={96} height={54} title={`${KIND_LABEL[s.kind]} at ${fmtTime(s.t)}`} onClick={() => useEditor.getState().seek(s.t + 0.2)}
@@ -127,12 +137,14 @@ export function SmartLayers() {
 export function ZonesOverlay() {
   const p = useProject();
   const time = useEditor((s) => s.time);
-  const on = useZones((s) => s.on);
+  const on = useZones((s) => s.on), game = useZones((s) => s.game);
   const an = p.footage;
   if (!on || !an) return null;
-  const faces = facesAt(an, time), zs = freeZones(an, time, 1);
+  const faces = facesAt(an, time), zs = freeZones(an, time, 1, 4, game);
   return (
     <div className="zones-overlay">
+      {(an.hud ?? []).map((z, i) => <i key={`h${i}`} className="zone hud" style={{ left: `${z.x * 100}%`, top: `${z.y * 100}%`, width: `${z.w * 100}%`, height: `${z.h * 100}%` }}><span>HUD</span></i>)}
+      {an.cam && <i className="zone cam" style={{ left: `${an.cam.x * 100}%`, top: `${an.cam.y * 100}%`, width: `${an.cam.w * 100}%`, height: `${an.cam.h * 100}%` }}><span>facecam</span></i>}
       {zs.map((z, i) => <i key={`z${i}`} className="zone free" style={{ left: `${z.x * 100}%`, top: `${z.y * 100}%`, width: `${z.w * 100}%`, height: `${z.h * 100}%` }}><span>free</span></i>)}
       {faces.map((f, i) => <i key={`f${i}`} className="zone face" style={{ left: `${f[0] * 100}%`, top: `${f[1] * 100}%`, width: `${f[2] * 100}%`, height: `${f[3] * 100}%` }}><span>face{f[4] > 0.25 ? ' · talking' : ''}</span></i>)}
     </div>

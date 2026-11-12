@@ -59,3 +59,13 @@ describe('stick figure scene picks follow the story', () => {
     expect(scenes.map((s) => s.templateId)).toEqual(['walk-in', 'desk', 'shrug', 'alone', 'idea', 'two-talk', 'celebrate']);
   });
 });
+
+describe('cartoon sample picks', () => {
+  it('“his friend said” is a conversation, a colon alone is not speech', () => {
+    const texts = ['His friend said: try water first, then one coffee!', 'Suddenly, he had more energy than ever.', 'He counted: three thousand cups in one year!'];
+    const scenes = texts.map((text, i) => ({ id: `s${i}`, start: i * 4, end: i * 4 + 4, text, words: [], hints: ['number' as const], keys: [], templateId: '', slots: {}, source: 'template' as const }));
+    pickTemplates(scenes, STICK, true);
+    expect(scenes.map((s) => s.templateId).slice(0, 2)).toEqual(['two-talk', 'idea']);
+    expect(scenes[2].templateId).not.toBe('say');
+  });
+});

@@ -67,6 +67,7 @@ run motion "http://localhost:5173/#demo" steps-motion.json
 run story "http://localhost:5173/#demo" steps-story.json
 run smart "http://localhost:5173/#demo" steps-smart.json
 run stick "http://localhost:5173/#demo" steps-stick.json
+run cartoon "http://localhost:5173/#demo" steps-cartoon.json
 run pip "http://localhost:5173/#demo" steps-pip.json
 run wizard "http://localhost:5173/" steps-wizard.json simple
 echo "=== done"

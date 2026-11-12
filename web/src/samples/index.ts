@@ -49,6 +49,22 @@ Thirty days later, his focus was up by forty percent.
 Sam smiled. Small change, big difference. Try it tomorrow.`,
   },
   {
+    id: 'toon-max', title: 'Max and the 3,000 coffees', style: 'cartoon', variant: 'day', lang: 'en',
+    script: `Meet Max. Max loved coffee. A lot of coffee.
+
+Every day at his desk, he drank cup after cup. Why was he still so tired?
+
+He counted: three thousand cups in one year!
+
+His friend said: try water first, then one coffee!
+
+Max laughed. Then he tried it anyway.
+
+Suddenly, he had more energy than ever.
+
+Max smiled. Sometimes less is more.`,
+  },
+  {
     id: 'doc-ar', title: 'لماذا نوافذ الطائرات دائرية', style: 'documentary', variant: 'warm', lang: 'ar',
     script: `انظر إلى أي نافذة طائرة. لن تجدها مربعة أبدًا. لماذا؟
 
@@ -93,5 +109,21 @@ Sam smiled. Small change, big difference. Try it tomorrow.`,
 بعد ثلاثين يومًا، زاد تركيزه أربعين بالمئة.
 
 ابتسم سامي. تغيير صغير، فرق كبير. جرّبه غدًا.`,
+  },
+  {
+    id: 'toon-ar', title: 'ماكس وثلاثة آلاف قهوة', style: 'cartoon', variant: 'day', lang: 'ar',
+    script: `هذا ماكس. ماكس يحب القهوة. يحبها كثيرًا.
+
+كل يوم على مكتبه يشرب كوبًا بعد كوب. لماذا ما زال متعبًا؟
+
+عدّ الأكواب: ثلاثة آلاف كوب في سنة واحدة!
+
+قال له صديقه: جرّب الماء أولًا، ثم قهوة واحدة!
+
+ضحك ماكس. ثم جرّب ذلك على أي حال.
+
+فجأة صار عنده طاقة أكثر من أي وقت مضى.
+
+ابتسم ماكس. أحيانًا القليل أفضل.`,
   },
 ];

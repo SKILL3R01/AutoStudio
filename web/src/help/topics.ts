@@ -27,8 +27,8 @@ export const TOPICS: HelpTopic[] = [
       ar: ['اكتب فكرة واحدة في كل جملة: كل جملة تصبح مشهدًا.', 'ضع أرقامًا في نصك («40%»، «2 مليون»): تصبح عدادات ورسومًا متحركة.', 'اقفل المشهد الذي يعجبك (🔒) حتى لا يستبدله الذكاء الاصطناعي.', 'جرّب بمثال جاهز لترى كل الخطوات في دقيقة.'],
     },
     problems: {
-      en: [['The scenes don’t match my voice timing', 'Use “Use my voiceover” (captions needed) or press “Make the voice” in the storyboard.'], ['A style card says “soon”', 'The Cartoon style arrives in a next update; Stick figure story is ready.']],
-      ar: [['المشاهد لا تطابق توقيت صوتي', 'استخدم «استخدم تعليقي الصوتي» (تحتاج الترجمة) أو اضغط «اصنع الصوت» في لوحة المشاهد.'], ['بطاقة أسلوب مكتوب عليها «قريبًا»', 'أسلوب الكرتون يأتي في تحديث قادم؛ قصة الشخصيات العصوية جاهزة.']],
+      en: [['The scenes don’t match my voice timing', 'Use “Use my voiceover” (captions needed) or press “Make the voice” in the storyboard.']],
+      ar: [['المشاهد لا تطابق توقيت صوتي', 'استخدم «استخدم تعليقي الصوتي» (تحتاج الترجمة) أو اضغط «اصنع الصوت» في لوحة المشاهد.']],
     },
     tour: [
       { sel: '[data-tour="step-script"]', en: '① Start here: your script, your voiceover or just an idea.', ar: '① ابدأ هنا: نصك أو تعليقك الصوتي أو مجرد فكرة.' },
@@ -104,14 +104,14 @@ export const TOPICS: HelpTopic[] = [
   {
     id: 'smart', group: 'Editing',
     title: { en: 'Smart layers on your video', ar: 'الطبقات الذكية على الفيديو' },
-    what: { en: 'Name tags, quotes, numbers and topic tabs placed around the face from what is said — for talking heads and podcasts.', ar: 'أسماء واقتباسات وأرقام وعناوين مواضيع توضع حول الوجه حسب الكلام — للفيديوهات الحوارية والبودكاست.' },
+    what: { en: 'Name tags, quotes, numbers and topic tabs placed around the face from what is said — for talking heads and podcasts. On gameplay: hype alerts, a kill counter and a facecam frame, never over the HUD.', ar: 'أسماء واقتباسات وأرقام وعناوين مواضيع توضع حول الوجه حسب الكلام — للفيديوهات الحوارية والبودكاست. وفي الألعاب: تنبيهات حماس وعدّاد وإطار للكاميرا، دون تغطية واجهة اللعبة.' },
     steps: {
-      en: ['Pick Talking head or Podcast.', 'Analyse the video: the app finds faces and empty space on this PC.', 'Untick what you don’t want, edit the words, then Add.'],
-      ar: ['اختر «متحدث» أو «بودكاست».', 'حلّل الفيديو: البرنامج يجد الوجوه والمساحات الفارغة على جهازك.', 'ألغِ ما لا تريده، عدّل الكلمات، ثم أضف.'],
+      en: ['Pick Talking head, Podcast or Gameplay.', 'Analyse the video: the app finds faces and empty space on this PC.', 'Untick what you don’t want, edit the words, then Add.'],
+      ar: ['اختر «متحدث» أو «بودكاست» أو «ألعاب».', 'حلّل الفيديو: البرنامج يجد الوجوه والمساحات الفارغة على جهازك.', 'ألغِ ما لا تريده، عدّل الكلمات، ثم أضف.'],
     },
     tips: {
-      en: ['Turn on “Show zones” to see the faces (green) and the free space (blue) the app uses.', 'Say a name clearly (“I’m Sarah Jones”): it becomes a name tag next to the speaker.', 'Every layer can still be dragged on the preview afterwards.'],
-      ar: ['فعّل «إظهار المناطق» لترى الوجوه (أخضر) والمساحات الفارغة (أزرق).', 'قل الاسم بوضوح («أنا سارة»): يصبح بطاقة اسم بجانب المتحدث.', 'يمكنك سحب أي طبقة على المعاينة بعد ذلك.'],
+      en: ['Turn on “Show zones” to see the faces (green), the free space (blue), the game HUD (red) and the facecam (purple).', 'Gameplay: shout “no way”, “let’s go” or “got him” — they become alerts and the counter.', 'Say a name clearly (“I’m Sarah Jones”): it becomes a name tag next to the speaker.', 'Every layer can still be dragged on the preview afterwards.'],
+      ar: ['فعّل «إظهار المناطق» لترى الوجوه (أخضر) والمساحات الفارغة (أزرق) وواجهة اللعبة (أحمر) والكاميرا (بنفسجي).', 'في الألعاب: كلمات مثل «مستحيل» و«يلا» تصبح تنبيهات.', 'قل الاسم بوضوح («أنا سارة»): يصبح بطاقة اسم بجانب المتحدث.', 'يمكنك سحب أي طبقة على المعاينة بعد ذلك.'],
     },
     problems: {
       en: [['No faces found', 'Faces must be visible and not too small; the analysis needs the video on the main track or a picture-in-picture.'], ['A layer covers something', 'Drag it on the preview, or turn on Show zones and analyse again after changing the framing.']],

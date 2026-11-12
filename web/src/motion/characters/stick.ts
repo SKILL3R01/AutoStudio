@@ -63,8 +63,30 @@ export function stateAt(it: MotionItem, t: number): { pose: Pose; face: Face; na
   return { pose, face, name: cur.pose };
 }
 
+type P = [number, number];
+/** Joint positions of a figure H px tall (origin = figure centre, feet on y = H / 2), facing right. */
+export interface Skeleton { pose: Pose; face: Face; r: number; ground: number; hip: P; neck: P; sh: P; lElbow: P; lHand: P; rElbow: P; rHand: P; lKnee: P; lFoot: P; rKnee: P; rFoot: P; head: P; headRot: number }
+export function skeleton(it: MotionItem, t: number, H: number): Skeleton {
+  const { pose, face } = stateAt(it, t);
+  const r = H * 0.085, torso = H * 0.27 * (1 - pose.slump * 0.06), neck = H * 0.03, ua = H * 0.15, fa = H * 0.14, th = H * 0.2, sh = H * 0.2;
+  const legV = (t1: number, s1: number) => th * Math.cos(t1 * D) + sh * Math.cos((t1 + s1) * D);
+  const ground = H / 2, hipY = ground - Math.max(legV(pose.lt, pose.ls), legV(pose.rt, pose.rs)) - pose.jump * H;
+  const two = (x: number, y: number, a1: number, l1: number, a2: number, l2: number): [P, P] => {
+    const [dx1, dy1] = dir(a1), [dx2, dy2] = dir(a1 + a2), m: P = [x + dx1 * l1, y + dy1 * l1];
+    return [m, [m[0] + dx2 * l2, m[1] + dy2 * l2]];
+  };
+  const [tx, ty] = dir(180 + pose.lean);
+  const neckP: P = [tx * torso, hipY + ty * torso], shP: P = [tx * torso * 0.88, hipY + ty * torso * 0.88];
+  const [lElbow, lHand] = two(shP[0], shP[1], pose.lu, ua, pose.ll, fa), [rElbow, rHand] = two(shP[0], shP[1], pose.ru, ua, pose.rl, fa);
+  const [lKnee, lFoot] = two(0, hipY, pose.lt, th, pose.ls, sh), [rKnee, rFoot] = two(0, hipY, pose.rt, th, pose.rs, sh);
+  const [hdx, hdy] = dir(180 + pose.lean + pose.head);
+  return { pose, face, r, ground, hip: [0, hipY], neck: neckP, sh: shP, lElbow, lHand, rElbow, rHand, lKnee, lFoot, rKnee, rFoot, head: [neckP[0] + hdx * (neck + r), neckP[1] + hdy * (neck + r)], headRot: pose.head * 0.6 * D };
+}
+/** Blinking, shared by every look (seeded per character). */
+export const blinking = (it: MotionItem, t: number) => (t + rnd(n(it.seed, 1), 7) * 3) % (3.2 + rnd(n(it.seed, 1), 4) * 1.6) < 0.13;
+
 /** Is the character talking at local time t (narration words, or `talk` intervals / true)? Returns mouth opening 0..1. */
-function mouthAt(it: MotionItem, t: number, a: WidgetApi): number {
+export function mouthAt(it: MotionItem, t: number, a: WidgetApi): number {
   const talk = it.talk;
   if (!talk) return 0;
   const on = Array.isArray(talk) ? (talk as number[][]).some((r) => t >= n(r?.[0], 0) && t < n(r?.[1], 0)) : true;
@@ -276,7 +298,7 @@ const character: W = (ctx, it, t, a) => {
   }
   const blinkP = 3.2 + rnd(n(it.seed, 1), 4) * 1.6;
   const blink = (t + rnd(n(it.seed, 1), 7) * 3) % blinkP < 0.13;
-  drawFace(ctx, r, face, blink, mouthAt(it, t, a), n(it.look, 0.6), ink);
+  drawFace(ctx, r, face, blink, mouthAt(it, t, a), n(it.gaze, 0.6), ink);
   if (wear === 'glasses') {
     ctx.strokeStyle = ink;
     ctx.lineWidth = Math.max(2, r * 0.08);
@@ -302,44 +324,60 @@ const set: W = (ctx, it, t, a) => {
   const drift = Math.sin(t * 0.15) * w * 0.006;
   const sky = ctx.createLinearGradient(0, T, 0, G);
   const indoor = kind === 'office' || kind === 'home' || kind === 'classroom';
-  sky.addColorStop(0, sh(pal.bg, indoor ? 0.05 : -0.25));
-  sky.addColorStop(1, sh(pal.bg, indoor ? 0.18 : 0.12));
+  // Cartoon look: bright painted colours with ink outlines, clouds by day, no glows.
+  const toon = it.look === 'cartoon', day = toon && kind !== 'night' && kind !== 'stage', INK = '#2b1a2e';
+  const ink = (lw = 4) => { if (toon) (ctx.strokeStyle = INK), (ctx.lineWidth = lw), ctx.stroke(); };
+  sky.addColorStop(0, toon ? (indoor ? sh(pal.card, -0.04) : sh(pal.bg, -0.08)) : sh(pal.bg, indoor ? 0.05 : -0.25));
+  sky.addColorStop(1, toon ? (indoor ? pal.card : sh(pal.bg, 0.35)) : sh(pal.bg, indoor ? 0.18 : 0.12));
   ctx.fillStyle = sky;
   ctx.fillRect(L, T, w, h);
   const far = sh(pal.bg, -0.35), mid = sh(pal.bg, -0.2), lineC = sh(pal.text, -0.55);
   ctx.save();
   ctx.translate(drift, 0);
   if (kind === 'street' || kind === 'night' || kind === 'park') {
-    if (kind !== 'park') for (let i = 0; i < 60; i++) {
+    if (day) for (let i = 0; i < 3; i++) {
+      const cx = L + (((rnd(i, 8) * w + t * 12 * (i + 1)) % (w + 400)) - 200), cy = T + h * (0.1 + rnd(i, 9) * 0.18);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      for (const [dx, dy, rr] of [[0, 0, 50], [55, -20, 62], [115, 0, 48], [60, 18, 45]]) (ctx.moveTo(cx + dx + rr, cy + dy), ctx.arc(cx + dx, cy + dy, rr, 0, Math.PI * 2));
+      ctx.fill();
+      ink(3);
+    }
+    if (kind !== 'park' && !day) for (let i = 0; i < 60; i++) {
       ctx.fillStyle = `rgba(255,255,255,${0.25 + 0.5 * Math.abs(Math.sin(t * 1.3 + i))})`;
       ctx.fillRect(L + rnd(i, 3) * w, T + rnd(i, 5) * (G - T) * 0.55, 2.5, 2.5);
     }
     // Moon / sun.
-    ctx.fillStyle = kind === 'park' ? '#ffe9a8' : '#f4f1e6';
+    ctx.fillStyle = day ? '#ffd23f' : kind === 'park' ? '#ffe9a8' : '#f4f1e6';
     ctx.shadowColor = ctx.fillStyle;
-    ctx.shadowBlur = 40;
+    ctx.shadowBlur = toon ? 0 : 40;
     ctx.beginPath();
     ctx.arc(w * 0.36, T + h * 0.3, h * 0.055, 0, Math.PI * 2);
     ctx.fill();
+    ink(4);
     ctx.shadowBlur = 0;
   }
   if (kind === 'street') {
     for (let i = 0, x = L - 40; x < w / 2 + 40; i++) {
       const bw = w * (0.07 + rnd(i, 1) * 0.07), bh = h * (0.18 + rnd(i, 2) * 0.32);
-      ctx.fillStyle = i % 2 ? far : mid;
-      ctx.fillRect(x, G - bh, bw, bh);
-      ctx.fillStyle = acc2;
-      for (let wy = G - bh + 18; wy < G - 20; wy += 34) for (let wx = x + 12; wx < x + bw - 16; wx += 28) if (rnd(wx * 3 + wy, i) > 0.62) (ctx.globalAlpha = 0.55), ctx.fillRect(wx, wy, 10, 14);
+      ctx.fillStyle = toon ? ['#f4a259', '#e76f51', '#8ab17d', '#f6d186', '#a8dadc'][i % 5] : i % 2 ? far : mid;
+      ctx.beginPath();
+      ctx.rect(x, G - bh, bw, bh);
+      ctx.fill();
+      ink(4);
+      ctx.fillStyle = toon ? '#e8f6ff' : acc2;
+      for (let wy = G - bh + 18; wy < G - 20; wy += 34) for (let wx = x + 12; wx < x + bw - 16; wx += 28) if (toon ? (wx + wy) % 2 === 0 || rnd(wx * 3 + wy, i) > 0.4 : rnd(wx * 3 + wy, i) > 0.62) (ctx.globalAlpha = toon ? 1 : 0.55), ctx.fillRect(wx, wy, 10, 14);
       ctx.globalAlpha = 1;
       x += bw + 6;
     }
   } else if (kind === 'night' || kind === 'park') {
-    ctx.fillStyle = kind === 'park' ? sh('#4caf50', -0.35) : far;
+    ctx.fillStyle = kind === 'park' ? sh('#4caf50', toon ? 0.05 : -0.35) : far;
     ctx.beginPath();
     ctx.moveTo(L, G);
     for (let x = 0; x <= 10; x++) ctx.lineTo(L + (x / 10) * w, G - h * (0.08 + 0.07 * Math.sin(x * 1.7 + 1)));
     ctx.lineTo(w / 2, G);
     ctx.fill();
+    ink(4);
     if (kind === 'park') for (const tx of [-0.36, 0.38]) {
       ctx.fillStyle = sh('#2e7d32', -0.2);
       ctx.fillRect(tx * w - 8, G - h * 0.2, 16, h * 0.2);
@@ -393,7 +431,7 @@ const set: W = (ctx, it, t, a) => {
   }
   ctx.restore();
   // Ground.
-  ctx.fillStyle = sh(pal.bg, indoor ? -0.25 : -0.45);
+  ctx.fillStyle = toon ? (indoor ? '#d9a066' : kind === 'park' ? '#7cc06b' : kind === 'street' ? '#b8b0a8' : sh(pal.bg, -0.45)) : sh(pal.bg, indoor ? -0.25 : -0.45);
   ctx.fillRect(L, G, w, h / 2 - G);
   ctx.strokeStyle = sh(pal.text, -0.5);
   ctx.lineWidth = 3;
@@ -423,7 +461,7 @@ const set: W = (ctx, it, t, a) => {
     return;
   }
   ctx.fillStyle = pool;
-  ctx.fillRect(L, T, w, h);
+  if (!toon) ctx.fillRect(L, T, w, h);
   if (kind === 'street') {
     const px = lx - w * 0.17;
     ctx.strokeStyle = sh(pal.text, -0.45);

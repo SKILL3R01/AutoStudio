@@ -1,34 +1,16 @@
-/** Style kit registry: built-in kits, "coming soon" kits and the user's own styles (built on a base kit). */
-import type { MotionItem, MotionPalette } from '../types';
+/** Style kit registry: built-in kits and the user's own styles (built on a base kit). */
+import type { MotionPalette } from '../types';
 import { EXPLAINER, frameExplainer } from './explainer';
 import { DOCUMENTARY } from './documentary';
 import { STICK } from './stick';
-import { layer } from './kit';
-import type { SceneCtx, StyleKit } from './types';
-
-const BEAN_SVG = "<svg viewBox='0 0 220 280'><ellipse cx='110' cy='80' rx='62' ry='70' fill='#ffd7b0' stroke='#4a2340' stroke-width='8'/><circle cx='88' cy='78' r='9' fill='#4a2340'/><circle cx='132' cy='78' r='9' fill='#4a2340'/><path d='M85 112 Q110 132 135 112' stroke='#4a2340' stroke-width='7' fill='none' stroke-linecap='round'/><path d='M60 150 Q110 135 160 150 L172 262 L48 262 Z' fill='#ff7a45' stroke='#4a2340' stroke-width='8'/></svg>";
-
-/** A teaser scene for the gallery card of a style that is not ready yet. */
-const teaser = (svg: string, bg: string[]) => (items: MotionItem[], c: SceneCtx): MotionItem[] => [
-  layer(c, { type: 'background', kind: 'gradient', colors: bg }),
-  layer(c, { type: 'svg', svg, w: 260, h: 330, y: -10, loop: 'float', in: 'pop' }),
-  layer(c, { type: 'widget', widget: 'tag', text: 'COMING SOON', y: 230 }),
-  ...items,
-];
-
-export const CARTOON: StyleKit = {
-  id: 'cartoon', name: 'Cartoon', genre: 'cartoon', status: 'soon',
-  description: 'Bean-head cartoon characters with ink outlines in painted sets.',
-  includes: ['cartoon cast', 'painted sets', 'playful sound'],
-  variants: [{ id: 'day', name: 'Day', palette: { bg: '#8fd3ff', card: '#fff6e5', text: '#2b1a2e', muted: '#6b5a6e', accents: ['#ff7a45', '#ffd23f', '#4caf50'], font: 'Poppins' } }],
-  font: 'Poppins', templates: [], frameScene: teaser(BEAN_SVG, ['#8fd3ff', '#fff1c1']), direction: '', storyShape: 'hook fact → setting → 2–4 escalating beats → "But…" → ironic payoff', preview: [{ template: '', slots: {} }],
-};
+import { CARTOON } from './cartoon';
+import type { StyleKit } from './types';
 
 export const BUILTIN_KITS: StyleKit[] = [DOCUMENTARY, EXPLAINER, STICK, CARTOON];
-export { STICK };
+export { STICK, CARTOON };
 
 /** A user style: a base kit's scene designs with its own palette, font and art direction. */
-export interface MyStyle { id: string; name: string; base: 'explainer' | 'documentary' | 'stick'; palette: MotionPalette; font?: string; direction?: string; createdAt: number }
+export interface MyStyle { id: string; name: string; base: 'explainer' | 'documentary' | 'stick' | 'cartoon'; palette: MotionPalette; font?: string; direction?: string; createdAt: number }
 const KEY = 'myStyles';
 export const loadMyStyles = (): MyStyle[] => {
   try {
@@ -40,7 +22,7 @@ export const loadMyStyles = (): MyStyle[] => {
 export const saveMyStyles = (s: MyStyle[]) => localStorage.setItem(KEY, JSON.stringify(s));
 
 export function kitOfMyStyle(m: MyStyle): StyleKit {
-  const base = m.base === 'documentary' ? DOCUMENTARY : m.base === 'stick' ? STICK : EXPLAINER;
+  const base = m.base === 'documentary' ? DOCUMENTARY : m.base === 'stick' ? STICK : m.base === 'cartoon' ? CARTOON : EXPLAINER;
   return { ...base, id: m.id, name: m.name, genre: 'custom', base: base.id, variants: [{ id: 'mine', name: m.name, palette: m.palette }], font: m.font ?? base.font, direction: m.direction ? `${base.direction}\n${m.direction}` : base.direction, frameScene: base.frameScene === frameExplainer ? frameExplainer : base.frameScene };
 }
 

@@ -1,0 +1,68 @@
+[
+ {
+  "wait": 6000
+ },
+ {
+  "eval": "localStorage.setItem('llm', JSON.stringify({ preset: 'custom', url: 'http://localhost:1235/v1', key: '', model: '' })); sessionStorage.setItem('helpOn', '1'); localStorage.setItem('help:noTours', '1'); localStorage.setItem('help:noNews', '1'); location.reload(); 'configured'"
+ },
+ {
+  "waitFor": "!!(document.querySelector('.rail button') && document.querySelector('.tl-inner'))",
+  "timeout": 40000
+ },
+ {
+  "wait": 2500
+ },
+ {
+  "eval": "(() => { document.querySelector('[data-tour=story-top]').click(); return 'story opened'; })()"
+ },
+ {
+  "waitFor": "!!document.querySelector('.studio')",
+  "timeout": 10000
+ },
+ {
+  "eval": "(() => { let n = 0; while (document.querySelector('[data-tour-next]') && n < 8) (document.querySelector('[data-tour-next]').click(), n++); document.querySelector('[data-tour=try-sample]').click(); return 'samples'; })()"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "(() => { const c = document.querySelector('[data-sample=toon-max]'); if (!c) return 'NO STICK SAMPLE'; c.click(); return 'cartoon sample'; })()"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "eval": "'style on ' + document.querySelector('.style-card.on')?.dataset.style + ' · soon ' + [...document.querySelectorAll('.style-card.soon')].map((x) => x.dataset.style).join(',')"
+ },
+ {
+  "shot": "toon-style"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /storyboard/.test(b.textContent)).click(); return 'build'; })()"
+ },
+ {
+  "waitFor": "document.querySelectorAll('.scene-card').length > 3",
+  "timeout": 10000
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "eval": "'scenes ' + document.querySelectorAll('.scene-card').length + ' · designs ' + [...document.querySelectorAll('.scene-card .chip')].map((c) => c.textContent).join(',')"
+ },
+ {
+  "shot": "toon-board"
+ },
+ {
+  "eval": "(() => { document.querySelector('.scene-card .live-thumb').click(); return 'open scene 1'; })()"
+ },
+ {
+  "wait": 1200
+ },
+ {
+  "eval": "'design thumbs ' + document.querySelectorAll('.tpl-strip .live-thumb').length"
+ },
+ {
+  "shot": "toon-drawer"
+ }
+]

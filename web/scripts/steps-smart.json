@@ -43,6 +43,15 @@
   "eval": "'zone boxes ' + document.querySelectorAll('.zones-overlay .zone').length"
  },
  {
+  "eval": "(() => { const t = [...document.querySelectorAll('.smart .live-thumb')].find((x) => x.title === 'Gameplay'); if (!t) return 'NO GAMEPLAY PRESET'; t.click(); [...document.querySelectorAll('.smart button')].find((b) => b.textContent.includes('Suggest layers'))?.click(); return 'gameplay preset · suggestions ' + document.querySelectorAll('.smart-item').length; })()"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "'gameplay suggestions ' + document.querySelectorAll('.smart-item').length + ' · kinds ' + [...document.querySelectorAll('.smart-item b')].map((b) => b.textContent).join(',')"
+ },
+ {
   "shot": "smart"
  }
 ]

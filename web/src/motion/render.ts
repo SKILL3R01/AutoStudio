@@ -6,7 +6,7 @@ import { LUCIDE } from './lucide';
 import { CONTENT_WIDGETS, widgetBox, type WidgetApi } from './widgets';
 import { FX_WIDGET_DRAW, SCREEN_WIDGETS } from './fxwidgets';
 import { PAPER_WIDGETS } from './packs/paper';
-import { STICK_WIDGETS } from './characters/stick';
+import { CHARACTER_WIDGETS } from './characters';
 
 /** Closest icon name in the bundled set ("house" ← "home", "chart" ← "chart-line"…). */
 export function iconName(name: string): string {
@@ -180,7 +180,7 @@ function drawItem(ctx: CanvasRenderingContext2D, it: MotionItem, t: number, pal:
   place(ctx, it, p);
   if (it.type === 'text') return drawText(ctx, it, t, p, pal);
   if (it.type === 'widget' && api) {
-    const id = String(it.widget), fn = CONTENT_WIDGETS[id] ?? FX_WIDGET_DRAW[id] ?? PAPER_WIDGETS[id] ?? STICK_WIDGETS[id];
+    const id = String(it.widget), fn = CONTENT_WIDGETS[id] ?? FX_WIDGET_DRAW[id] ?? PAPER_WIDGETS[id] ?? CHARACTER_WIDGETS[id];
     if (fn) {
       if (p.reveal < 1) {
         const b = widgetBox(it);
