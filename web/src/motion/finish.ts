@@ -1,7 +1,6 @@
 /** Motion finishing: sound cues from the layers, chapter title cards between sections, thumbnail picks. */
 import type { Project } from '../types';
-import type { MotionGroup, MotionItem } from './types';
-import type { DirectorState } from './director/director';
+import type { MotionGroup, MotionItem, MotionPalette } from './types';
 import { ensureTrack, newAudioClip } from '../lib/audiotracks';
 
 export interface SoundCue { t: number; sound: string; volume: number; dur: number }
@@ -62,34 +61,34 @@ export function applyMotionSound(p: Project, level = 1): number {
   return cues.length;
 }
 
-/** Chapter title cards (2 s, over the motion) at the start of every section after the first. */
-export function applyChapterCards(p: Project, st: DirectorState, on: boolean) {
+/** Chapter title cards (2 s, over the motion) at every chapter of the ruler after the first. */
+export function applyChapterCards(p: Project, on: boolean, look: { palette: MotionPalette; font: string; paper: boolean }) {
   p.motion = (p.motion ?? []).filter((g) => !g.id.startsWith('dir_ch'));
-  if (!on) return 0;
-  const pal = st.bible.palette;
-  const paper = st.bible.backgrounds.includes('paper');
+  const chapters = [...(p.chapters ?? [])].sort((a, b) => a.t - b.t).filter((c) => c.t > 0.5);
+  if (!on || !chapters.length) return 0;
+  const { palette: pal, font, paper } = look;
   const frame = p.export.aspect === '9:16' ? { w: 1080, h: 1920 } : p.export.aspect === '1:1' ? { w: 1080, h: 1080 } : p.export.aspect === '4:5' ? { w: 1080, h: 1350 } : { w: 1920, h: 1080 };
-  st.sections.slice(1).forEach((s) => {
-    const title = (s.title || `Part ${s.i + 1}`).replace(/^./, (c) => c.toUpperCase());
-    const dur = Math.min(2.2, (s.end - s.start) * 0.3);
+  chapters.forEach((ch, i) => {
+    const title = ch.title.replace(/^./, (c) => c.toUpperCase());
+    const dur = 2.2;
     const items: MotionItem[] = [
       { id: 'card', type: 'shape', shape: 'roundrect', w: Math.min(frame.w * 0.8, 1200), h: 300, radius: paper ? 4 : 36, color: paper ? '#fdfbf6' : pal.card, opacity: 0.94, start: 0, dur, in: 'pop', out: 'zoom-out', shadow: true },
-      { id: 'tag', type: 'widget', widget: paper ? 'typewriter-tag' : 'tag', text: `PART ${s.i + 1}`, y: -80, start: 0.1, dur: dur - 0.1 },
-      { id: 'title', type: 'text', text: title, size: 110, weight: 900, font: st.bible.font, color: paper ? '#1f1e1d' : pal.text, y: 40, width: Math.min(frame.w * 0.75, 1100), in: 'cinematic-rise', out: 'fade-out', start: 0.15, dur: dur - 0.15, highlight: [{ word: title.split(' ')[0], style: paper ? 'marker' : 'color', bg: '#ffe14a', gradient: ['#fbe3a6', '#e8b86a'], at: 0.4 }] },
+      { id: 'tag', type: 'widget', widget: paper ? 'typewriter-tag' : 'tag', text: `PART ${i + 2}`, y: -80, start: 0.1, dur: dur - 0.1 },
+      { id: 'title', type: 'text', text: title, size: 110, weight: 900, font, color: paper ? '#1f1e1d' : pal.text, y: 40, width: Math.min(frame.w * 0.75, 1100), in: 'cinematic-rise', out: 'fade-out', start: 0.15, dur: dur - 0.15, highlight: [{ word: title.split(' ')[0], style: paper ? 'marker' : 'color', bg: '#ffe14a', gradient: ['#fbe3a6', '#e8b86a'], at: 0.4 }] },
     ];
-    (p.motion ??= []).push({ id: `dir_ch${s.i}`, name: `Chapter ${s.i + 1}`, start: s.start, dur, placement: 'overlay', frame, palette: { ...pal }, items, idea: 'director:chapter' });
+    (p.motion ??= []).push({ id: `dir_ch${i}`, name: `Chapter ${i + 2}`, start: ch.t, dur, placement: 'overlay', frame, palette: { ...pal }, items, idea: 'story:chapter' });
   });
-  return st.sections.length - 1;
+  return chapters.length;
 }
 
-/** The two beats that make the best thumbnails: the hook, numbers, questions, strong headlines — from different sections. */
-export function thumbnailPicks(st: DirectorState, n = 2) {
-  const score = (b: DirectorState['beats'][number]) =>
-    (b.section === 0 ? 3 : 0) + (b.hints.some((h) => h === 'number' || h === 'percent' || h === 'money') ? 2 : 0) + (b.hints.includes('question') ? 2 : 0)
-    + (['stat', 'headline', 'slam', 'slam-cutout', 'kinetic', 'donut'].includes(b.layout) ? 1.5 : 0) + Math.min(2, b.keys.join('').length / 8) - (b.text.split(' ').length > 12 ? 1 : 0);
-  const sorted = [...st.beats].sort((a, b) => score(b) - score(a));
-  const out: typeof sorted = [];
-  for (const b of sorted) if (!out.some((x) => x.section === b.section) && out.length < n) out.push(b);
+export interface ThumbBeat { start: number; end: number; text: string; hints: string[]; keys: string[]; layout: string; group: number }
+/** The two moments that make the best thumbnails: the hook, numbers, questions, strong headlines — far apart. */
+export function thumbnailPicks(beats: ThumbBeat[], n = 2): ThumbBeat[] {
+  const score = (b: ThumbBeat, i: number) => (i < 3 ? 3 : 0) + (b.hints.some((h) => h === 'number' || h === 'percent' || h === 'money') ? 2 : 0) + (b.hints.includes('question') ? 2 : 0)
+    + (/stat|number|headline|slam|kinetic|donut|counter/.test(b.layout) ? 1.5 : 0) + Math.min(2, b.keys.join('').length / 8) - (b.text.split(' ').length > 12 ? 1 : 0);
+  const sorted = beats.map((b, i) => ({ b, s: score(b, i) })).sort((a, c) => c.s - a.s).map((x) => x.b);
+  const out: ThumbBeat[] = [];
+  for (const b of sorted) if (out.length < n && !out.some((x) => x.group === b.group)) out.push(b);
   for (const b of sorted) if (out.length < n && !out.includes(b)) out.push(b);
   return out;
 }

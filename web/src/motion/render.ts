@@ -33,9 +33,12 @@ export function groupRect(g: MotionGroup, W: number, H: number) {
 }
 
 const svgCache = new Map<string, HTMLImageElement | 'loading' | 'error'>();
-let onLoaded: (() => void) | null = null;
-/** Called when an SVG finished loading (the preview repaints). */
-export const onMotionAsset = (fn: () => void) => void (onLoaded = fn);
+const loadedListeners = new Set<() => void>();
+/** Called when an SVG / icon finished loading (preview and thumbnails repaint). Returns an unsubscribe function. */
+export const onMotionAsset = (fn: () => void) => {
+  loadedListeners.add(fn);
+  return () => void loadedListeners.delete(fn);
+};
 function svgImage(svg: string): HTMLImageElement | undefined {
   const hit = svgCache.get(svg);
   if (hit instanceof HTMLImageElement) return hit;
@@ -44,7 +47,7 @@ function svgImage(svg: string): HTMLImageElement | undefined {
   const withNs = /xmlns=/.test(clean) ? clean : clean.replace('<svg', "<svg xmlns='http://www.w3.org/2000/svg'");
   const img = new Image();
   svgCache.set(svg, 'loading');
-  img.onload = () => (svgCache.set(svg, img), onLoaded?.());
+  img.onload = () => (svgCache.set(svg, img), loadedListeners.forEach((f) => f()));
   img.onerror = () => svgCache.set(svg, 'error');
   img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(withNs);
   return undefined;

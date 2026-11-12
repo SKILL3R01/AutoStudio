@@ -19,7 +19,9 @@ import { Wizard } from '../editor/Wizard';
 import { ContextMenu } from '../editor/ContextMenu';
 import { FormatSwitch } from '../editor/Framing';
 import { ShortsDialog } from '../editor/ShortsDialog';
-import { MotionDirector } from '../editor/MotionDirector';
+import { StoryStudio } from '../editor/StoryStudio';
+import { SceneStrip } from '../editor/SceneStrip';
+import { HelpCenter, TipToast, Tour, WhatsNew, openHelp } from '../components/HelpButton';
 import { updateThumbnail } from '../lib/thumbnail';
 import { buildLines } from '../lib/captions';
 import type { Project } from '../types';
@@ -64,7 +66,7 @@ export function Editor({ id }: { id: string }) {
 function Workspace() {
   const p = useEditor((s) => s.project!);
   const { update, undo, redo, past, future } = useEditor();
-  const [dialog, setDialog] = useState<'import' | 'export' | 'keys' | 'auto' | 'shorts' | 'director' | null>(null);
+  const [dialog, setDialog] = useState<'import' | 'export' | 'keys' | 'auto' | 'shorts' | 'director' | 'story' | null>(null);
   useEffect(() => {
     const h = (e: Event) => setDialog((e as CustomEvent<'import' | 'export' | 'auto'>).detail);
     window.addEventListener('autostudio:dialog', h);
@@ -89,7 +91,9 @@ function Workspace() {
         <FormatSwitch />
         {vo && <span className="chip"><Icon name="mic" size={13} /> {vo.name}</span>}
         <span className="chip"><Icon name="film" size={13} /> {p.clips.length} clips</span>
+        <button className="icon-btn help-top" onClick={() => openHelp()} title="Help · how to use every feature · tips" data-tour="help-top">?</button>
         <button className="icon-btn" onClick={() => setDialog('keys')} title="Keyboard shortcuts (?)"><Icon name="keyboard" /></button>
+        <button className="btn sm" onClick={() => setDialog('story')} title="Script or voiceover → a styled motion video, scene by scene" data-tour="story-top"><Icon name="sparkles" /> Story</button>
         <button className="btn sm" onClick={() => setDialog('auto')} title="Voiceover → scenes → a visual per scene → timeline"><Icon name="wand" /> Auto-edit</button>
         {p.export.aspect !== '9:16' && <button className="btn sm" onClick={() => setDialog('shorts')} title="Make a vertical Short from a part of this video"><Icon name="film" /> Make Short</button>}
         {p.sourceProjectId && <button className="btn sm ghost" onClick={() => navigate({ page: 'editor', id: p.sourceProjectId! })} title="Open the long video this Short was made from"><Icon name="back" /> Long version</button>}
@@ -106,13 +110,18 @@ function Workspace() {
         <Splitter panel={right} dir={-1} label="properties panel" />
         <Inspector />
       </div>
+      <SceneStrip />
       <Timeline />
+      <Tour />
+      <HelpCenter />
+      <TipToast />
+      <WhatsNew />
       {dialog === 'import' && <ImportDialog onClose={() => setDialog(null)} />}
       {dialog === 'export' && <ExportDialog onClose={() => setDialog(null)} />}
       {dialog === 'shorts' && <ShortsDialog onClose={() => setDialog(null)} />}
       {dialog === 'keys' && <ShortcutsDialog onClose={() => setDialog(null)} />}
       {dialog === 'auto' && <AutoEditDialog onClose={() => setDialog(null)} />}
-      {dialog === 'director' && <MotionDirector onClose={() => setDialog(null)} />}
+      {(dialog === 'director' || dialog === 'story') && <StoryStudio onClose={() => setDialog(null)} />}
       {p.wizardStep !== undefined && <Wizard />}
       <ContextMenu />
     </div>

@@ -1,4 +1,5 @@
 import { ADVANCED_SECTIONS, sectionOpen, setSectionOpen, useUi } from '../lib/uimode';
+import { HelpButton } from './HelpButton';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 export function Slider(props: { label: string; value: number; min: number; max: number; step?: number; onChange: (v: number) => void; suffix?: string; fmt?: (v: number) => string }) {
@@ -53,7 +54,7 @@ export function Toggle(props: { label: string; value: boolean; onChange: (v: boo
   );
 }
 
-export function Section(props: { title: string; children: ReactNode; hint?: string }) {
+export function Section(props: { title: string; children: ReactNode; hint?: string; help?: string }) {
   const mode = useUi((u) => u.mode);
   const [open, setOpen] = useState(() => sectionOpen(props.title) ?? !(mode === 'simple' && ADVANCED_SECTIONS.has(props.title)));
   const toggle = () => (setSectionOpen(props.title, !open), setOpen(!open));
@@ -61,6 +62,7 @@ export function Section(props: { title: string; children: ReactNode; hint?: stri
     <section className={`section ${open ? '' : 'folded'}`}>
       <h4 className="sec-head" onClick={toggle} role="button" aria-expanded={open}>
         <span className={`sec-chev ${open ? 'open' : ''}`} aria-hidden>▸</span> {props.title}
+        {props.help && <HelpButton topic={props.help} small />}
       </h4>
       {open && props.hint && <p className="hint">{props.hint}</p>}
       {open && props.children}

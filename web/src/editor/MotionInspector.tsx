@@ -1,13 +1,13 @@
 /** Properties for a Motion AI block and its layers. */
 import { useEditor } from '../store';
 import { useProject } from './hooks';
-import { Section, Seg, Select, Slider, Toggle } from '../components/ui';
+import { Section, Seg, Slider, Toggle } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { fmtTime } from '../lib/util';
 import { layerLabel, motionRef, removeMotion, splitGroup, stretchGroup } from '../motion/edit';
-import { MOTION_FONTS, TEXT_INS, TEXT_OUTS, ITEM_INS, LOOPS, BG_KINDS } from '../motion/prompt';
-import type { MotionGroup, MotionItem } from '../motion/types';
+import { AnimationTiles, FontStrip, SwatchRow, WidgetSwap } from './pickers/pickers';
+import type { MotionGroup, MotionItem, MotionPalette } from '../motion/types';
 
 const hex = (v: unknown, d: string) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v.trim()) ? v.trim() : d);
 
@@ -24,7 +24,7 @@ export function MotionInspector({ id }: { id: string }) {
   const lt = time - g.start;
   return (
     <>
-      <Section title="Motion block">
+      <Section title="Motion block" help="motion-props">
         <label className="field"><span>Name</span><input value={g.name} onChange={(e) => setG((x) => void (x.name = e.target.value), 'mgname')} /></label>
         <p className="hint">{fmtTime(g.start)} → {fmtTime(g.start + g.dur)} · {g.items.length} layers</p>
         <Seg options={[['full', 'Full frame'], ['overlay', 'Over video'], ['band-top', 'Top band'], ['band-bottom', 'Bottom band']] as const} value={place}
@@ -41,8 +41,8 @@ export function MotionInspector({ id }: { id: string }) {
             <label key={k} className="field"><span>Accent {k + 1}</span><input type="color" value={hex(c, '#ff6b4a')} onChange={(e) => setG((x) => void (x.palette.accents[k] = e.target.value), 'mgpal')} /></label>
           ))}
         </div>
-        <Select label="Font for all texts" value="" options={[['', 'Keep each font'], ...MOTION_FONTS.map((f) => [f, f] as [string, string])]}
-          onChange={(f) => f && setG((x) => (x.items.forEach((i) => i.type === 'text' && (i.font = f)), (x.palette.font = f)))} />
+        <label className="lbl">Font for all texts</label>
+        <FontStrip value={g.palette.font} sample={String(g.items.find((i) => i.type === 'text')?.text ?? g.name)} onPick={(f) => setG((x) => (x.items.forEach((i) => i.type === 'text' && (i.font = f)), (x.palette.font = f)))} />
         <div className="row wrap">
           <button className="btn sm" onClick={() => update((d) => void (splitGroup(d, g.id, time) || toast('Put the playhead inside the block to split it', 'info')))}><Icon name="split" /> Split at playhead</button>
           <button className="btn sm" onClick={() => setG((x) => void (x.hidden = !x.hidden))}>{g.hidden ? 'Show' : 'Hide'}</button>
@@ -63,24 +63,23 @@ export function MotionInspector({ id }: { id: string }) {
         </div>
         <p className="hint">Top of the list = in front. Click a layer to edit it; the playhead jumps to it.</p>
       </Section>
-      {it && <LayerEditor key={it.id} it={it} set={setI} remove={() => (update((d) => removeMotion(d, `${g.id}/${it.id}`)), select({ kind: 'motion', id: g.id }))} />}
+      {it && <LayerEditor key={it.id} it={it} pal={g.palette} set={setI} remove={() => (update((d) => removeMotion(d, `${g.id}/${it.id}`)), select({ kind: 'motion', id: g.id }))} />}
     </>
   );
 }
 
-function LayerEditor({ it, set, remove }: { it: MotionItem; set: (fn: (x: MotionItem) => void, k?: string) => void; remove: () => void }) {
+function LayerEditor({ it, set, remove, pal }: { it: MotionItem; set: (fn: (x: MotionItem) => void, k?: string) => void; remove: () => void; pal?: MotionPalette }) {
   const num = (k: keyof MotionItem, d = 0) => (typeof it[k] === 'number' ? (it[k] as number) : d);
-  const ins = it.type === 'text' ? TEXT_INS : ITEM_INS;
-  const opt = (list: string[], cur: unknown): [string, string][] => [['', 'None'], ...[...new Set([...(typeof cur === 'string' && cur ? [cur] : []), ...list])].map((v) => [v, v] as [string, string])];
   return (
     <Section title={`Layer · ${layerLabel(it)}`}>
       {it.type === 'text' && (
         <>
           <label className="field"><span>Text</span><textarea rows={2} value={String(it.text ?? '')} onChange={(e) => set((x) => void (x.text = e.target.value), 'mgtext')} /></label>
           <div className="row wrap">
-            <Select label="Font" value={String(it.font ?? '')} options={[['', 'Block font'], ...MOTION_FONTS.map((f) => [f, f] as [string, string])]} onChange={(v) => set((x) => void (x.font = v || undefined))} />
             <label className="field"><span>Colour</span><input type="color" value={hex(it.color, '#ffffff')} onChange={(e) => set((x) => void (x.color = e.target.value), 'mgcol')} /></label>
           </div>
+          <label className="lbl">Font</label>
+          <FontStrip value={String(it.font ?? '')} sample={String(it.text ?? '')} onPick={(f) => set((x) => void (x.font = f))} />
           <Slider label="Size" value={num('size', 80)} min={16} max={260} step={1} onChange={(v) => set((x) => void (x.size = v), 'mgsize')} />
           <Slider label="Weight" value={Number(it.weight ?? 800)} min={300} max={900} step={100} onChange={(v) => set((x) => void (x.weight = v), 'mgw')} />
           <label className="field"><span>Key words (comma separated)</span><input value={Array.isArray(it.highlight) ? (it.highlight as { word: string }[]).map((h) => h.word).join(', ') : ''}
@@ -89,15 +88,18 @@ function LayerEditor({ it, set, remove }: { it: MotionItem; set: (fn: (x: Motion
               x.highlight = e.target.value.split(',').map((w) => w.trim()).filter(Boolean).map((w) => old.find((h) => h.word === w) ?? { word: w, style: old[0]?.style ?? 'marker', at: 0.6 });
             }, 'mghl')} /></label>
           {Array.isArray(it.highlight) && (it.highlight as unknown[]).length > 0 && (
-            <Select label="Key word style" value={String((it.highlight as { style?: string }[])[0].style ?? 'marker')} options={['marker', 'underline', 'circle', 'box', 'strike', 'color']}
-              onChange={(v) => set((x) => (x.highlight as { style?: string }[]).forEach((h) => (h.style = v)))} />
+            <>
+              <label className="lbl">Key word style</label>
+              <SwatchRow type="keyword" colors={['#141826']} value={String((it.highlight as { style?: string }[])[0].style ?? 'marker')} onPick={(v) => set((x) => (x.highlight as { style?: string }[]).forEach((h) => (h.style = v)))} />
+            </>
           )}
         </>
       )}
       {(it.type === 'shape' || it.type === 'icon') && <label className="field"><span>Colour</span><input type="color" value={hex(it.color, '#ff6b4a')} onChange={(e) => set((x) => void (x.color = e.target.value), 'mgcol')} /></label>}
       {it.type === 'background' && (
         <>
-          <Select label="Kind" value={String(it.kind ?? 'flat')} options={BG_KINDS} onChange={(v) => set((x) => void (x.kind = v))} />
+          <label className="lbl">Background</label>
+          <SwatchRow type="background" colors={(it.colors as string[] | undefined) ?? ['#111111', '#333333']} value={String(it.kind ?? 'flat')} onPick={(v) => set((x) => void (x.kind = v))} />
           <div className="row wrap">
             {[0, 1].map((k) => (
               <label key={k} className="field"><span>Colour {k + 1}</span><input type="color" value={hex((it.colors as string[] | undefined)?.[k], k ? '#333333' : '#111111')}
@@ -117,14 +119,21 @@ function LayerEditor({ it, set, remove }: { it: MotionItem; set: (fn: (x: Motion
           <Slider label="Scale" value={num('scale', 1)} min={0.1} max={4} step={0.01} onChange={(v) => set((x) => void (x.scale = v), 'mgsc')} />
           <Slider label="Rotation" value={num('rotation')} min={-180} max={180} step={1} suffix="°" onChange={(v) => set((x) => void (x.rotation = v), 'mgrot')} />
           <Slider label="Opacity" value={num('opacity', 1) * 100} min={0} max={100} step={1} suffix="%" onChange={(v) => set((x) => void (x.opacity = v / 100), 'mgop')} />
-          <div className="row wrap">
-            <Select label="Enter" value={String(it.in ?? '')} options={opt(ins, it.in)} onChange={(v) => set((x) => void (x.in = v || undefined))} />
-            <Select label="Exit" value={String(it.out ?? '')} options={opt(it.type === 'text' ? TEXT_OUTS : ['fade-out', 'zoom-out', 'slide-up-out', 'blur-out', 'shrink'], it.out)} onChange={(v) => set((x) => void (x.out = v || undefined))} />
-            <Select label="Loop" value={String(it.loop ?? '')} options={opt(LOOPS, it.loop)} onChange={(v) => set((x) => void (x.loop = v || undefined))} />
-          </div>
+          <label className="lbl">Enter <span className="hint">— hover to play</span></label>
+          <AnimationTiles kind="in" text={it.type === 'text'} value={it.in as string | undefined} onPick={(v) => set((x) => void (x.in = v))} />
+          <label className="lbl">Exit</label>
+          <AnimationTiles kind="out" text={it.type === 'text'} value={it.out as string | undefined} onPick={(v) => set((x) => void (x.out = v))} />
+          <label className="lbl">Loop</label>
+          <AnimationTiles kind="loop" value={it.loop as string | undefined} onPick={(v) => set((x) => void (x.loop = v))} />
         </>
       )}
       {it.type === 'widget' && <WidgetFields it={it} set={set} />}
+      {it.type === 'widget' && pal && (
+        <>
+          <label className="lbl">Swap for <span className="hint">— same content</span></label>
+          <WidgetSwap it={it} pal={pal} onPick={(next) => set((x) => { for (const k of Object.keys(x)) if (!['id', 'type', 'start', 'dur'].includes(k)) delete (x as Record<string, unknown>)[k]; Object.assign(x, next); })} />
+        </>
+      )}
       <Toggle label="Hidden" value={num('opacity', 1) === 0} onChange={(v) => set((x) => void (x.opacity = v ? 0 : 1))} />
       <button className="btn sm ghost" onClick={remove}><Icon name="trash" /> Delete layer</button>
     </Section>

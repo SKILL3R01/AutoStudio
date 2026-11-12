@@ -1,4 +1,5 @@
 import type { CaptionSettings, Asset, AssetKind, Clip, KeywordSettings, Project, TypoBlock, TypoSettings } from '../types';
+import { storyFromDirector } from '../motion/story/model';
 import { saveBlob } from './db';
 import { uid } from './util';
 import { addTake, clipEndOf, defaultTracks, ensureTrack, migrateAudio, narrationClips, narrationEnd, newAudioClip, addTrack, TRACK_IDS } from './audiotracks';
@@ -78,6 +79,8 @@ export function normalizeProject(saved: Project): Project {
     effects: p.effects ?? [],
     export: { ...d.export, ...p.export },
     audioFade: { ...d.audioFade, ...p.audioFade },
+    // v4.2 Motion Director plans become v5 stories (old section blocks stay until the story is rebuilt).
+    story: p.story ?? (p.director ? storyFromDirector(p.director) : undefined),
   };
 }
 

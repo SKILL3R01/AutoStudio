@@ -12,6 +12,7 @@ import { useClipTarget, useProject } from './hooks';
 import { MOTIONS, TRANSITIONS, EFFECTS, type Motion, type Transition, type Overlay, type EffectKind, type EffectLayer } from '../types';
 import { FilePick, Section, Seg, Select, Slider, Toggle } from '../components/ui';
 import { Icon } from '../components/icons';
+import { HelpButton } from '../components/HelpButton';
 import { CaptionsPanel } from './CaptionsPanel';
 import { KeywordsPanel } from './KeywordsPanel';
 import { MediaPanel } from './MediaPanel';
@@ -30,7 +31,7 @@ import { uid } from '../lib/util';
 
 export const TABS = [
   ['media', 'Media', 'media'], ['motion', 'Motion', 'motion'], ['transitions', 'Transitions', 'transition'], ['captions', 'Captions', 'captions'],
-  ['keywords', 'Typography', 'keywords'], ['text', 'Text', 'text'], ['voice', 'Voice', 'mic'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['color', 'Colour', 'image'], ['ai', 'AI', 'wand'], ['mgfx', 'Motion AI', 'sparkles'],
+  ['keywords', 'Typography', 'keywords'], ['text', 'Text', 'text'], ['voice', 'Voice', 'mic'], ['music', 'Audio', 'music'], ['sfx', 'SFX', 'sfx'], ['effects', 'Effects', 'effects'], ['color', 'Colour', 'image'], ['ai', 'AI', 'wand'], ['mgfx', 'Story', 'sparkles'],
 ] as const;
 export type Tab = (typeof TABS)[number][0];
 
@@ -40,9 +41,11 @@ const GROUPS: { id: string; name: string; icon: string; hint: string; tabs: Tab[
   { id: 'voice', name: 'Voice', icon: 'mic', hint: 'Voiceover, music and sound effects', tabs: ['voice', 'music', 'sfx'] },
   { id: 'text', name: 'Text', icon: 'captions', hint: 'Captions, typography and titles', tabs: ['captions', 'keywords', 'text'] },
   { id: 'style', name: 'Style', icon: 'effects', hint: 'Motion, transitions, colour and effects', tabs: ['motion', 'transitions', 'color', 'effects'] },
-  { id: 'ai', name: 'AI', icon: 'wand', hint: 'Motion graphics by AI, assistant, depth maps and prompts', tabs: ['ai', 'mgfx'] },
+  { id: 'ai', name: 'AI', icon: 'wand', hint: 'Story videos, motion graphics, AI assistant, depth maps and prompts', tabs: ['ai', 'mgfx'] },
 ];
 const lastInGroup = new Map<string, Tab>();
+/** The ? card of each panel. */
+const TAB_HELP: Partial<Record<Tab, string>> = { media: 'media', voice: 'voice', captions: 'captions', keywords: 'keywords', music: 'music', sfx: 'music', effects: 'effects', mgfx: 'story', ai: 'autoedit' };
 
 export const MOTION_LABELS: Record<Motion, string> = {
   none: 'None', zoomIn: 'Zoom in', zoomOut: 'Zoom out', panLeft: 'Pan left', panRight: 'Pan right', tiltUp: 'Tilt up',
@@ -92,7 +95,7 @@ export function Sidebar() {
             ))}
           </div>
         ) : (
-          <div className="panel-title">{label}</div>
+          <div className="panel-title">{label}{TAB_HELP[tab] && <HelpButton topic={TAB_HELP[tab]!} small />}</div>
         )}
         <div className="panel-body">
           {tab === 'media' && <MediaPanel />}

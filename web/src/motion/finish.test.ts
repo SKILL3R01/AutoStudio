@@ -45,16 +45,18 @@ describe('motion finishing', () => {
     expect(n).toBeGreaterThan(5);
     applyMotionSound(p);
     expect(p.audio.filter((c) => c.id.startsWith('msfx_'))).toHaveLength(n);
-    expect(applyChapterCards(p, st, true)).toBe(st.sections.length - 1);
+    p.chapters = st.sections.map((s, i) => ({ id: `c${i}`, t: s.start, title: `Part ${i + 1}` }));
+    const look = { palette: st.bible.palette, font: 'Montserrat', paper: false };
+    expect(applyChapterCards(p, true, look)).toBe(st.sections.length - 1);
     expect(p.motion!.filter((g) => g.id.startsWith('dir_ch'))).toHaveLength(st.sections.length - 1);
-    applyChapterCards(p, st, false);
+    applyChapterCards(p, false, look);
     expect(p.motion!.some((g) => g.id.startsWith('dir_ch'))).toBe(false);
   });
   it('thumbnail picks come from different sections and start with the hook', () => {
     const { st } = project();
-    const picks = thumbnailPicks(st);
+    const picks = thumbnailPicks(st.beats.map((b) => ({ ...b, group: b.section })));
     expect(picks).toHaveLength(2);
-    expect(picks[0].section).not.toBe(picks[1].section);
+    expect(picks[0].group).not.toBe(picks[1].group);
   });
   it('formats time left', () => {
     expect(timeLeft(0)).toBe('estimating…');
