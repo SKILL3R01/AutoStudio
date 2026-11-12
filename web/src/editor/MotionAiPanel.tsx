@@ -47,8 +47,8 @@ export function MotionAiPanel() {
   const narration = useMemo(() => {
     if (!useVoice) return [];
     const span = length === 'auto' ? 25 : +length;
-    return p.lines.flatMap((l) => l.words).filter((w) => w.start >= time - 0.05 && w.start < time + span).map((w) => ({ t: Math.max(0, w.start - time), w: w.text }));
-  }, [p.lines, time, length, useVoice]);
+    return (p.words?.length ? p.words : p.lines.flatMap((l) => l.words)).filter((w) => w.start >= time - 0.05 && w.start < time + span).map((w) => ({ t: Math.max(0, w.start - time), w: w.text }));
+  }, [p.words, p.lines, time, length, useVoice]);
   const prompt = useMemo(() => buildMotionPrompt({ idea, placement, aspect, length, style, language, narration, assets: p.assets.filter((a) => a.kind === 'image').slice(0, 30).map((a) => a.name), userPack }), [idea, placement, aspect, length, style, language, narration, p.assets, userPack]);
 
   const check = useMemo(() => (paste.trim() ? recipeToGroup(paste, time, placement, idea, frame) : null), [paste, time, placement, idea, frame]);
@@ -83,6 +83,10 @@ export function MotionAiPanel() {
 
   return (
     <div className="mgfx">
+      <div className="mgfx-director">
+        <button className="btn primary" onClick={() => window.dispatchEvent(new CustomEvent('autostudio:dialog', { detail: 'director' }))}><Icon name="film" /> Full video from the voiceover…</button>
+        <span className="hint">{p.director ? `Director: ${p.director.sections.length} sections · ${p.director.status.filter((x) => x === 'ai').length} by AI` : 'Motion Director: 1–10 min of motion graphics, section by section'}</span>
+      </div>
       <Section title="1 · Describe">
         <textarea rows={4} placeholder="e.g. Why a man needs a partner in his life — calm, warm, hopeful" value={idea} onChange={(e) => setIdea(e.target.value)} />
         <label className="lbl">Where</label>

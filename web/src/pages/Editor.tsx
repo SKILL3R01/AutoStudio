@@ -19,6 +19,7 @@ import { Wizard } from '../editor/Wizard';
 import { ContextMenu } from '../editor/ContextMenu';
 import { FormatSwitch } from '../editor/Framing';
 import { ShortsDialog } from '../editor/ShortsDialog';
+import { MotionDirector } from '../editor/MotionDirector';
 import { updateThumbnail } from '../lib/thumbnail';
 import { buildLines } from '../lib/captions';
 import type { Project } from '../types';
@@ -63,7 +64,7 @@ export function Editor({ id }: { id: string }) {
 function Workspace() {
   const p = useEditor((s) => s.project!);
   const { update, undo, redo, past, future } = useEditor();
-  const [dialog, setDialog] = useState<'import' | 'export' | 'keys' | 'auto' | 'shorts' | null>(null);
+  const [dialog, setDialog] = useState<'import' | 'export' | 'keys' | 'auto' | 'shorts' | 'director' | null>(null);
   useEffect(() => {
     const h = (e: Event) => setDialog((e as CustomEvent<'import' | 'export' | 'auto'>).detail);
     window.addEventListener('autostudio:dialog', h);
@@ -111,6 +112,7 @@ function Workspace() {
       {dialog === 'shorts' && <ShortsDialog onClose={() => setDialog(null)} />}
       {dialog === 'keys' && <ShortcutsDialog onClose={() => setDialog(null)} />}
       {dialog === 'auto' && <AutoEditDialog onClose={() => setDialog(null)} />}
+      {dialog === 'director' && <MotionDirector onClose={() => setDialog(null)} />}
       {p.wizardStep !== undefined && <Wizard />}
       <ContextMenu />
     </div>

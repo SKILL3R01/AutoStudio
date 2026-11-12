@@ -2,7 +2,7 @@
   "name": "autostudio",
   "productName": "AutoStudio",
   "private": true,
-  "version": "4.1.4",
+  "version": "4.2.0",
   "description": "Free all-in-one faceless video studio",
   "author": "Maher Ayadi",
   "type": "module",

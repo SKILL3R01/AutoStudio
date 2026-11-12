@@ -484,6 +484,8 @@ export interface Project {
   chapters?: { id: string; t: number; title: string }[];
   /** Motion Studio groups (v4.0): AI-designed motion graphics, one block per recipe. */
   motion?: import('./motion/types').MotionGroup[];
+  /** Motion Director (v4.2): voice analysis, style bible, storyboard and per-section status of a long motion video. */
+  director?: import('./motion/director/director').DirectorState;
   /** Master audio fade in/out in seconds. */
   audioFade: { in: number; out: number };
   clips: Clip[];

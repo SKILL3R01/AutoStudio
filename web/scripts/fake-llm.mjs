@@ -40,6 +40,20 @@ function answer(text) {
     const body = text.split('\n\n').slice(1).join('\n\n') || text;
     return body.replace(/^./, (c) => c.toUpperCase()).replace(/([^.])$/, '$1.');
   }
+  if (/top After Effects motion designer/.test(text)) {
+    // Motion Studio / Director: a recipe per section (or for the idea), inside fences, with the same transition twice
+    // in a row so the app's variety fix has something to do.
+    const sec = /SECTION (\d+) of (\d+) — ([\d.]+) s long/.exec(text);
+    const len = sec ? +sec[3] : 8;
+    const beats = sec ? [...text.slice(text.lastIndexOf(`SECTION ${sec[1]} of`)).matchAll(/^B(\d+) ([\d.]+)–([\d.]+) s \[[^\]]*\] “([^”]*)”/gm)].map((m) => ({ a: +m[2], b: +m[3], t: m[4] })) : [{ a: 0, b: len, t: 'Make it move' }];
+    const items = [];
+    beats.forEach((b, i) => {
+      items.push({ type: 'background', kind: i % 2 ? 'mesh' : 'gradient', colors: i % 2 ? ['#101826', '#3b2a6b', '#0f4c5c'] : ['#1d1a22', '#4a1d2c'], start: b.a, dur: b.b - b.a });
+      items.push({ type: 'widget', id: 'headline', start: b.a + 0.1, dur: b.b - b.a - 0.1, title: b.t.split(' ').slice(0, 6).join(' '), gold: b.t.split(' ').sort((x, y) => y.length - x.length)[0].replace(/[^\p{L}]/gu, ''), size: 96 });
+      if (i < beats.length - 1) items.push({ type: 'widget', id: 'wipe', start: b.b - 0.5, dur: 1, dir: 'left', colors: ['#ff6b4a', '#101826'] });
+    });
+    return `Here is section ${sec ? sec[1] : 1}:\n\`\`\`json\n${JSON.stringify({ haVisualRecipe: 2, palette: 'dark', items })}\n\`\`\``;
+  }
   if (/YouTube upload metadata/.test(text)) return 'Titles:\n1. The Secret Nobody Tells You\n2. Why This Changes Everything\n\nDescription: A short story about focus.\n\n#focus #story';
   return 'OK';
 }

@@ -801,3 +801,28 @@ pre.code-err { white-space: pre-wrap; font-size: 11.5px; margin: 0; }
 .trk-head.k-sfx { box-shadow: inset 3px 0 0 rgba(214, 96, 140, 0.8); }
 .trk-head.k-other { box-shadow: inset 3px 0 0 rgba(130, 200, 120, 0.8); }
 .trk-head.k-video { box-shadow: inset 3px 0 0 rgba(150, 120, 230, 0.8); }
+
+/* Motion Director */
+.mgfx-director { display: flex; flex-direction: column; gap: 4px; padding: 8px 0 10px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 6px; }
+.modal.director { width: min(1180px, 96vw); max-height: 92vh; display: flex; flex-direction: column; }
+.director .dir-body { overflow: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 10px; min-height: 0; }
+.director .panel-tabs button:disabled { opacity: 0.4; }
+.dir-board { max-height: 58vh; overflow: auto; }
+.dir-sec { position: sticky; top: 0; background: var(--panel, #16181f); padding: 6px 4px; font-weight: 700; font-size: 12px; opacity: 0.9; z-index: 1; }
+.dir-beat { display: grid; grid-template-columns: 64px 1fr 130px 180px 40px; gap: 8px; align-items: center; padding: 3px 4px; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.dir-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dir-beat input, .dir-beat select { font-size: 12px; padding: 3px 6px; }
+.dir-lock { display: flex; align-items: center; gap: 2px; cursor: pointer; }
+.dir-steps { font-size: 13px; line-height: 1.5; background: rgba(124,108,255,0.1); border-radius: 8px; padding: 8px 10px; }
+.dir-queue { display: flex; flex-direction: column; gap: 2px; max-height: 34vh; overflow: auto; }
+.dir-q { display: grid; grid-template-columns: 26px 1fr 86px auto auto auto auto; gap: 6px; align-items: center; padding: 4px 6px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.dir-q:hover { background: rgba(255,255,255,0.04); }
+.dir-q.on { background: rgba(124,108,255,0.2); }
+.dir-q .chip.st-ai { background: #19c39c33; color: #7ff0cf; }
+.dir-q .chip.st-template { opacity: 0.75; }
+.dir-q .chip.st-locked { background: #ffb02033; }
+.director textarea { width: 100%; font: 12px/1.4 Consolas, monospace; }
+.dir-sheet { display: flex; flex-wrap: wrap; gap: 8px; }
+.dir-sheet figure { margin: 0; cursor: pointer; }
+.dir-sheet canvas { display: block; border-radius: 4px; background: #000; }
+.dir-sheet figcaption { font-size: 10px; opacity: 0.7; margin-top: 2px; }
