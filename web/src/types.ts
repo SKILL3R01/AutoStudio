@@ -486,6 +486,8 @@ export interface Project {
   motion?: import('./motion/types').MotionGroup[];
   /** Motion Director (v4.2): voice analysis, style bible, storyboard and per-section status of a long motion video. */
   director?: import('./motion/director/director').DirectorState;
+  /** Story Studio (v5): style, script and scenes; one Motion block per scene (`scene_<id>`). */
+  story?: import('./motion/story/model').StoryState;
   /** Master audio fade in/out in seconds. */
   audioFade: { in: number; out: number };
   clips: Clip[];

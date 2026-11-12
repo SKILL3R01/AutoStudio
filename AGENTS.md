@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## Design rules
+- **Show, don't list:** anything with a *look* (styles, scene templates, layouts, animations, transitions, fonts, backgrounds, key-word styles, characters, widgets, export parts) is chosen from **thumbnails**, **animated** when it moves (play on hover / focus, cached still otherwise), and story structure is a **storyboard** of scene cards. Never a dropdown for these; dropdowns only for plain settings (numbers, formats, languages). Previews are drawn live by our own engine (`editor/pickers/LiveThumb.tsx`), never stored videos.
+- **Every feature explains itself:** a ? help card (`src/help/topics.ts`: what / 3 steps / tips / problems / tour), helpful empty states with a do-it button, and a "Try with a sample" path where it makes sense.
+- **AI hand-off is always the same numbered panel** (`editor/HandoffPanel.tsx`): ① Copy → ② Claude / ChatGPT / Gemini (first message new chat, next ones same chat) → ③ copy the answer → ④ paste here; plus "Do it for me" with the local assistant. No API keys.
+
 ## Layout
 - `web/` Vite + React 19 + TS editor. Store: `src/store.ts` (zustand, undo/redo, multi-select, autosave to IndexedDB via `src/lib/db.ts`).
 - Saved projects are migrated on load with `normalizeProject()` (`src/lib/project.ts`). Add defaults there whenever you add a `Project` field.
