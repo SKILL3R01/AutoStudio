@@ -14,7 +14,7 @@ const browser = process.env.BROWSER ?? 'C:/Program Files (x86)/Microsoft/Edge/Ap
 const profile = process.env.USER_DATA_DIR ?? mkdtempSync(join(tmpdir(), 'cdp-'));
 // Port 0 = the browser picks a free port and writes it to <profile>/DevToolsActivePort (no clash with a browser still closing).
 const portFile = join(profile, 'DevToolsActivePort');
-if (existsSync(portFile)) unlinkSync(portFile);
+try { if (existsSync(portFile)) unlinkSync(portFile); } catch {}
 const proc = spawn(browser, ['--headless=new', '--remote-debugging-port=0', '--no-first-run', '--window-size=1600,1000',
   `--user-data-dir=${profile}`, '--autoplay-policy=no-user-gesture-required', ...(process.env.EXTRA_ARGS ? process.env.EXTRA_ARGS.split(' ') : ['about:blank'])], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -22,7 +22,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let targets, port;
 for (let i = 0; i < 150 && !targets; i++) {
   await sleep(200);
-  if (!port && existsSync(portFile)) port = +readFileSync(portFile, 'utf8').split(String.fromCharCode(10))[0].trim() || undefined;
+  // The browser may still be writing the file (Windows: EBUSY) — just try again on the next round.
+  if (!port && existsSync(portFile)) try { port = +readFileSync(portFile, 'utf8').split(String.fromCharCode(10))[0].trim() || undefined; } catch {}
   if (port) targets = await fetch(`http://127.0.0.1:${port}/json`).then((r) => r.json()).catch(() => undefined);
 }
 if (!targets) throw new Error('The browser did not start (no DevTools port)');
