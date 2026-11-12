@@ -93,7 +93,8 @@ export function pickTemplates(scenes: Scene[], kit: StyleKit, force = false) {
     if (sc.locked || (!force && sc.templateId && kit.templates.some((t) => t.id === sc.templateId) && sc.source !== 'template')) return void recent.push(sc.templateId);
     const want: string[] = [...sc.hints, ...(i === 0 ? ['intro'] : []), ...(i === scenes.length - 1 && scenes.length > 2 ? ['outro'] : [])];
     const fit = kit.templates.filter((t) => t.fits.some((f) => want.includes(f)) && !t.fits.includes('chapter'));
-    const pool = [...fit, ...general.slice(rot % general.length), ...general];
+    const cued = (kit.cues ?? []).filter(([re]) => re.test(sc.text)).map(([, id]) => kit.templates.find((t) => t.id === id)).filter((t): t is SceneTemplate => !!t);
+    const pool = [...cued, ...fit, ...general.slice(rot % general.length), ...general];
     const pick = pool.find((t) => !recent.slice(-3).includes(t.id)) ?? general[rot % general.length] ?? kit.templates[0];
     rot++;
     sc.templateId = pick.id;

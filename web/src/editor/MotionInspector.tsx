@@ -7,6 +7,7 @@ import { toast } from '../components/Toast';
 import { fmtTime } from '../lib/util';
 import { layerLabel, motionRef, removeMotion, splitGroup, stretchGroup } from '../motion/edit';
 import { AnimationTiles, FontStrip, SwatchRow, WidgetSwap } from './pickers/pickers';
+import { BubbleTiles, CharacterFields, PropTiles, SetTiles } from './pickers/CharacterPickers';
 import type { MotionGroup, MotionItem, MotionPalette } from '../motion/types';
 
 const hex = (v: unknown, d: string) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v.trim()) ? v.trim() : d);
@@ -63,15 +64,15 @@ export function MotionInspector({ id }: { id: string }) {
         </div>
         <p className="hint">Top of the list = in front. Click a layer to edit it; the playhead jumps to it.</p>
       </Section>
-      {it && <LayerEditor key={it.id} it={it} pal={g.palette} set={setI} remove={() => (update((d) => removeMotion(d, `${g.id}/${it.id}`)), select({ kind: 'motion', id: g.id }))} />}
+      {it && <LayerEditor key={it.id} it={it} pal={g.palette} localT={time - g.start - it.start} set={setI} remove={() => (update((d) => removeMotion(d, `${g.id}/${it.id}`)), select({ kind: 'motion', id: g.id }))} />}
     </>
   );
 }
 
-function LayerEditor({ it, set, remove, pal }: { it: MotionItem; set: (fn: (x: MotionItem) => void, k?: string) => void; remove: () => void; pal?: MotionPalette }) {
+function LayerEditor({ it, set, remove, pal, localT = 0 }: { it: MotionItem; set: (fn: (x: MotionItem) => void, k?: string) => void; remove: () => void; pal?: MotionPalette; localT?: number }) {
   const num = (k: keyof MotionItem, d = 0) => (typeof it[k] === 'number' ? (it[k] as number) : d);
   return (
-    <Section title={`Layer · ${layerLabel(it)}`}>
+    <Section title={`Layer · ${layerLabel(it)}`} help={it.type === 'widget' && ['character', 'set', 'prop', 'bubble'].includes(String(it.widget)) ? 'characters' : undefined}>
       {it.type === 'text' && (
         <>
           <label className="field"><span>Text</span><textarea rows={2} value={String(it.text ?? '')} onChange={(e) => set((x) => void (x.text = e.target.value), 'mgtext')} /></label>
@@ -127,6 +128,10 @@ function LayerEditor({ it, set, remove, pal }: { it: MotionItem; set: (fn: (x: M
           <AnimationTiles kind="loop" value={it.loop as string | undefined} onPick={(v) => set((x) => void (x.loop = v))} />
         </>
       )}
+      {it.type === 'widget' && pal && it.widget === 'character' && <CharacterFields it={it} pal={pal} set={set} localT={localT} />}
+      {it.type === 'widget' && pal && it.widget === 'set' && (<><label className="lbl">Set</label><SetTiles it={it} pal={pal} set={set} /></>)}
+      {it.type === 'widget' && pal && it.widget === 'prop' && (<><label className="lbl">Prop</label><PropTiles it={it} pal={pal} set={set} /></>)}
+      {it.type === 'widget' && pal && it.widget === 'bubble' && (<><label className="lbl">Bubble</label><BubbleTiles it={it} pal={pal} set={set} /></>)}
       {it.type === 'widget' && <WidgetFields it={it} set={set} />}
       {it.type === 'widget' && pal && (
         <>

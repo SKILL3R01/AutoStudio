@@ -31,6 +31,24 @@ People who tried this for a month reported twice as much focus by noon.
 Start with one change tomorrow. Your mornings decide your day.`,
   },
   {
+    id: 'stick-sam', title: 'Sam and the one-hour rule', style: 'stick', variant: 'dusk', lang: 'en',
+    script: `Meet Sam. Every morning, Sam woke up late and ran to work.
+
+At his desk, he felt tired before the day even started. Why was every day the same?
+
+He tried everything. More coffee, more alarms, more lists. Nothing changed.
+
+One night, alone on the street, he almost gave up.
+
+Then it clicked. What if the first hour belonged to him?
+
+Sam told his friend: one hour, no phone, every morning!
+
+Thirty days later, his focus was up by forty percent.
+
+Sam smiled. Small change, big difference. Try it tomorrow.`,
+  },
+  {
     id: 'doc-ar', title: 'لماذا نوافذ الطائرات دائرية', style: 'documentary', variant: 'warm', lang: 'ar',
     script: `انظر إلى أي نافذة طائرة. لن تجدها مربعة أبدًا. لماذا؟
 
@@ -57,5 +75,23 @@ Start with one change tomorrow. Your mornings decide your day.`,
 من جربوا ذلك شهرًا كاملًا قالوا إن تركيزهم تضاعف قبل الظهر.
 
 ابدأ بتغيير واحد غدًا. صباحك يصنع يومك.`,
+  },
+  {
+    id: 'stick-ar', title: 'سامي وقاعدة الساعة الواحدة', style: 'stick', variant: 'dusk', lang: 'ar',
+    script: `هذا سامي. كل صباح كان يستيقظ متأخرًا ويركض إلى العمل.
+
+على مكتبه كان يشعر بالتعب قبل أن يبدأ اليوم. لماذا كل يوم يشبه الآخر؟
+
+جرّب كل شيء. قهوة أكثر، منبهات أكثر، قوائم أكثر. لم يتغير شيء.
+
+في إحدى الليالي، وحيدًا في الشارع، كاد أن يستسلم.
+
+ثم فجأة خطرت له فكرة. ماذا لو كانت الساعة الأولى له وحده؟
+
+قال سامي لصديقته: ساعة واحدة، بلا هاتف، كل صباح!
+
+بعد ثلاثين يومًا، زاد تركيزه أربعين بالمئة.
+
+ابتسم سامي. تغيير صغير، فرق كبير. جرّبه غدًا.`,
   },
 ];

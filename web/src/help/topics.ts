@@ -27,8 +27,8 @@ export const TOPICS: HelpTopic[] = [
       ar: ['اكتب فكرة واحدة في كل جملة: كل جملة تصبح مشهدًا.', 'ضع أرقامًا في نصك («40%»، «2 مليون»): تصبح عدادات ورسومًا متحركة.', 'اقفل المشهد الذي يعجبك (🔒) حتى لا يستبدله الذكاء الاصطناعي.', 'جرّب بمثال جاهز لترى كل الخطوات في دقيقة.'],
     },
     problems: {
-      en: [['The scenes don’t match my voice timing', 'Use “Use my voiceover” (captions needed) or press “Make the voice” in the storyboard.'], ['A style card says “soon”', 'Characters for Stick figure and Cartoon arrive in the next updates.']],
-      ar: [['المشاهد لا تطابق توقيت صوتي', 'استخدم «استخدم تعليقي الصوتي» (تحتاج الترجمة) أو اضغط «اصنع الصوت» في لوحة المشاهد.'], ['بطاقة أسلوب مكتوب عليها «قريبًا»', 'شخصيات العصا والكرتون تأتي في التحديثات القادمة.']],
+      en: [['The scenes don’t match my voice timing', 'Use “Use my voiceover” (captions needed) or press “Make the voice” in the storyboard.'], ['A style card says “soon”', 'The Cartoon style arrives in a next update; Stick figure story is ready.']],
+      ar: [['المشاهد لا تطابق توقيت صوتي', 'استخدم «استخدم تعليقي الصوتي» (تحتاج الترجمة) أو اضغط «اصنع الصوت» في لوحة المشاهد.'], ['بطاقة أسلوب مكتوب عليها «قريبًا»', 'أسلوب الكرتون يأتي في تحديث قادم؛ قصة الشخصيات العصوية جاهزة.']],
     },
     tour: [
       { sel: '[data-tour="step-script"]', en: '① Start here: your script, your voiceover or just an idea.', ar: '① ابدأ هنا: نصك أو تعليقك الصوتي أو مجرد فكرة.' },
@@ -83,6 +83,23 @@ export const TOPICS: HelpTopic[] = [
     steps: { en: ['Find the element (they play when you hover them).', 'Click to add it at the playhead, or drag it onto the preview.', 'Edit it in Properties or directly on the preview.'], ar: ['اعثر على العنصر (يتحرك عند مرور الماوس).', 'اضغط لإضافته عند مؤشر التشغيل، أو اسحبه إلى المعاينة.', 'عدّله في الخصائص أو مباشرة على المعاينة.'] },
     tips: { en: ['In Properties, “Swap” turns a counter into a chart or a ring — same content.'], ar: ['في الخصائص، «تبديل» يحوّل العداد إلى رسم بياني أو حلقة — بنفس المحتوى.'] },
     problems: { en: [], ar: [] },
+  },
+  {
+    id: 'characters', group: 'Editing',
+    title: { en: 'Characters, sets and props', ar: 'الشخصيات والمشاهد والأدوات' },
+    what: { en: 'Stick-figure characters that act out your story: 13 poses, 7 faces, blinking, and a mouth that follows your voice.', ar: 'شخصيات عصوية تمثّل قصتك: 13 وضعية و7 تعابير ورمش وفم يتبع صوتك.' },
+    steps: {
+      en: ['Pick the Stick figure story style (or drag a character from Add elements).', 'Click the character on the preview.', 'Pick a pose and a face from the tiles; “Change pose at the playhead” adds a second pose.'],
+      ar: ['اختر أسلوب «قصة الشخصيات العصوية» (أو اسحب شخصية من «أضف عناصر»).', 'انقر على الشخصية في المعاينة.', 'اختر وضعية وتعبيرًا من البطاقات؛ «غيّر الوضعية عند المؤشر» يضيف وضعية ثانية.'],
+    },
+    tips: {
+      en: ['Turn on “Talks” and the mouth moves with the spoken words.', 'Words like “alone”, “idea”, “told his friend” or “at his desk” pick a matching scene automatically.', 'Flip turns the character to face the other way.'],
+      ar: ['فعّل «يتكلم» ليتحرك الفم مع الكلمات المنطوقة.', 'كلمات مثل «وحيدًا» و«فكرة» و«قال لصديقه» و«على مكتبه» تختار مشهدًا مناسبًا تلقائيًا.', '«اقلب» يجعل الشخصية تنظر للجهة الأخرى.'],
+    },
+    problems: {
+      en: [['The mouth doesn’t move', 'Turn on Talks; with no captions it moves on its own while talking.'], ['The character covers the text', 'Drag the text — the character, its props and bubbles are kept together on purpose.']],
+      ar: [['الفم لا يتحرك', 'فعّل «يتكلم»؛ بدون ترجمة يتحرك وحده أثناء الكلام.'], ['الشخصية تغطي النص', 'اسحب النص — الشخصية وأدواتها وفقاعاتها تبقى معًا عمدًا.']],
+    },
   },
   {
     id: 'smart', group: 'Editing',

@@ -6,7 +6,9 @@ import type { MotionItem } from './types';
 import { widgetBox } from './widgets';
 
 const SKIP = new Set(['background', 'light', 'camera', 'marker']);
-const DECOR = new Set(['rays', 'sparkles', 'arrow', 'circle-draw', 'tape', 'cursor', 'click-pulse', 'light-streaks', 'speed-lines', 'confetti', 'burst', 'wipe', 'slices', 'band-wipe', 'spotlight', 'hud-rings', 'plus-badge', 'starburst']);
+const DECOR = new Set(['rays', 'sparkles', 'arrow', 'circle-draw', 'tape', 'cursor', 'click-pulse', 'light-streaks', 'speed-lines', 'confetti', 'burst', 'wipe', 'slices', 'band-wipe', 'spotlight', 'hud-rings', 'plus-badge', 'starburst', 'set']);
+/** Story staging that must not move (a character, its props and its speech bubbles are composed together). */
+const PINNED = new Set(['character', 'prop', 'bubble']);
 const TEXTY = new Set(['headline', 'kinetic', 'say', 'slam', 'quote']);
 
 let mctx: CanvasRenderingContext2D | null | undefined;
@@ -79,7 +81,9 @@ export function fixLayout(items: MotionItem[], frame: { w: number; h: number }, 
         if (!together(a.it, b.it)) continue;
         const ov = overlap(a, b);
         if (ov < Math.min(a.w * a.h, b.w * b.h) * 0.08) continue;
-        const lo = a.pri >= b.pri ? b : a, hi = lo === a ? b : a;
+        const pa = a.it.type === 'widget' && PINNED.has(String(a.it.widget)), pb = b.it.type === 'widget' && PINNED.has(String(b.it.widget));
+        if (pa && pb) continue;
+        const lo = pa ? b : pb ? a : a.pri >= b.pri ? b : a, hi = lo === a ? b : a;
         // Move the less important one away along the axis that needs the smallest move.
         const dxNeed = (hi.w + lo.w) / 2 + 24 - Math.abs(lo.x - hi.x), dyNeed = (hi.h + lo.h) / 2 + 24 - Math.abs(lo.y - hi.y);
         const vertical = portrait ? dyNeed < dxNeed * 1.6 : dyNeed < dxNeed * 0.6;

@@ -206,6 +206,8 @@ const SAMPLE: Record<string, Partial<MotionItem>> = {
 const GROUPS: [string, string[]][] = [
   ['Text', ['headline', 'kinetic', 'tag', 'quote', 'slam', 'typewriter-tag']], ['Data', ['stat', 'donut', 'chart-line', 'bars', 'progress', 'tally']], ['Lists', ['checklist', 'steps', 'chips', 'cards', 'compare']],
   ['Screens', ['phone', 'chat', 'typing', 'window', 'button']], ['Callouts', ['arrow', 'circle-draw', 'sparkles', 'plus-badge', 'starburst', 'click-pulse']], ['Paper', ['cutout', 'graph-panel', 'tape']],
+  ['Characters', ['character:stand', 'character:wave', 'character:point', 'character:think', 'character:celebrate', 'character:sad', 'bubble:speech', 'bubble:thought']],
+  ['Sets & props', ['set:street', 'set:office', 'set:home', 'set:night', 'set:stage', 'prop:laptop', 'prop:phone', 'prop:lightbulb', 'prop:clock', 'prop:board', 'prop:money', 'prop:desk']],
 ];
 const SHAPES = ['roundrect', 'ellipse', 'ring', 'star', 'triangle', 'line'];
 export const MOTION_MIME = 'application/x-motion-layer';
@@ -215,6 +217,11 @@ export function newLayer(kind: 'widget' | 'icon' | 'shape', name: string): Motio
   const id = `add_${Math.random().toString(36).slice(2, 8)}`;
   if (kind === 'icon') return { id, type: 'icon', name, style: 'badge', color: '#7c6cff', size: 140, start: 0, dur: 3, in: 'elastic-pop' };
   if (kind === 'shape') return { id, type: 'shape', shape: name, w: name === 'line' ? 500 : 300, h: name === 'line' ? 10 : 220, color: '#7c6cff', fill: name !== 'ring' && name !== 'line', lineWidth: 8, start: 0, dur: 3, in: 'pop' };
+  const [w, v] = name.split(':');
+  if (v && w === 'character') return { id, type: 'widget', widget: w, pose: v, size: 560, start: 0, dur: 3, in: 'fade-in', accent: '#ff9f43' } as MotionItem;
+  if (v && w === 'bubble') return { id, type: 'widget', widget: w, kind: v, text: v === 'speech' ? 'Hello!' : 'Hmm…', w: 520, h: 240, start: 0, dur: 3 } as MotionItem;
+  if (v && w === 'set') return { id, type: 'widget', widget: w, kind: v, ground: 0.3, start: 0, dur: 3 } as MotionItem;
+  if (v && w === 'prop') return { id, type: 'widget', widget: w, kind: v, size: 260, start: 0, dur: 3, in: 'pop' } as MotionItem;
   return { id, type: 'widget', widget: name, start: 0, dur: 3, in: 'fade-in', ...(SAMPLE[name] ?? {}) } as MotionItem;
 }
 
@@ -259,7 +266,7 @@ export function AddPanel({ pal }: { pal: MotionPalette }) {
   return (
     <div className="add-panel">
       {GROUPS.map(([g, ws]) => (
-        <div key={g}><h5>{g}</h5><div className="add-grid">{ws.map((w) => tile('widget', w, w.replace(/-/g, ' ')))}</div></div>
+        <div key={g}><h5>{g}</h5><div className="add-grid">{ws.map((w) => tile('widget', w, (w.split(':')[1] ?? w).replace(/-/g, ' ')))}</div></div>
       ))}
       <div><h5>Shapes</h5><div className="add-grid">{SHAPES.map((s) => tile('shape', s, s, 96, 54))}</div></div>
       <div><h5>Icons</h5><input placeholder="Search icons (heart, money, clock…)" value={q} onChange={(e) => setQ(e.target.value)} /><div className="add-grid">{icons.map((n) => tile('icon', n, n, 72, 72))}</div></div>

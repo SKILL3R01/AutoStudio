@@ -2,6 +2,13 @@
 export interface NewsItem { title: string; text: string; tryIt?: { event: string; detail?: string } }
 export const WHATS_NEW: { version: string; items: NewsItem[] }[] = [
   {
+    version: '5.2.0',
+    items: [
+      { title: 'Stick figure story', text: 'A new style with characters that act out your story — 13 poses, 7 faces, blinking, talking with your voice, 7 sets and props. Try the “Sam and the one-hour rule” sample.', tryIt: { event: 'autostudio:dialog', detail: 'story' } },
+      { title: 'Characters in Add elements', text: 'Drag a character, a speech bubble, a set or a prop onto any video, then pick its pose and face from the tiles.', tryIt: { event: 'autostudio:tab', detail: 'mgfx' } },
+    ],
+  },
+  {
     version: '5.1.0',
     items: [
       { title: 'Smart layers on your video', text: 'Talking head or podcast: the app finds faces and empty space on this PC, then places name tags, numbers, quotes and topic tabs from what is said — never over a face.', tryIt: { event: 'autostudio:tab', detail: 'mgfx' } },

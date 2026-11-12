@@ -1,0 +1,128 @@
+[
+ {
+  "wait": 6000
+ },
+ {
+  "eval": "localStorage.setItem('llm', JSON.stringify({ preset: 'custom', url: 'http://localhost:1235/v1', key: '', model: '' })); sessionStorage.setItem('helpOn', '1'); localStorage.setItem('help:noTours', '1'); localStorage.setItem('help:noNews', '1'); location.reload(); 'configured'"
+ },
+ {
+  "waitFor": "!!(document.querySelector('.rail button') && document.querySelector('.tl-inner'))",
+  "timeout": 40000
+ },
+ {
+  "wait": 2500
+ },
+ {
+  "eval": "(() => { document.querySelector('[data-tour=story-top]').click(); return 'story opened'; })()"
+ },
+ {
+  "waitFor": "!!document.querySelector('.studio')",
+  "timeout": 10000
+ },
+ {
+  "eval": "(() => { let n = 0; while (document.querySelector('[data-tour-next]') && n < 8) (document.querySelector('[data-tour-next]').click(), n++); document.querySelector('[data-tour=try-sample]').click(); return 'samples'; })()"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "(() => { const c = document.querySelector('[data-sample=stick-sam]'); if (!c) return 'NO STICK SAMPLE'; c.click(); return 'stick sample'; })()"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "eval": "'style on ' + document.querySelector('.style-card.on')?.dataset.style + ' · soon ' + [...document.querySelectorAll('.style-card.soon')].map((x) => x.dataset.style).join(',')"
+ },
+ {
+  "shot": "stick-style"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /storyboard/.test(b.textContent)).click(); return 'build'; })()"
+ },
+ {
+  "waitFor": "document.querySelectorAll('.scene-card').length > 3",
+  "timeout": 10000
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "eval": "'scenes ' + document.querySelectorAll('.scene-card').length + ' · designs ' + [...document.querySelectorAll('.scene-card .chip')].map((c) => c.textContent).join(',')"
+ },
+ {
+  "shot": "stick-board"
+ },
+ {
+  "eval": "(() => { document.querySelector('.scene-card .live-thumb').click(); return 'open scene 1'; })()"
+ },
+ {
+  "wait": 1200
+ },
+ {
+  "eval": "'design thumbs ' + document.querySelectorAll('.tpl-strip .live-thumb').length"
+ },
+ {
+  "shot": "stick-drawer"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /make it/.test(b.textContent)).click(); return 'make it'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /polish/.test(b.textContent)).click(); return 'polish'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /Open in the editor/.test(b.textContent)).click(); return 'back to editor'; })()"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "eval": "(window.__seek = (t) => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.main-end').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + t * z, clientY: r.top + 5 })); window.dispatchEvent(new PointerEvent('pointerup', {})); }, window.__px = () => { const c = document.querySelector('.stage canvas'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i += 4000) h = (h * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) % 1000003; return h; }, 'helpers')"
+ },
+ {
+  "eval": "(__seek(2.6), 'seek')"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "eval": "(() => { const c = document.querySelector('.stage canvas'); const r = c.getBoundingClientRect(); const o = { bubbles: true, clientX: r.left + r.width * 0.3, clientY: r.top + r.height * 0.6, pointerId: 1, button: 0 }; c.dispatchEvent(new PointerEvent('pointerdown', o)); c.dispatchEvent(new PointerEvent('pointerup', o)); return 'clicked the hero'; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "'selected: ' + ([...document.querySelectorAll('aside h4, aside .section-title, aside summary')].map((h) => h.textContent).find((t) => /Layer/.test(t)) ?? 'no layer') + ' · pose tiles ' + document.querySelectorAll('aside .live-thumb[title=Wave]').length + ' · face tiles ' + document.querySelectorAll('aside .live-thumb[title=Surprised]').length"
+ },
+ {
+  "eval": "(() => { const t = document.querySelector('aside .live-thumb[title=Wave]'); if (!t) return 'NO POSE TILES'; t.click(); return 'picked wave'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "'wave on ' + !!document.querySelector('aside .live-thumb.on[title=Wave]')"
+ },
+ {
+  "shot": "stick-editor"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.rail button')].find((x) => x.title === 'Story').click(); return 'story tab'; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "'add groups ' + [...document.querySelectorAll('.add-panel h5')].map((h) => h.textContent).join(',') + ' · character tiles ' + [...document.querySelectorAll('.add-tile .thumb-label')].filter((l) => ['stand','wave','point','speech'].includes(l.textContent)).length"
+ },
+ {
+  "shot": "stick-add"
+ }
+]

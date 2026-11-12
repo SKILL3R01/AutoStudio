@@ -2,10 +2,10 @@
 import type { MotionItem, MotionPalette } from '../types';
 import { EXPLAINER, frameExplainer } from './explainer';
 import { DOCUMENTARY } from './documentary';
+import { STICK } from './stick';
 import { layer } from './kit';
 import type { SceneCtx, StyleKit } from './types';
 
-const STICK_SVG = "<svg viewBox='0 0 200 260'><circle cx='100' cy='50' r='30' fill='none' stroke='#f5f6fa' stroke-width='10'/><path d='M100 80 L100 170 M100 105 L55 140 M100 105 L150 70 M100 170 L65 240 M100 170 L135 240' stroke='#f5f6fa' stroke-width='10' stroke-linecap='round' fill='none'/></svg>";
 const BEAN_SVG = "<svg viewBox='0 0 220 280'><ellipse cx='110' cy='80' rx='62' ry='70' fill='#ffd7b0' stroke='#4a2340' stroke-width='8'/><circle cx='88' cy='78' r='9' fill='#4a2340'/><circle cx='132' cy='78' r='9' fill='#4a2340'/><path d='M85 112 Q110 132 135 112' stroke='#4a2340' stroke-width='7' fill='none' stroke-linecap='round'/><path d='M60 150 Q110 135 160 150 L172 262 L48 262 Z' fill='#ff7a45' stroke='#4a2340' stroke-width='8'/></svg>";
 
 /** A teaser scene for the gallery card of a style that is not ready yet. */
@@ -16,13 +16,6 @@ const teaser = (svg: string, bg: string[]) => (items: MotionItem[], c: SceneCtx)
   ...items,
 ];
 
-export const STICK: StyleKit = {
-  id: 'stick', name: 'Stick figure story', genre: 'story', status: 'soon',
-  description: 'Cinematic stick figures in moody sets — stories and “what if” videos.',
-  includes: ['characters with poses', 'expressions & talking', 'moody sets'],
-  variants: [{ id: 'dusk', name: 'Dusk', palette: { bg: '#141826', card: '#20263a', text: '#f5f6fa', muted: '#9aa3b2', accents: ['#ff9f43', '#ffd27a', '#5ac8fa'], font: 'Montserrat' } }],
-  font: 'Montserrat', templates: [], frameScene: teaser(STICK_SVG, ['#141826', '#3a2a4a']), direction: '', storyShape: 'setup → conflict → turning point → resolution → lesson', preview: [{ template: '', slots: {} }],
-};
 export const CARTOON: StyleKit = {
   id: 'cartoon', name: 'Cartoon', genre: 'cartoon', status: 'soon',
   description: 'Bean-head cartoon characters with ink outlines in painted sets.',
@@ -32,9 +25,10 @@ export const CARTOON: StyleKit = {
 };
 
 export const BUILTIN_KITS: StyleKit[] = [DOCUMENTARY, EXPLAINER, STICK, CARTOON];
+export { STICK };
 
 /** A user style: a base kit's scene designs with its own palette, font and art direction. */
-export interface MyStyle { id: string; name: string; base: 'explainer' | 'documentary'; palette: MotionPalette; font?: string; direction?: string; createdAt: number }
+export interface MyStyle { id: string; name: string; base: 'explainer' | 'documentary' | 'stick'; palette: MotionPalette; font?: string; direction?: string; createdAt: number }
 const KEY = 'myStyles';
 export const loadMyStyles = (): MyStyle[] => {
   try {
@@ -46,7 +40,7 @@ export const loadMyStyles = (): MyStyle[] => {
 export const saveMyStyles = (s: MyStyle[]) => localStorage.setItem(KEY, JSON.stringify(s));
 
 export function kitOfMyStyle(m: MyStyle): StyleKit {
-  const base = m.base === 'documentary' ? DOCUMENTARY : EXPLAINER;
+  const base = m.base === 'documentary' ? DOCUMENTARY : m.base === 'stick' ? STICK : EXPLAINER;
   return { ...base, id: m.id, name: m.name, genre: 'custom', base: base.id, variants: [{ id: 'mine', name: m.name, palette: m.palette }], font: m.font ?? base.font, direction: m.direction ? `${base.direction}\n${m.direction}` : base.direction, frameScene: base.frameScene === frameExplainer ? frameExplainer : base.frameScene };
 }
 

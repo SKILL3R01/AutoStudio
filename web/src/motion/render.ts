@@ -6,6 +6,7 @@ import { LUCIDE } from './lucide';
 import { CONTENT_WIDGETS, widgetBox, type WidgetApi } from './widgets';
 import { FX_WIDGET_DRAW, SCREEN_WIDGETS } from './fxwidgets';
 import { PAPER_WIDGETS } from './packs/paper';
+import { STICK_WIDGETS } from './characters/stick';
 
 /** Closest icon name in the bundled set ("house" ← "home", "chart" ← "chart-line"…). */
 export function iconName(name: string): string {
@@ -168,7 +169,7 @@ function apiFor(ctx: CanvasRenderingContext2D, g: MotionGroup, it: MotionItem, w
     },
     image: (ref) => envNow.image?.(ref),
     cover: (img, w, h, r = 0) => drawCover(ctx, img, w, h, r),
-    words: it.type === 'widget' && it.widget === 'say' ? words.filter((w) => w.start >= t0 - 0.05 && w.start < t0 + it.dur).map((w) => ({ w: w.text, t: w.start - t0 })) : [],
+    words: it.type === 'widget' && (it.widget === 'say' || (it.widget === 'character' && it.talk)) ? words.filter((w) => w.start >= t0 - 0.05 && w.start < t0 + it.dur).map((w) => ({ w: w.text, t: w.start - t0 })) : [],
     shade,
   };
 }
@@ -179,7 +180,7 @@ function drawItem(ctx: CanvasRenderingContext2D, it: MotionItem, t: number, pal:
   place(ctx, it, p);
   if (it.type === 'text') return drawText(ctx, it, t, p, pal);
   if (it.type === 'widget' && api) {
-    const id = String(it.widget), fn = CONTENT_WIDGETS[id] ?? FX_WIDGET_DRAW[id] ?? PAPER_WIDGETS[id];
+    const id = String(it.widget), fn = CONTENT_WIDGETS[id] ?? FX_WIDGET_DRAW[id] ?? PAPER_WIDGETS[id] ?? STICK_WIDGETS[id];
     if (fn) {
       if (p.reveal < 1) {
         const b = widgetBox(it);

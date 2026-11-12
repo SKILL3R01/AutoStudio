@@ -15,6 +15,9 @@ export interface Slots {
   image2?: string;
   icon?: string;
   date?: string;
+  /** Stick figure / cartoon: the character's feeling and the set. */
+  mood?: string;
+  place?: string;
 }
 
 export interface SceneCtx {
@@ -64,6 +67,8 @@ export interface StyleKit {
   storyShape: string;
   /** Animated gallery card: three templates with sample content. */
   preview: { template: string; slots: Slots }[];
+  /** Story cues checked before the generic hints: words in the scene → a design (first match wins, variety still applies). */
+  cues?: [RegExp, string][];
   /** Custom styles: built on another kit's templates. */
   base?: string;
 }
