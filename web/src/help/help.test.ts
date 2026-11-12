@@ -22,6 +22,7 @@ describe('in-app help', () => {
   });
   it('tips and what is new are filled in', () => {
     for (const [id, tip] of Object.entries(TIPS)) expect(tip.en && tip.ar, id).toBeTruthy();
-    expect(WHATS_NEW[0].version).toBe('5.0.0');
+    expect(WHATS_NEW.map((n) => n.version)).toContain('5.0.0');
+    for (const n of WHATS_NEW) expect(n.items.length).toBeGreaterThan(0);
   });
 });

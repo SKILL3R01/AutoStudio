@@ -488,6 +488,8 @@ export interface Project {
   director?: import('./motion/director/director').DirectorState;
   /** Story Studio (v5): style, script and scenes; one Motion block per scene (`scene_<id>`). */
   story?: import('./motion/story/model').StoryState;
+  /** Smart layers (v5.1): faces / calm areas of the rendered picture, 2 fps (see motion/smart/footage.ts). */
+  footage?: import('./motion/smart/footage').FootageAnalysis;
   /** Master audio fade in/out in seconds. */
   audioFade: { in: number; out: number };
   clips: Clip[];

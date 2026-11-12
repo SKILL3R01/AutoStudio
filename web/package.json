@@ -2,7 +2,7 @@
   "name": "autostudio",
   "productName": "AutoStudio",
   "private": true,
-  "version": "5.0.0",
+  "version": "5.1.0",
   "description": "Free all-in-one faceless video studio",
   "author": "Maher Ayadi",
   "type": "module",
@@ -100,5 +100,8 @@
     "kokoro-js": {
       "@huggingface/transformers": "$@huggingface/transformers"
     }
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.2.2"
   }
 }

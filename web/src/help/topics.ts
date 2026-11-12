@@ -85,6 +85,23 @@ export const TOPICS: HelpTopic[] = [
     problems: { en: [], ar: [] },
   },
   {
+    id: 'smart', group: 'Editing',
+    title: { en: 'Smart layers on your video', ar: 'الطبقات الذكية على الفيديو' },
+    what: { en: 'Name tags, quotes, numbers and topic tabs placed around the face from what is said — for talking heads and podcasts.', ar: 'أسماء واقتباسات وأرقام وعناوين مواضيع توضع حول الوجه حسب الكلام — للفيديوهات الحوارية والبودكاست.' },
+    steps: {
+      en: ['Pick Talking head or Podcast.', 'Analyse the video: the app finds faces and empty space on this PC.', 'Untick what you don’t want, edit the words, then Add.'],
+      ar: ['اختر «متحدث» أو «بودكاست».', 'حلّل الفيديو: البرنامج يجد الوجوه والمساحات الفارغة على جهازك.', 'ألغِ ما لا تريده، عدّل الكلمات، ثم أضف.'],
+    },
+    tips: {
+      en: ['Turn on “Show zones” to see the faces (green) and the free space (blue) the app uses.', 'Say a name clearly (“I’m Sarah Jones”): it becomes a name tag next to the speaker.', 'Every layer can still be dragged on the preview afterwards.'],
+      ar: ['فعّل «إظهار المناطق» لترى الوجوه (أخضر) والمساحات الفارغة (أزرق).', 'قل الاسم بوضوح («أنا سارة»): يصبح بطاقة اسم بجانب المتحدث.', 'يمكنك سحب أي طبقة على المعاينة بعد ذلك.'],
+    },
+    problems: {
+      en: [['No faces found', 'Faces must be visible and not too small; the analysis needs the video on the main track or a picture-in-picture.'], ['A layer covers something', 'Drag it on the preview, or turn on Show zones and analyse again after changing the framing.']],
+      ar: [['لم يُعثر على وجوه', 'يجب أن تكون الوجوه واضحة وغير صغيرة جدًا؛ التحليل يحتاج الفيديو على المسار الرئيسي أو صورة داخل صورة.'], ['طبقة تغطي شيئًا', 'اسحبها على المعاينة، أو فعّل إظهار المناطق وحلّل مجددًا بعد تغيير التأطير.']],
+    },
+  },
+  {
     id: 'export', group: 'Export',
     title: { en: 'Export', ar: 'التصدير' },
     what: { en: 'Renders your video to MP4 / WebM, audio, subtitles — and long videos in parts.', ar: 'يصدّر الفيديو MP4 أو WebM، والصوت، والترجمة — والفيديوهات الطويلة على أجزاء.' },

@@ -1,4 +1,5 @@
 import { pickedColor, usePicker } from './ChromaSection';
+import { ZonesOverlay } from './SmartLayers';
 import { addLayerAtPlayhead, MOTION_MIME } from './pickers/pickers';
 import { frameOf } from '../motion/story/model';
 import { tip } from '../help/tips';
@@ -435,6 +436,7 @@ export function Preview() {
         }}>
         <div className="frame" style={{ width: W * fitScale, height: H * fitScale }}>
           <canvas ref={canvas} width={W} height={H} onPointerDown={onPointerDown} onDoubleClick={(e) => startInline(e) || useEditor.getState().setPlaying(!playing)} />
+          <ZonesOverlay />
           {snapLines && snapLines.v.map((x) => <i key={`v${x}`} className="snap-line v" style={{ left: `${x * 100}%` }} />)}
           {snapLines && snapLines.h.map((y) => <i key={`h${y}`} className="snap-line h" style={{ top: `${y * 100}%` }} />)}
           {inline && (

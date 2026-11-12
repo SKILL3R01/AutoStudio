@@ -12,6 +12,7 @@ import { getKit, variantOf } from '../motion/styles';
 import { LiveThumb } from './pickers/LiveThumb';
 import { AddPanel, stylePreview } from './pickers/pickers';
 import { HandoffPanel } from './HandoffPanel';
+import { SmartLayers } from './SmartLayers';
 import type { MotionGroup } from '../motion/types';
 
 type Place = 'full' | 'overlay' | 'band-top' | 'band-bottom';
@@ -88,6 +89,10 @@ export function MotionAiPanel() {
             insert(r.group);
             return { ok: true, lines: [`✓ Added ${r.group.items.length} layers · ${fmtTime(r.group.dur)} at ${fmtTime(time)}`, ...r.report.fixes.map((f) => `Fixed: ${f}`), ...r.warnings.slice(0, 3).map((w) => `⚠ ${w}`)] };
           }} />
+      </Section>
+
+      <Section title="Smart layers on your video" help="smart">
+        <SmartLayers />
       </Section>
 
       <Section title="Add elements" help="add">

@@ -1,0 +1,48 @@
+[
+ {
+  "wait": 9000
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.rail button')].find((x) => x.title === 'Story').click(); return 'story tab'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { const b = [...document.querySelectorAll('.smart button')].find((x) => x.textContent.includes('Analyse the video')); if (!b) return 'no analyse button'; b.click(); return 'analysing'; })()"
+ },
+ {
+  "waitFor": "!!document.querySelector('.smart-list') || /Analysed/.test(document.querySelector('.smart .hint')?.textContent ?? '')",
+  "timeout": 90000
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "'analysis: ' + document.querySelector('.smart .hint').textContent"
+ },
+ {
+  "eval": "'suggestions ' + document.querySelectorAll('.smart-item').length + ' · ' + [...document.querySelectorAll('.smart-item b')].map((b) => b.textContent).join(', ')"
+ },
+ {
+  "eval": "(() => { const b = [...document.querySelectorAll('.smart button')].find((x) => /Add \\d+ smart layers/.test(x.textContent)); if (!b) return 'no add button'; b.click(); return b.textContent; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "'smart blocks on the Motion row ' + document.querySelectorAll('.t-mgfx .item.mgfx').length"
+ },
+ {
+  "eval": "(() => { const l = [...document.querySelectorAll('.smart label')].find((x) => x.textContent.includes('Show zones')); l.querySelector('input').click(); return 'zones on'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "'zone boxes ' + document.querySelectorAll('.zones-overlay .zone').length"
+ },
+ {
+  "shot": "smart"
+ }
+]

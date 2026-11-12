@@ -24,7 +24,7 @@ export interface ExportProgress {
  * Decodes video frames for export. Every frame time each clip will need is known up front, so each clip gets one
  * monotonic `canvasesAtTimestamps` stream (each packet decoded at most once) instead of a seek per frame.
  */
-class VideoFrames {
+export class VideoFrames {
   private streams = new Map<string, Promise<AsyncGenerator<{ canvas: Drawable } | null> | null>>();
   private frames = new Map<string, Drawable>();
 
@@ -56,7 +56,7 @@ class VideoFrames {
   }
 }
 
-const sourceTime = (p: Project, i: number, t: number, asset: Asset) => clipSourceTime(p.clips[i], asset, t - clipStart(p.clips, i));
+export const sourceTime = (p: Project, i: number, t: number, asset: Asset) => clipSourceTime(p.clips[i], asset, t - clipStart(p.clips, i));
 
 export async function exportVideo(p: Project, lines: CaptionLine[], onProgress: (e: ExportProgress) => void, signal: AbortSignal, beats: number[] = [], range?: { start: number; end: number }) {
   const m = makeModel(p, lines, beats);

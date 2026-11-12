@@ -15,7 +15,7 @@ trap 'kill $(jobs -p) 2>/dev/null' EXIT
 sleep 2
 FAILED=0
 # Lines some suites print by design (e.g. the demo has no voiceover, toasts that vanished before the check).
-EXPECTED='no button \(no voiceover\?\)|"no modal"|"apply disabled"|"no toast"|getAllPromptList|chrome-extension|Receiving end does not exist'
+EXPECTED='no button \(no voiceover\?\)|"no modal"|"apply disabled"|"no toast"|getAllPromptList|chrome-extension|Receiving end does not exist|TensorFlow Lite XNNPACK delegate|OpenGL error checking is disabled'
 run() { # name url steps [ui-mode]
   if [ -n "$SUITES" ] && [[ " $SUITES " != *" $1 "* ]]; then return; fi
   if [ -n "$OFFLINE" ] && [[ " describe " == *" $1 "* ]]; then return; fi
@@ -65,6 +65,7 @@ run tidy "http://localhost:5173/#demo" steps-tidy.json
 run overview "http://localhost:5173/#demo" steps-overview.json
 run motion "http://localhost:5173/#demo" steps-motion.json
 run story "http://localhost:5173/#demo" steps-story.json
+run smart "http://localhost:5173/#demo" steps-smart.json
 run pip "http://localhost:5173/#demo" steps-pip.json
 run wizard "http://localhost:5173/" steps-wizard.json simple
 echo "=== done"

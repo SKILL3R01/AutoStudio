@@ -988,3 +988,15 @@ kbd { padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0
 .news-card { background: #161922; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .news-card p { margin: 0; font-size: 13px; opacity: 0.85; }
 @media (max-width: 900px) { .choice-cards { grid-template-columns: 1fr; } .board { grid-template-columns: 1fr; } .scene-drawer { width: auto; position: static; } }
+
+/* Smart layers */
+.smart { display: flex; flex-direction: column; gap: 8px; }
+.smart-list { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow: auto; }
+.smart-item { display: grid; grid-template-columns: 96px 1fr auto; gap: 8px; align-items: center; font-size: 12px; }
+.smart-item.off { opacity: 0.45; }
+.smart-item input[type=text], .smart-item div input { width: 100%; font-size: 12px; padding: 3px 6px; }
+.zones-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.zone { position: absolute; border: 2px solid; border-radius: 6px; }
+.zone.face { border-color: #19c39c; background: rgba(25,195,156,0.12); }
+.zone.free { border-color: #21c8e8; border-style: dashed; background: rgba(33,200,232,0.08); }
+.zone span { position: absolute; left: 4px; top: 2px; font-size: 10px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #000; }
