@@ -12,6 +12,7 @@ import { PALETTES, repairJson } from '../motion/recipe';
 import { STYLE_PACKS } from '../motion/packs/paper';
 import { loadUserPacks } from '../motion/packs/importer';
 import { drawGroup } from '../motion/render';
+import { applyChapterCards, applyMotionSound, thumbnailPicks } from '../motion/finish';
 import { analyzeVoice } from '../motion/director/analyze';
 import { LAYOUTS, PAPER_LAYOUTS, assignLayouts, makeBible } from '../motion/director/templates';
 import { applySectionAnswer, directorChecks, fillTemplates, firstMessage, localPrompt, redoMessage, sectionMessage, type DirectorState } from '../motion/director/director';
@@ -216,7 +217,13 @@ export function MotionDirector({ onClose }: { onClose: () => void }) {
               <button className="btn sm" onClick={() => (update((d) => void (d.chapters = st.sections.map((s, i) => ({ id: `ch_dir${i}`, t: i === 0 ? 0 : s.start, title: s.title ? s.title[0].toUpperCase() + s.title.slice(1) : `Part ${i + 1}` })))), toast('Sections are now chapters on the ruler (More → Copy YouTube chapters)', 'ok'))}>Use sections as chapters</button>
               <span className="hint">{checks.length ? `${checks.length} things to look at` : '✓ No problems found: every second is covered, texts are short, nothing outside the frame.'}</span>
             </div>
+            <div className="row wrap">
+              <button className="btn sm" onClick={() => { let n = 0; update((d) => void (n = applyMotionSound(d))); toast(n ? `${n} sound effects placed on the SFX track (whooshes on transitions, hits on headlines, clicks, pops…) — run again after changes` : 'No motion layers with sounds yet', n ? 'ok' : 'info'); }}><Icon name="sfx" /> Add sound effects from the motion</button>
+              <button className="btn sm ghost" onClick={() => (update((d) => void (d.audio = d.audio.filter((c) => !c.id.startsWith('msfx_')))), toast('Motion sound effects removed', 'ok'))}>Remove them</button>
+              <Toggle label="Chapter title cards between sections" value={!!p.motion?.some((g) => g.id.startsWith('dir_ch'))} onChange={(on) => update((d) => void applyChapterCards(d, d.director!, on))} />
+            </div>
             {checks.length > 0 && <div className="mgfx-report bad">{checks.slice(0, 30).map((c) => <p key={c}>⚠ {c}</p>)}</div>}
+            <Thumbnails st={st} p={p} />
             <ContactSheet st={st} p={p} onPick={(t) => seek(t)} />
           </div>
         )}
@@ -248,6 +255,72 @@ function ContactSheet({ st, p, onPick }: { st: DirectorState; p: Project; onPick
           <figcaption>{fmtTime(b.start)} · {b.layout}</figcaption>
         </figure>
       ))}
+    </div>
+  );
+}
+
+/** Two thumbnail options from the strongest beats (the motion frame, plus an optional big title), downloaded as JPG. */
+function Thumbnails({ st, p }: { st: DirectorState; p: Project }) {
+  const [title, setTitle] = useState(p.name === 'Demo project' ? '' : p.name);
+  const picks = useMemo(() => thumbnailPicks(st), [st]);
+  const ref = useRef<HTMLDivElement>(null);
+  const vertical = p.export.aspect === '9:16';
+  const [W, H] = vertical ? [720, 1280] : [1280, 720];
+  useEffect(() => {
+    const words = p.words?.length ? p.words : p.lines.flatMap((l) => l.words);
+    ref.current?.querySelectorAll('canvas').forEach((c, i) => {
+      const b = picks[i];
+      if (!b) return;
+      const t = Math.min(b.end - 0.05, b.start + Math.min(1.8, (b.end - b.start) * 0.7));
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+      for (const g of p.motion ?? []) if (!g.hidden && t >= g.start && t < g.start + g.dur && g.placement !== 'overlay') drawGroup(ctx, g, t - g.start, W, H, { words });
+      if (title.trim()) {
+        const size = Math.round(W * (vertical ? 0.11 : 0.075));
+        ctx.font = `900 ${size}px "${st.bible.font}", Montserrat`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.lineJoin = 'round';
+        const lines = title.toUpperCase().split(/\s+/).reduce<string[]>((acc, w) => {
+          const last = acc[acc.length - 1];
+          if (last && ctx.measureText(last + ' ' + w).width < W * 0.86) acc[acc.length - 1] = last + ' ' + w;
+          else acc.push(w);
+          return acc;
+        }, []).slice(0, 3);
+        lines.forEach((l, k) => {
+          const y = H - W * 0.05 - (lines.length - 1 - k) * size * 1.05;
+          ctx.lineWidth = size * 0.16;
+          ctx.strokeStyle = '#000';
+          ctx.strokeText(l, W * 0.06, y);
+          ctx.fillStyle = k === lines.length - 1 ? st.bible.palette.accents[1] ?? '#ffd23f' : '#ffffff';
+          ctx.fillText(l, W * 0.06, y);
+        });
+      }
+    });
+  });
+  const save = (i: number) => ref.current?.querySelectorAll('canvas')[i]?.toBlob((b) => {
+    if (!b) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = `${(p.name || 'video').replace(/[^\w\- ]+/g, '')} thumbnail ${'AB'[i]}.jpg`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }, 'image/jpeg', 0.92);
+  return (
+    <div className="dir-thumbs">
+      <div className="row wrap">
+        <b>Thumbnails</b>
+        <label className="field"><span>Title on the thumbnail</span><input value={title} placeholder="e.g. WHY MORNINGS WIN" onChange={(e) => setTitle(e.target.value)} /></label>
+      </div>
+      <div className="row wrap" ref={ref}>
+        {picks.map((b, i) => (
+          <figure key={b.id}>
+            <canvas width={W} height={H} style={{ width: vertical ? 160 : 320, height: vertical ? 284 : 180 }} />
+            <figcaption>{'AB'[i]} · {fmtTime(b.start)} · {b.layout} <button className="btn sm ghost" onClick={() => save(i)}><Icon name="download" /> JPG</button></figcaption>
+          </figure>
+        ))}
+      </div>
     </div>
   );
 }

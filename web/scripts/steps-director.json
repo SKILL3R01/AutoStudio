@@ -95,6 +95,39 @@
   "eval": "'chapters on ruler: ' + document.querySelectorAll('.chapter-mark').length"
  },
  {
+  "eval": "(() => { [...document.querySelectorAll('.director button')].find((b) => b.textContent.includes('Add sound effects from the motion')).click(); return 'sfx'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "'motion sfx clips on SFX track: ' + document.querySelectorAll('[data-track] .aclip').length"
+ },
+ {
+  "eval": "(() => { const t = [...document.querySelectorAll('.director label')].find((l) => l.textContent.includes('Chapter title cards')); t.querySelector('input').click(); return 'chapter cards toggled'; })()"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "'thumbnails: ' + document.querySelectorAll('.dir-thumbs canvas').length + ' · motion blocks ' + document.querySelectorAll('.t-mgfx .item.mgfx').length"
+ },
+ {
   "shot": "dir-check"
+ },
+ {
+  "eval": "(() => { document.querySelector('.director .icon-btn').click(); return 'closed'; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "(() => { window.dispatchEvent(new CustomEvent('autostudio:dialog', { detail: 'export' })); return 'export dialog'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "'export button enabled ' + ![...document.querySelectorAll('.modal button')].find((b) => b.textContent.includes('Export video')).disabled"
  }
 ]

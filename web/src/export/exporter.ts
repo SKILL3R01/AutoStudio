@@ -58,8 +58,10 @@ class VideoFrames {
 
 const sourceTime = (p: Project, i: number, t: number, asset: Asset) => clipSourceTime(p.clips[i], asset, t - clipStart(p.clips, i));
 
-export async function exportVideo(p: Project, lines: CaptionLine[], onProgress: (e: ExportProgress) => void, signal: AbortSignal, beats: number[] = []) {
+export async function exportVideo(p: Project, lines: CaptionLine[], onProgress: (e: ExportProgress) => void, signal: AbortSignal, beats: number[] = [], range?: { start: number; end: number }) {
   const m = makeModel(p, lines, beats);
+  // Part export (e.g. one Director section): frames and sound of [t0, t1) only, starting at 0 in the file.
+  const t0 = Math.max(0, range?.start ?? 0), t1 = Math.min(m.length, range?.end ?? m.length);
   const { W, H } = outputSize(p);
   const fps = p.export.fps;
   const bitrate = videoBitrate(p, W, H);
@@ -89,31 +91,32 @@ export async function exportVideo(p: Project, lines: CaptionLine[], onProgress: 
 
   if (asrc) {
     const chunk = 48000 * 10;
-    for (let off = 0; off < mix.length; off += chunk) {
-      const len = Math.min(chunk, mix.length - off);
+    const a0 = Math.round(t0 * 48000), a1 = Math.min(mix.length, Math.round(t1 * 48000));
+    for (let off = a0; off < a1; off += chunk) {
+      const len = Math.min(chunk, a1 - off);
       const part = new AudioBuffer({ length: len, numberOfChannels: 2, sampleRate: 48000 });
       for (let c = 0; c < 2; c++) part.copyToChannel(mix.getChannelData(Math.min(c, mix.numberOfChannels - 1)).subarray(off, off + len), c);
       await asrc.add(part);
     }
   }
 
-  const total = Math.ceil(m.length * fps);
+  const total = Math.max(1, Math.ceil((t1 - t0) * fps));
   const plan = new Map<string, number[]>();
   for (let f = 0; f < total; f++) {
-    for (const i of activeClipIndices(m, f / fps)) {
+    for (const i of activeClipIndices(m, t0 + f / fps)) {
       const clip = p.clips[i];
       const asset = m.assets.get(clip.assetId);
       if (asset?.kind !== 'video') continue;
       const list = plan.get(clip.id) ?? [];
-      list.push(sourceTime(p, i, f / fps, asset));
+      list.push(sourceTime(p, i, t0 + f / fps, asset));
       plan.set(clip.id, list);
     }
   }
   for (let f = 0; f < total; f++) {
-    for (const c of activePips(p, f / fps)) {
+    for (const c of activePips(p, t0 + f / fps)) {
       if (m.assets.get(c.assetId)?.kind !== 'video') continue;
       const list = plan.get(c.id) ?? [];
-      list.push(c.trimIn + (f / fps - c.start));
+      list.push(c.trimIn + (t0 + f / fps - c.start));
       plan.set(c.id, list);
     }
   }
@@ -129,7 +132,7 @@ export async function exportVideo(p: Project, lines: CaptionLine[], onProgress: 
       await output.cancel();
       throw new DOMException('Export cancelled', 'AbortError');
     }
-    const t = f / fps;
+    const t = t0 + f / fps;
     for (const i of activeClipIndices(m, t)) {
       const clip = p.clips[i];
       const asset = m.assets.get(clip.assetId);
@@ -139,17 +142,20 @@ export async function exportVideo(p: Project, lines: CaptionLine[], onProgress: 
     for (const c of activePips(p, t)) if (m.assets.get(c.assetId)?.kind === 'video') await frames.next(pipAsClip(c));
     await Promise.all(imagesNeededAt(m, t).map((id) => media.ensureImage(id)));
     renderFrame(ctx, m, t, src, W, H);
-    await vsrc.add(t, 1 / fps);
+    await vsrc.add(f / fps, 1 / fps);
     if (f % 15 === 0) {
       const el = (performance.now() - started) / 1000;
       const eta = f ? (el / f) * (total - f) : 0;
-      onProgress({ stage: `Rendering frame ${f}/${total} · ETA ${Math.ceil(eta)}s`, progress: f / total });
+      onProgress({ stage: `Rendering frame ${f}/${total} · ${timeLeft(eta)}`, progress: f / total });
     }
   }
   onProgress({ stage: 'Finalizing', progress: 1 });
   await output.finalize();
   return new Blob([output.target.buffer!], { type: webm ? 'video/webm' : 'video/mp4' });
 }
+
+/** "about 12 min left" / "40 s left". */
+export const timeLeft = (s: number) => (!s ? 'estimating…' : s >= 90 ? `about ${Math.round(s / 60)} min left` : `${Math.ceil(s)} s left`);
 
 /** Explicit video bitrate: 8 / 5 / 2.5 Mbps at 1080p30, scaled by pixel count and frame rate. */
 export function videoBitrate(p: Project, W: number, H: number) {
