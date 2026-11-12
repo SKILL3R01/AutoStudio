@@ -147,7 +147,8 @@ export function buildStory(p: Project, only?: string[], force = false): string[]
 /** Start a story from the narration (or the script) in a style. */
 export function newStory(p: Project, styleId: string, variantId: string, script = ''): StoryState {
   const words: DWord[] = (p.words?.length ? p.words : p.lines.flatMap((l) => l.words)).map((w) => ({ w: w.text, t: w.start, end: w.end }));
-  const timing: StoryState['timing'] = words.length >= 5 ? 'voice' : 'script';
+  // A script given → scenes follow the script (timed by reading speed until its voice is made); none → the narration.
+  const timing: StoryState['timing'] = !script.trim() && words.length >= 5 ? 'voice' : 'script';
   const scenes = scenesFromWords(timing === 'voice' ? words : wordsFromScript(script));
   const st: StoryState = { styleId, variantId, script: script || words.map((w) => w.w).join(' '), scenes, timing, createdAt: Date.now() };
   pickTemplates(scenes, getKit(styleId), true);

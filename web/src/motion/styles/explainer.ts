@@ -13,7 +13,7 @@ const T_: SceneTemplate[] = [
   { id: 'headline', name: 'Headline', fits: ['plain', 'intro'], slots: ['title', 'key', 'sub'], describe: 'one bold headline, key word in gold, small caps line under it',
     build: (s, c) => [head(c, s, { x: 0, y: 0 }, safeW(c), titleSize(s.title ?? '', safeW(c), 120))] },
   { id: 'say', name: 'Spoken words', fits: ['plain'], slots: ['key'], describe: 'the spoken words appear one by one with the voice, key word in gold',
-    build: (s, c) => [W(c, 'say', { text: '', key: s.key ? [s.key] : [], size: 110 * u(c), pill: false })] },
+    build: (s, c) => [W(c, 'say', { text: '', fallback: s.title ?? '', key: s.key ? [s.key] : [], size: 110 * u(c), pill: false })] },
   { id: 'kinetic', name: 'Kinetic lines', fits: ['intro', 'question', 'plain'], slots: ['title', 'key'], describe: 'two short punchy lines one after another',
     build: (s, c) => {
       const ws = (s.title ?? '').split(' '), h = Math.ceil(ws.length / 2);

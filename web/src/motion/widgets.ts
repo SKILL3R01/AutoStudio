@@ -128,7 +128,9 @@ const kinetic: W = (_ctx, it, t, a) => {
 const say: W = (ctx, it, t, a) => {
   const p = palOf(it, a), size = n(it.size, 110);
   const own = arr<{ w: string; t: number }>(it.words);
-  const ws = own.length ? own : str(it.text) ? str(it.text).split(/\s+/).map((w, i, all) => ({ w, t: (i / all.length) * it.dur * 0.7 })) : a.words;
+  const spread = (txt: string) => txt.split(/\s+/).filter(Boolean).map((w, i, all) => ({ w, t: (i / all.length) * it.dur * 0.7 }));
+  // Own words → the given text → the narration words → a fallback text (thumbnails have no narration).
+  const ws = own.length ? own : str(it.text) ? spread(str(it.text)) : a.words.length ? a.words : spread(str(it.fallback));
   if (!ws.length) return;
   const keys = arr<string>(it.key).map((s) => s.toLowerCase());
   // Show the current phrase (up to 6 words) word by word as each is spoken.

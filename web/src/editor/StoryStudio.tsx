@@ -9,7 +9,8 @@ import { fmtTime } from '../lib/util';
 import { KOKORO_VOICES, speakDraft } from '../ai/vision';
 import { suggestChapters } from '../lib/chapters';
 import { LiveThumb, makeGroup } from './pickers/LiveThumb';
-import { StyleCard, TemplateStrip } from './pickers/pickers';
+import { StyleCard, TemplateStrip, stylePreview } from './pickers/pickers';
+import { SAMPLES, type Sample } from '../samples';
 import { HandoffPanel, type HandoffResult } from './HandoffPanel';
 import { HelpButton, useFirstTour } from '../components/HelpButton';
 import { allKits, getKit, loadMyStyles, paletteFromColors, paletteFromPixels, saveMyStyles, variantOf, type MyStyle } from '../motion/styles';
@@ -63,6 +64,17 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener('keydown', k);
   }, [onClose]);
 
+  const [samplesOpen, setSamplesOpen] = useState(false);
+  /** A sample: its script and style, straight to the style step (then the voice from the storyboard). */
+  const pickSample = (sm: Sample) => {
+    setScript(sm.script);
+    setMode('paste');
+    setStyleId(sm.style);
+    setVariantId(sm.variant);
+    setSamplesOpen(false);
+    setStep('style');
+    toast(`Sample “${sm.title}” loaded — check the style, then build the storyboard`, 'ok');
+  };
   const hasText = mode === 'voice' ? words.length >= 5 : script.trim().split(/\s+/).length >= 8;
   const kits = useMemo(() => allKits(), [kitsVersion]);
   const kit = getKit(styleId);
@@ -129,7 +141,7 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
     const nums = (ticked.length ? ticked : selScene ? [selScene] : []).map((id) => st.scenes.findIndex((s) => s.id === id) + 1).filter((n) => n > 0);
     if (!nums.length) return toast('Tick the scenes to redo in the storyboard first (✓ on a card)', 'info');
     setExpect(nums);
-    void navigator.clipboard.writeText(redoMessage(st, nums, how)).then(() => toast(`“Redo ${nums.length} scene${nums.length > 1 ? 's' : ''}” copied — paste it into the SAME chat, then paste the answer in step ④`, 'ok'));
+    void navigator.clipboard.writeText(redoMessage(st, nums, how)).catch(() => undefined).then(() => toast(`“Redo ${nums.length} scene${nums.length > 1 ? 's' : ''}” copied — paste it into the SAME chat, then paste the answer in step ④`, 'ok'));
   };
 
   /* ---------- voice ---------- */
@@ -178,6 +190,17 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
         {step === 'script' && (
           <section className="studio-pane">
             <h2>What is your video about?</h2>
+            {samplesOpen && (
+              <div className="sample-cards" data-tour="samples">
+                {SAMPLES.map((sm) => (
+                  <div key={sm.id} className="sample-card" dir={sm.lang === 'ar' ? 'rtl' : 'ltr'}>
+                    <LiveThumb group={stylePreview(getKit(sm.style), sm.variant)} width={192} height={108} onClick={() => pickSample(sm)} title={`Use the sample “${sm.title}”`} />
+                    <b>{sm.title}</b><span className="hint">{getKit(sm.style).name} · {sm.lang === 'ar' ? 'العربية' : 'English'}</span>
+                    <button className="btn sm" data-sample={sm.id} onClick={() => pickSample(sm)}>Use this sample</button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="choice-cards">
               {([['paste', 'text', 'Paste my script', 'Every sentence becomes a scene'], ['voice', 'mic', 'Use my voiceover', words.length ? `${words.length} words · ${fmtTime(words[words.length - 1].end)}` : 'Record or upload one first (Voice panel)'], ['idea', 'wand', 'I have an idea', 'The AI writes the script for you']] as const).map(([k, icon, title, sub]) => (
                 <button key={k} className={`choice-card ${mode === k ? 'on' : ''}`} disabled={k === 'voice' && words.length < 5} onClick={() => setMode(k)} data-tour={`script-${k}`}>
@@ -209,7 +232,7 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
               </div>
             )}
             <div className="studio-next">
-              <button className="btn sm ghost" onClick={() => window.dispatchEvent(new CustomEvent('autostudio:sample'))}><Icon name="wand" /> Try with a sample</button>
+              <button className="btn sm ghost" data-tour="try-sample" onClick={() => setSamplesOpen(!samplesOpen)}><Icon name="wand" /> Try with a sample</button>
               <button className="btn primary" disabled={!hasText} onClick={() => setStep('style')}>Next: pick a style →</button>
             </div>
           </section>

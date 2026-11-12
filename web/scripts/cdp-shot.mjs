@@ -49,6 +49,9 @@ await send('Runtime.enable');
 await send('Page.enable');
 // UI_MODE=pro|simple: set the interface mode before the app's scripts run (regression suites use Pro selectors).
 if (process.env.UI_MODE) await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('uiMode', ${JSON.stringify(process.env.UI_MODE)}); } catch {}` });
+// What's new cards and first-time tours would cover the UI in every suite: off, unless a suite turns them on
+// (sessionStorage.helpOn = '1' before a reload, as the story suite does).
+await send('Page.addScriptToEvaluateOnNewDocument', { source: "try { if (!sessionStorage.getItem('helpOn')) { localStorage.setItem('help:noNews', '1'); localStorage.setItem('help:noTours', '1'); } } catch {}" });
 await send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
 await send('Page.navigate', { url });
 // The demo editor can take much longer to open on a slow / cold machine (CI): after the first long wait,

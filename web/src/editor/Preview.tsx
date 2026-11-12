@@ -1,4 +1,7 @@
 import { pickedColor, usePicker } from './ChromaSection';
+import { addLayerAtPlayhead, MOTION_MIME } from './pickers/pickers';
+import { frameOf } from '../motion/story/model';
+import { tip } from '../help/tips';
 import { motionHits, onMotionAsset } from '../motion/render';
 import { motionRef } from '../motion/edit';
 import type { Clip } from '../types';
@@ -203,6 +206,33 @@ export function Preview() {
     };
   }, [playing, aKey, seekId]);
 
+  const [snapLines, setSnapLines] = useState<{ v: number[]; h: number[] } | null>(null);
+  const [inline, setInline] = useState<{ ref: string; field: string; value: string; x: number; y: number; w: number; h: number; font: string; size: number } | null>(null);
+  /** Double-click on a motion text (or a widget's main text): type in place. Returns false when nothing editable was hit. */
+  const startInline = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    const hit = motionHits(m.project.motion, time, W, H).reverse().find((b) => Math.abs(px - b.x) <= b.w / 2 && Math.abs(py - b.y) <= b.h / 2);
+    const it = hit && motionRef(m.project, hit.ref).it;
+    if (!hit || !it) return false;
+    const field = it.type === 'text' ? 'text' : ['title', 'text', 'value', 'label', 'name'].find((f) => typeof it[f] === 'string');
+    if (!field) return false;
+    const size = typeof it.size === 'number' ? it.size : 80;
+    setInline({ ref: hit.ref, field, value: String(it[field] ?? ''), x: hit.x, y: hit.y, w: hit.w, h: hit.h, font: String(it.font ?? 'Montserrat'), size: Math.max(14, Math.min(48, size * hit.k * (r.width / W) * 0.8)) });
+    useEditor.getState().setPlaying(false);
+    return true;
+  };
+  const commitInline = (v: string) => {
+    if (!inline) return;
+    const { ref, field } = inline;
+    setInline(null);
+    useEditor.getState().update((d) => {
+      const it = motionRef(d, ref).it;
+      if (it) it[field] = v;
+    });
+    tip('scene-edited');
+  };
+
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     if (usePicker.getState().target) {
@@ -215,7 +245,10 @@ export function Preview() {
     const hit = hitBoxes(m.project, time, W, H).reverse().find((b) => Math.abs(px - b.x) <= b.w / 2 && Math.abs(py - b.y) <= b.h / 2);
     const st = useEditor.getState();
     if (!hit) {
-      const mh = motionHits(m.project.motion, time, W, H).reverse().find((b) => Math.abs(px - b.x) <= Math.max(b.w, 0.02) / 2 && Math.abs(py - b.y) <= Math.max(b.h, 0.02) / 2);
+      const under = motionHits(m.project.motion, time, W, H).reverse().filter((b) => Math.abs(px - b.x) <= Math.max(b.w, 0.02) / 2 && Math.abs(py - b.y) <= Math.max(b.h, 0.02) / 2);
+      // Alt-click: the next layer under the pointer (cycles through the stack).
+      const curIdx = st.selection?.kind === 'motion' ? under.findIndex((b) => b.ref === st.selection!.id) : -1;
+      const mh = e.altKey && under.length > 1 ? under[(curIdx + 1) % under.length] : under[0];
       if (mh) return dragMotion(e, r, mh.ref, mh.k);
       return reframeMain(e, r);
     }
@@ -249,14 +282,30 @@ export function Preview() {
     const it0 = motionRef(m.project, ref).it;
     if (!it0) return;
     const x0 = it0.x ?? 0, y0 = it0.y ?? 0;
+    // Snap targets (recipe px): the centre lines and the centres / edges of the other layers on screen.
+    const g = motionRef(m.project, ref).g!;
+    const others = motionHits(m.project.motion, time, W, H).filter((b) => b.ref !== ref && b.ref.startsWith(g.id + '/'));
+    const toRx = (nx: number) => ((nx * W - W / 2) / k), toRy = (ny: number) => ((ny * H - H / 2) / k);
+    const xs = [0, ...others.flatMap((b) => [toRx(b.x), toRx(b.x - b.w / 2), toRx(b.x + b.w / 2)])];
+    const ys = [0, ...others.flatMap((b) => [toRy(b.y), toRy(b.y - b.h / 2), toRy(b.y + b.h / 2)])];
+    const snap = (v: number, list: number[]) => list.reduce((best, c) => (Math.abs(c - v) < Math.abs(best - v) ? c : best), Infinity);
+    let moved = false;
     const move = (ev: PointerEvent) => {
-      const nx = x0 + (((ev.clientX - e.clientX) / r.width) * W) / k, ny = y0 + (((ev.clientY - e.clientY) / r.height) * H) / k;
+      let nx = x0 + (((ev.clientX - e.clientX) / r.width) * W) / k, ny = y0 + (((ev.clientY - e.clientY) / r.height) * H) / k;
+      moved = true;
+      const gx: number[] = [], gy: number[] = [];
+      if (!ev.shiftKey) {
+        const sx = snap(nx, xs), sy = snap(ny, ys), tol = 10 / k + 6;
+        if (Math.abs(sx - nx) < tol) (nx = sx), gx.push((W / 2 + sx * k) / W);
+        if (Math.abs(sy - ny) < tol) (ny = sy), gy.push((H / 2 + sy * k) / H);
+      }
+      setSnapLines({ v: gx, h: gy });
       st.update((d) => {
         const it = motionRef(d, ref).it;
-        if (it) (it.x = Math.abs(nx) < 12 ? 0 : Math.round(nx)), (it.y = Math.abs(ny) < 12 ? 0 : Math.round(ny));
+        if (it) (it.x = Math.round(nx)), (it.y = Math.round(ny));
       }, `mdrag-${ref}`);
     };
-    const up = () => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up));
+    const up = () => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up), setSnapLines(null), moved && tip('layer-dragged'));
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
@@ -369,15 +418,34 @@ export function Preview() {
   return (
     <div className={`preview ${full ? 'full' : ''}`}>
       <div className="stage" ref={stageRef}
-        onDragOver={(e) => e.dataTransfer.types.includes(ASSET_MIME) && (e.preventDefault(), setDropping(true))}
+        onDragOver={(e) => (e.dataTransfer.types.includes(ASSET_MIME) || e.dataTransfer.types.includes(MOTION_MIME)) && (e.preventDefault(), setDropping(true))}
         onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setDropping(false)}
         onDrop={(e) => {
           setDropping(false);
+          const layer = e.dataTransfer.getData(MOTION_MIME);
+          if (layer) {
+            e.preventDefault();
+            const fr = canvas.current!.getBoundingClientRect(), f = frameOf(m.project);
+            const nx = (e.clientX - fr.left) / fr.width, ny = (e.clientY - fr.top) / fr.height;
+            const k = Math.min(fr.width / f.w, fr.height / f.h) * (W / fr.width);
+            return addLayerAtPlayhead(JSON.parse(layer), { x: Math.round(((nx - 0.5) * W) / k), y: Math.round(((ny - 0.5) * H) / k) });
+          }
           const id = e.dataTransfer.getData(ASSET_MIME);
           if (id) (e.preventDefault(), dropAssetAt(id, useEditor.getState().time));
         }}>
         <div className="frame" style={{ width: W * fitScale, height: H * fitScale }}>
-          <canvas ref={canvas} width={W} height={H} onPointerDown={onPointerDown} onDoubleClick={() => useEditor.getState().setPlaying(!playing)} />
+          <canvas ref={canvas} width={W} height={H} onPointerDown={onPointerDown} onDoubleClick={(e) => startInline(e) || useEditor.getState().setPlaying(!playing)} />
+          {snapLines && snapLines.v.map((x) => <i key={`v${x}`} className="snap-line v" style={{ left: `${x * 100}%` }} />)}
+          {snapLines && snapLines.h.map((y) => <i key={`h${y}`} className="snap-line h" style={{ top: `${y * 100}%` }} />)}
+          {inline && (
+            <textarea className="inline-edit" autoFocus defaultValue={inline.value} style={{ left: `${(inline.x - inline.w / 2) * 100}%`, top: `${(inline.y - inline.h / 2) * 100}%`, width: `${Math.max(inline.w, 0.18) * 100}%`, minHeight: `${inline.h * 100}%`, fontFamily: `"${inline.font}"`, fontSize: inline.size }}
+              onKeyDown={(ev) => {
+                ev.stopPropagation();
+                if (ev.key === 'Escape') setInline(null);
+                if (ev.key === 'Enter' && !ev.shiftKey) (ev.preventDefault(), commitInline(ev.currentTarget.value));
+              }}
+              onBlur={(ev) => commitInline(ev.currentTarget.value)} />
+          )}
           {guides && <SafeArea aspect={m.project.export.aspect} />}
           {dropping && <div className="preview-drop">Drop to add at {fmtTime(time)}</div>}
           {sel && (

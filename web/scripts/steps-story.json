@@ -1,0 +1,210 @@
+[
+ {
+  "wait": 6000
+ },
+ {
+  "eval": "localStorage.setItem('llm', JSON.stringify({ preset: 'custom', url: 'http://localhost:1235/v1', key: '', model: '' })); sessionStorage.setItem('helpOn', '1'); localStorage.removeItem('help:noTours'); localStorage.setItem('help:noNews', '1'); location.reload(); 'configured'"
+ },
+ {
+  "waitFor": "!!(document.querySelector('.rail button') && document.querySelector('.tl-inner'))",
+  "timeout": 40000
+ },
+ {
+  "wait": 2500
+ },
+ {
+  "eval": "(() => { document.querySelector('[data-tour=story-top]').click(); return 'story opened'; })()"
+ },
+ {
+  "waitFor": "!!document.querySelector('.studio')",
+  "timeout": 10000
+ },
+ {
+  "wait": 1200
+ },
+ {
+  "eval": "'tour shown ' + !!document.querySelector('.tour-box') + ' · text: ' + (document.querySelector('.tour-box p')?.textContent ?? '')"
+ },
+ {
+  "eval": "(() => { let n = 0; while (document.querySelector('[data-tour-next]') && n < 8) (document.querySelector('[data-tour-next]').click(), n++); return 'tour steps clicked ' + n; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "(() => { document.querySelector('[data-tour=try-sample]').click(); return 'samples'; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "'sample cards ' + document.querySelectorAll('.sample-card').length"
+ },
+ {
+  "eval": "(() => { document.querySelector('[data-sample=exp-mornings]').click(); return 'sample picked'; })()"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "eval": "'style step: cards ' + document.querySelectorAll('.style-card').length + ' · on ' + document.querySelector('.style-card.on')?.dataset.style + ' · soon ' + document.querySelectorAll('.style-card.soon').length + ' · card contrast ' + (() => { const c = document.querySelector(\".style-card.on canvas\"); if (!c) return -1; const g = c.getContext('2d'); const d = g.getImageData(0, 0, c.width, c.height).data; let mn = 255, mx = 0; for (let i = 0; i < d.length; i += 400) { const v = d[i] + d[i + 1] + d[i + 2]; mn = Math.min(mn, v); mx = Math.max(mx, v); } return mx - mn; })()"
+ },
+ {
+  "shot": "story-style"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /storyboard/.test(b.textContent)).click(); return 'build'; })()"
+ },
+ {
+  "waitFor": "document.querySelectorAll('.scene-card').length > 3",
+  "timeout": 10000
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "'scenes ' + document.querySelectorAll('.scene-card').length + ' · designs ' + [...document.querySelectorAll('.scene-card .chip')].map((c) => c.textContent).slice(0, 8).join(',') + ' · first thumb contrast ' + (() => { const c = document.querySelector(\".scene-card canvas\"); if (!c) return -1; const g = c.getContext('2d'); const d = g.getImageData(0, 0, c.width, c.height).data; let mn = 255, mx = 0; for (let i = 0; i < d.length; i += 400) { const v = d[i] + d[i + 1] + d[i + 2]; mn = Math.min(mn, v); mx = Math.max(mx, v); } return mx - mn; })() + ' · voice banner ' + !!document.querySelector('.voice-banner')"
+ },
+ {
+  "shot": "story-board"
+ },
+ {
+  "eval": "(() => { document.querySelector('.scene-card .live-thumb').click(); return 'open scene 1'; })()"
+ },
+ {
+  "wait": 700
+ },
+ {
+  "eval": "'drawer ' + !!document.querySelector('.scene-drawer') + ' · design thumbs ' + document.querySelectorAll('.tpl-strip .live-thumb').length + ' · before ' + document.querySelector('.scene-card .chip').textContent"
+ },
+ {
+  "eval": "(() => { const t = [...document.querySelectorAll('.tpl-strip .live-thumb')].find((x) => !x.classList.contains('on')); t.click(); return 'picked ' + t.querySelector('.thumb-label').textContent; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "'after ' + document.querySelector('.scene-card .chip').textContent"
+ },
+ {
+  "shot": "story-drawer"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /make it/.test(b.textContent)).click(); return 'make it'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "'handoff: ' + document.querySelector('.handoff [data-tour=ho-copy] button')?.textContent + ' · AIs ' + document.querySelectorAll('.ho-ai').length"
+ },
+ {
+  "eval": "(async () => { const n = document.querySelectorAll('.scene-card').length || 12; const ans = JSON.stringify({ autoStudioStory: 1, scenes: [{ n: 1, template: 'kinetic', slots: { title: 'Already tired', key: 'tired' } }, { n: 2, template: 'big number', slots: { value: '40%', label: 'check the phone' } }] }); const dt = new DataTransfer(); dt.setData('text/plain', ans); document.querySelector('.ho-drop').dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); await new Promise((r) => setTimeout(r, 500)); return 'pasted 2 scenes: ' + (document.querySelector('.handoff .mgfx-report')?.innerText ?? 'no report').split(String.fromCharCode(10)).join(' | '); })()"
+ },
+ {
+  "eval": "(() => { const b = [...document.querySelectorAll('.handoff button')].find((x) => x.textContent.includes('Do it for me')); if (b.disabled) return 'ASSISTANT BUTTON DISABLED'; b.click(); return 'assistant running'; })()"
+ },
+ {
+  "waitFor": "/designed by the AI/.test(document.querySelector('.handoff .mgfx-report')?.innerText ?? '') && !/Part .* of/.test([...document.querySelectorAll('.handoff button')].find((x) => x.textContent.includes('…'))?.textContent ?? '')",
+  "timeout": 30000
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "'after assistant: ' + (document.querySelector('.handoff .mgfx-report')?.innerText ?? '').split(String.fromCharCode(10)).slice(0, 2).join(' | ')"
+ },
+ {
+  "eval": "'voice banner (script timing) ' + !!document.querySelector('.voice-banner')"
+ },
+ {
+  "shot": "story-make"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /polish/.test(b.textContent)).click(); return 'polish'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.polish-card button')].find((b) => b.textContent.includes('sound effects')).click(); return 'checks: ' + document.querySelector('.polish-card').innerText.split(String.fromCharCode(10)).slice(0, 2).join(' | ') + ' · thumbs ' + document.querySelectorAll('.dir-thumbs canvas').length; })()"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "shot": "story-polish"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /Open in the editor/.test(b.textContent)).click(); return 'back to editor'; })()"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "'scene strip items ' + document.querySelectorAll('.strip-item').length + ' · sfx clips ' + document.querySelectorAll('[data-track] .aclip').length"
+ },
+ {
+  "eval": "(window.__seek = (t) => { const r = document.querySelector('.ruler').getBoundingClientRect(); const z = parseFloat(document.querySelector('.main-end').style.left) / 18; document.querySelector('.ruler').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + t * z, clientY: r.top + 5 })); window.dispatchEvent(new PointerEvent('pointerup', {})); }, window.__px = () => { const c = document.querySelector('.stage canvas'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i += 4000) h = (h * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) % 1000003; return h; }, 'helpers')"
+ },
+ {
+  "eval": "(__seek(1.6), 'seek')"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.rail button')].find((x) => x.title === 'Story').click(); return 'story tab'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { const t = [...document.querySelectorAll('.add-tile .live-thumb')].find((x) => x.querySelector('.thumb-label')?.textContent === 'headline'); if (!t) return 'no headline tile'; t.click(); return 'added a headline'; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "(() => { const c = document.querySelector('.stage canvas'); const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); return 'dblclick'; })()"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "(() => { const t = document.querySelector('.inline-edit'); if (!t) return 'NO INLINE EDITOR'; t.value = 'Edited in place'; t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 'typed'; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "'title after inline edit: ' + ([...document.querySelectorAll('aside input')].map((i) => i.value).find((v) => v === 'Edited in place') ?? 'not found')"
+ },
+ {
+  "shot": "story-editor"
+ },
+ {
+  "eval": "(() => { document.querySelector('.scene-strip .help-btn').click(); return 'help ? clicked'; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "'help card ' + !!document.querySelector('.help-card') + ' · ' + (document.querySelector('.help-card b')?.textContent ?? '')"
+ },
+ {
+  "eval": "(() => { document.querySelector('.help-card-bg')?.click(); document.querySelector('[data-tour=help-top]').click(); return 'help centre'; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "'help centre topics ' + document.querySelectorAll('.help-cols nav .link').length"
+ },
+ {
+  "shot": "story-help"
+ }
+]

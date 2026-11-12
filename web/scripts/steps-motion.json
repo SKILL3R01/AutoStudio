@@ -3,16 +3,16 @@
   "wait": 12000
  },
  {
-  "eval": "(() => { const b = [...document.querySelectorAll('.rail button')].find((x) => x.title === 'Motion AI'); b.click(); return 'motion tab ' + !!b; })()"
+  "eval": "(() => { const b = [...document.querySelectorAll('.rail button')].find((x) => x.title === 'Story'); b.click(); return 'motion tab ' + !!b; })()"
  },
  {
   "wait": 400
  },
  {
-  "eval": "(async () => { const txt = await (await fetch('/scripts/fixtures/recipe-example.json')).text(); const L = String.fromCharCode(8220), R = String.fromCharCode(8221); const damaged = txt.split('\"').map((s, i) => (i ? (i % 2 ? L : R) + s : s)).join('').split(L + '#').join(L + String.fromCharCode(10) + '#'); const ta = [...document.querySelectorAll('.mgfx textarea')][1]; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, damaged); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 400)); return 'report: ' + document.querySelector('.mgfx-report').innerText.split(String.fromCharCode(10)).join(' | '); })()"
+  "eval": "(async () => { const txt = await (await fetch('/scripts/fixtures/recipe-example.json')).text(); const L = String.fromCharCode(8220), R = String.fromCharCode(8221); const damaged = txt.split('\"').map((s, i) => (i ? (i % 2 ? L : R) + s : s)).join('').split(L + '#').join(L + String.fromCharCode(10) + '#'); const ta = document.querySelector('.mgfx .ho-drop'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, damaged); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 400)); return 'report: ' + document.querySelector('.mgfx-report').innerText.split(String.fromCharCode(10)).join(' | '); })()"
  },
  {
-  "eval": "(() => { const b = [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Insert at playhead')); b.click(); return 'inserted, enabled ' + !b.disabled; })()"
+  "eval": "(() => { const b = [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Use this answer')); b.click(); return 'inserted, enabled ' + !b.disabled; })()"
  },
  {
   "wait": 600
@@ -108,7 +108,7 @@
   "wait": 600
  },
  {
-  "eval": "(() => { [...document.querySelectorAll('.rail button')].find((x) => x.title === 'Motion AI').click(); return 'motion tab'; })()"
+  "eval": "(() => { [...document.querySelectorAll('.rail button')].find((x) => x.title === 'Story').click(); return 'motion tab'; })()"
  },
  {
   "wait": 300
@@ -117,7 +117,7 @@
   "eval": "(() => { [...document.querySelectorAll('.mgfx button')].find((b) => b.textContent.trim() === 'Top band').click(); return 'top band'; })()"
  },
  {
-  "eval": "(async () => { const ta = [...document.querySelectorAll('.mgfx textarea')][1]; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, \"{\\\"palette\\\": \\\"dark\\\", \\\"items\\\": [{\\\"type\\\": \\\"background\\\", \\\"kind\\\": \\\"gradient\\\", \\\"colors\\\": [\\\"#101820\\\", \\\"#2a3a50\\\"], \\\"start\\\": 0, \\\"dur\\\": 3}, {\\\"type\\\": \\\"text\\\", \\\"text\\\": \\\"\\u0627\\u0644\\u0635\\u0628\\u0631 \\u0645\\u0641\\u062a\\u0627\\u062d \\u0627\\u0644\\u0641\\u0631\\u062c\\\", \\\"start\\\": 0, \\\"dur\\\": 3, \\\"y\\\": -30, \\\"size\\\": 130, \\\"font\\\": \\\"Cairo\\\", \\\"weight\\\": 900, \\\"color\\\": \\\"#ffffff\\\", \\\"in\\\": \\\"saas-words\\\", \\\"highlight\\\": [{\\\"word\\\": \\\"\\u0627\\u0644\\u0641\\u0631\\u062c\\\", \\\"style\\\": \\\"marker\\\", \\\"bg\\\": \\\"#e8b86a\\\", \\\"at\\\": 0.2}]}, {\\\"type\\\": \\\"icon\\\", \\\"name\\\": \\\"sparkles\\\", \\\"style\\\": \\\"badge\\\", \\\"color\\\": \\\"#e8b86a\\\", \\\"size\\\": 70, \\\"x\\\": 0, \\\"y\\\": 150, \\\"start\\\": 0.3, \\\"dur\\\": 2.7, \\\"in\\\": \\\"pop\\\"}]}\"); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 300)); [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Insert at playhead')).click(); await new Promise((r) => setTimeout(r, 400)); return 'arabic band inserted · blocks '  + document.querySelectorAll('.t-mgfx .item.mgfx').length; })()"
+  "eval": "(async () => { const ta = document.querySelector('.mgfx .ho-drop'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, \"{\\\"palette\\\": \\\"dark\\\", \\\"items\\\": [{\\\"type\\\": \\\"background\\\", \\\"kind\\\": \\\"gradient\\\", \\\"colors\\\": [\\\"#101820\\\", \\\"#2a3a50\\\"], \\\"start\\\": 0, \\\"dur\\\": 3}, {\\\"type\\\": \\\"text\\\", \\\"text\\\": \\\"\\u0627\\u0644\\u0635\\u0628\\u0631 \\u0645\\u0641\\u062a\\u0627\\u062d \\u0627\\u0644\\u0641\\u0631\\u062c\\\", \\\"start\\\": 0, \\\"dur\\\": 3, \\\"y\\\": -30, \\\"size\\\": 130, \\\"font\\\": \\\"Cairo\\\", \\\"weight\\\": 900, \\\"color\\\": \\\"#ffffff\\\", \\\"in\\\": \\\"saas-words\\\", \\\"highlight\\\": [{\\\"word\\\": \\\"\\u0627\\u0644\\u0641\\u0631\\u062c\\\", \\\"style\\\": \\\"marker\\\", \\\"bg\\\": \\\"#e8b86a\\\", \\\"at\\\": 0.2}]}, {\\\"type\\\": \\\"icon\\\", \\\"name\\\": \\\"sparkles\\\", \\\"style\\\": \\\"badge\\\", \\\"color\\\": \\\"#e8b86a\\\", \\\"size\\\": 70, \\\"x\\\": 0, \\\"y\\\": 150, \\\"start\\\": 0.3, \\\"dur\\\": 2.7, \\\"in\\\": \\\"pop\\\"}]}\"); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 300)); [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Use this answer')).click(); await new Promise((r) => setTimeout(r, 400)); return 'arabic band inserted · blocks '  + document.querySelectorAll('.t-mgfx .item.mgfx').length; })()"
  },
  {
   "eval": "(__seek(10.4), 'seek 10.4')"
@@ -135,7 +135,7 @@
   "wait": 500
  },
  {
-  "eval": "(async () => { const txt = await (await fetch('/scripts/fixtures/recipe-paper.json')).text(); const ta = [...document.querySelectorAll('.mgfx textarea')][1]; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, txt); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 300)); [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Insert at playhead')).click(); await new Promise((r) => setTimeout(r, 400)); return 'paper inserted · blocks ' + document.querySelectorAll('.t-mgfx .item.mgfx').length + ' · layers listed ' + [...document.querySelectorAll('.mgfx-layer')].filter((b) => /cutout|slam|graph-panel/.test(b.textContent)).length; })()"
+  "eval": "(async () => { const txt = await (await fetch('/scripts/fixtures/recipe-paper.json')).text(); const ta = document.querySelector('.mgfx .ho-drop'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, txt); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 300)); [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Use this answer')).click(); await new Promise((r) => setTimeout(r, 400)); return 'paper inserted · blocks ' + document.querySelectorAll('.t-mgfx .item.mgfx').length + ' · layers listed ' + [...document.querySelectorAll('.mgfx-layer')].filter((b) => /cutout|slam|graph-panel/.test(b.textContent)).length; })()"
  },
  {
   "eval": "(__seek(14), 'seek 14')"
@@ -150,7 +150,7 @@
   "shot": "motion-paper"
  },
  {
-  "eval": "(async () => { const txt = await (await fetch('/scripts/fixtures/recipe-widgets.json')).text(); const ta = [...document.querySelectorAll('.mgfx textarea')][1]; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, txt); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 300)); const rep = document.querySelector('.mgfx-report').innerText.split(String.fromCharCode(10))[0]; [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Insert at playhead')).click(); await new Promise((r) => setTimeout(r, 400)); return 'widget gallery: ' + rep; })()"
+  "eval": "(async () => { const txt = await (await fetch('/scripts/fixtures/recipe-widgets.json')).text(); const ta = document.querySelector('.mgfx .ho-drop'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, txt); ta.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => setTimeout(r, 300)); const rep = document.querySelector('.mgfx-report').innerText.split(String.fromCharCode(10))[0]; [...document.querySelectorAll('.mgfx button')].find((x) => x.textContent.includes('Use this answer')).click(); await new Promise((r) => setTimeout(r, 400)); return 'widget gallery: ' + rep; })()"
  },
  {
   "eval": "(__seek(20.9), 'seek 20.9')"

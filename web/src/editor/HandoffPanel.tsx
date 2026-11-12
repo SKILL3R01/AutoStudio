@@ -53,7 +53,7 @@ export function HandoffPanel({ parts, what, message, localMessage, apply, onDone
     if (!raw.trim()) return;
     const r = apply(i, raw);
     setResult(r);
-    if (r.reply) void navigator.clipboard.writeText(r.reply).then(() => toast('A reply for the AI is on the clipboard — paste it into the same chat', 'info'));
+    if (r.reply) void navigator.clipboard.writeText(r.reply).then(() => toast('A reply for the AI is on the clipboard — paste it into the same chat', 'info')).catch(() => toast('Copy this reply into the same chat: ' + r.reply!.slice(0, 120), 'info'));
     if (r.ok && !r.reply) {
       setPaste('');
       const nd = [...new Set([...done, i])];

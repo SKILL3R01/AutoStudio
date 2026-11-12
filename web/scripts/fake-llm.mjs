@@ -40,6 +40,14 @@ function answer(text) {
     const body = text.split('\n\n').slice(1).join('\n\n') || text;
     return body.replace(/^./, (c) => c.toUpperCase()).replace(/([^.])$/, '$1.');
   }
+  if (/art director of my video editor AutoStudio/.test(text)) {
+    // Story answer: a design per scene (round-robin over the catalogue), fenced, with a sentence before it.
+    const ids = [...text.matchAll(/^- ([a-z0-9-]+): /gm)].map((m) => m[1]);
+    const nums = [...text.matchAll(/^(\d+) \([\d.]+–[\d.]+ s\) “([^”]*)”/gm)].map((m) => ({ n: +m[1], t: m[2] }));
+    const scenes = nums.map(({ n, t }, i) => ({ n, template: ids[(i * 5 + 1) % Math.max(1, ids.length)] ?? 'headline', slots: { title: t.split(' ').slice(0, 5).join(' '), key: t.split(' ').sort((a, b) => b.length - a.length)[0].replace(/[^\p{L}]/gu, '') } }));
+    return `Here is the storyboard:\n\`\`\`json\n${JSON.stringify({ autoStudioStory: 1, scenes })}\n\`\`\``;
+  }
+  if (/Write the narration script/.test(text)) return 'Most people never think about it. But every day we make the same small choice. Forty percent of us do it without noticing. Here is why it matters, and what you can change tomorrow. First, notice it. Second, pause. Third, choose. Small steps add up to big results over a year.';
   if (/top After Effects motion designer/.test(text)) {
     // Motion Studio / Director: a recipe per section (or for the idea), inside fences, with the same transition twice
     // in a row so the app's variety fix has something to do.
