@@ -20,7 +20,8 @@ import { continueMessage, localStoryMessage, partsOf, redoMessage, resendMessage
 import { applySceneRecipe, applyStoryAnswer, partNumbers } from '../motion/story/apply';
 import { makeDraftVoice } from '../motion/story/voice';
 import { buildMotionPrompt } from '../motion/prompt';
-import { applyChapterCards, applyMotionSound, thumbnailPicks } from '../motion/finish';
+import { applyChapterCards, thumbnailPicks } from '../motion/finish';
+import { SoundCard } from './SoundCard';
 import { drawGroup } from '../motion/render';
 import { tip } from '../help/tips';
 import type { Project } from '../types';
@@ -434,11 +435,7 @@ function Polish({ p, onClose }: { p: Project; onClose: () => void }) {
           <b>Checks</b>
           {checks.length ? checks.slice(0, 12).map((c) => <button key={c.text} className="link" onClick={() => seek(c.t + 0.1)}>⚠ {c.text}</button>) : <span className="hint">✓ Every scene has a design, no gaps, no overlong scenes.</span>}
         </div>
-        <div className="polish-card">
-          <b>Sound</b>
-          <button className="btn sm" onClick={() => { let n = 0; update((d) => void (n = applyMotionSound(d))); toast(n ? `${n} sound effects placed (whooshes, hits, pops, clicks…)` : 'No sounds to add', n ? 'ok' : 'info'); }}><Icon name="sfx" /> Add sound effects from the motion</button>
-          <span className="hint">Music: Audio panel → add a track; it ducks under your voice automatically.</span>
-        </div>
+        <SoundCard kit={kit} />
         <div className="polish-card">
           <b>Chapters</b>
           <button className="btn sm" onClick={() => { const ch = suggestChapters(narrationWords(p), st.scenes[st.scenes.length - 1]?.end ?? 0); update((d) => void (d.chapters = ch)); toast(ch.length ? `${ch.length} chapters on the ruler (More → Copy YouTube chapters)` : 'Too short for chapters', ch.length ? 'ok' : 'info'); }}>Make chapters</button>

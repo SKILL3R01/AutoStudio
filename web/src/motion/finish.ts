@@ -4,7 +4,17 @@ import type { MotionGroup, MotionItem, MotionPalette } from './types';
 import { ensureTrack, newAudioClip } from '../lib/audiotracks';
 
 export interface SoundCue { t: number; sound: string; volume: number; dur: number }
-const DUR: Record<string, number> = { whoosh: 0.8, swoosh: 0.45, pop: 0.18, click: 0.05, impact: 0.9, riser: 2.2, chime: 2, shutter: 0.3, typing: 1, ding: 1.6, boom: 1.8 };
+const DUR: Record<string, number> = { whoosh: 0.8, swoosh: 0.45, pop: 0.18, click: 0.05, impact: 0.9, riser: 2.2, chime: 2, shutter: 0.3, typing: 1, ding: 1.6, boom: 1.8, pen: 0.5, paper: 0.6, typewriter: 0.9, boing: 0.7, blip: 0.15, steps: 1, tada: 1.6, 'slide-whistle': 0.7, thud: 1.2 };
+
+/** A style's sound kit: which effect plays for each generic cue, and how it is described. */
+export interface SoundKit { id: string; name: string; says: string; map: Record<string, string> }
+export const SOUND_KITS: Record<string, SoundKit> = {
+  documentary: { id: 'documentary', name: 'Paper & ink', says: 'paper slides, pen scratches, typewriter keys, camera shutters', map: { swoosh: 'paper', whoosh: 'paper', pop: 'pen', draw: 'pen', tag: 'typewriter', impact: 'thud' } },
+  explainer: { id: 'explainer', name: 'Clean pops', says: 'soft whooshes, pops, clicks and chimes', map: { draw: 'swoosh', tag: 'click' } },
+  stick: { id: 'stick', name: 'Cinematic', says: 'low hits, footsteps, deep whooshes', map: { impact: 'thud', pop: 'click', boom: 'thud', draw: 'swoosh', tag: 'click' } },
+  cartoon: { id: 'cartoon', name: 'Cartoon', says: 'boings, slide whistles, blips and ta-das', map: { impact: 'boing', whoosh: 'slide-whistle', swoosh: 'slide-whistle', boom: 'boing', draw: 'blip', tag: 'blip', shock: 'boing' } },
+};
+export const soundKitOf = (styleId?: string, base?: string) => SOUND_KITS[styleId ?? ''] ?? SOUND_KITS[base ?? ''] ?? SOUND_KITS.explainer;
 
 /** What a layer sounds like (synth SFX names from audio/sfx.ts) and when, relative to the layer start. */
 function cuesOf(it: MotionItem): [number, string, number][] {
@@ -25,18 +35,30 @@ function cuesOf(it: MotionItem): [number, string, number][] {
     case 'plus-badge': return [[0.2, 'pop', 0.4]];
     case 'starburst': return [[0, 'boom', 0.3]];
     case 'kinetic': return [[0, 'pop', 0.3]];
+    case 'arrow': case 'circle-draw': return [[0, 'draw', 0.35]];
+    case 'typewriter-tag': return [[0.05, 'tag', 0.3]];
+    case 'bubble': return [[0.35, 'blip', 0.35]];
+    case 'prop': return it.kind === 'lightbulb' ? [[typeof it.onAt === 'number' ? it.onAt : 0, 'ding', 0.4]] : [];
+    case 'character': {
+      const keys = Array.isArray(it.poses) && it.poses.length ? (it.poses as { t?: number; pose?: string }[]) : [{ t: 0, pose: String(it.pose ?? 'stand') }];
+      return keys.flatMap((k): [number, string, number][] => {
+        const t = typeof k.t === 'number' ? k.t : 0;
+        return k.pose === 'walk' || k.pose === 'run' ? [[t + 0.1, 'steps', 0.3]] : k.pose === 'shocked' ? [[t, 'shock', 0.5]] : k.pose === 'celebrate' ? [[t + 0.1, 'tada', 0.35]] : [];
+      });
+    }
     default: return [];
   }
 }
 
 /** All cues of the motion blocks (project time), thinned so two cues are at least 0.25 s apart (the louder wins). */
-export function motionSoundCues(groups: MotionGroup[] = []): SoundCue[] {
+export function motionSoundCues(groups: MotionGroup[] = [], kit: SoundKit = SOUND_KITS.explainer): SoundCue[] {
   const all: SoundCue[] = [];
+  const GENERIC: Record<string, string> = { draw: 'swoosh', tag: 'click', shock: 'impact' };
   for (const g of groups) {
     if (g.hidden) continue;
     for (const it of g.items)
-      for (const [dt, sound, volume] of cuesOf(it)) {
-        const t = g.start + it.start + dt;
+      for (const [dt, cue, volume] of cuesOf(it)) {
+        const t = g.start + it.start + dt, sound = kit.map[cue] ?? kit.map[GENERIC[cue] ?? ''] ?? GENERIC[cue] ?? cue;
         if (t >= 0 && t < g.start + g.dur) all.push({ t: Math.round(t * 100) / 100, sound, volume, dur: DUR[sound] ?? 0.6 });
       }
   }
@@ -52,9 +74,9 @@ export function motionSoundCues(groups: MotionGroup[] = []): SoundCue[] {
 }
 
 /** Replace the motion sound effects (clips with id `msfx_*`) on the SFX track. Returns how many were added. */
-export function applyMotionSound(p: Project, level = 1): number {
+export function applyMotionSound(p: Project, level = 1, kit?: SoundKit): number {
   p.audio = p.audio.filter((c) => !c.id.startsWith('msfx_'));
-  const cues = motionSoundCues(p.motion);
+  const cues = motionSoundCues(p.motion, kit ?? soundKitOf(p.story?.styleId));
   if (!cues.length) return 0;
   const tid = ensureTrack(p, 'sfx');
   cues.forEach((c, i) => p.audio.push(newAudioClip(tid, '', c.t, c.dur, 'sfx', { id: `msfx_${i}_${Math.round(c.t * 100)}`, sound: c.sound, volume: Math.min(1, c.volume * level) })));

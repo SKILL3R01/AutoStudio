@@ -2,6 +2,13 @@
 export interface NewsItem { title: string; text: string; tryIt?: { event: string; detail?: string } }
 export const WHATS_NEW: { version: string; items: NewsItem[] }[] = [
   {
+    version: '5.4.0',
+    items: [
+      { title: 'Music that follows your story', text: 'Story Studio → Polish: four music styles made by the app (free to use) — calm while you explain, a short stop before each reveal, a lift at the end, ducking under your voice. Press ▶ to listen first.', tryIt: { event: 'autostudio:dialog', detail: 'story' } },
+      { title: 'Sound kits per style', text: 'Effects now match the style: paper and pen for Documentary, pops for Explainer, low hits and footsteps for Stick figure, boings and ta-das for Cartoon.' },
+    ],
+  },
+  {
     version: '5.3.0',
     items: [
       { title: 'Cartoon style', text: 'Bean-head cartoon characters with big eyes, ink outlines and bright painted sets — same 18 scene designs, poses and talking as Stick figure. Try the “Max and the 3,000 coffees” sample.', tryIt: { event: 'autostudio:dialog', detail: 'story' } },

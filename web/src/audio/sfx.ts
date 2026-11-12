@@ -1,6 +1,6 @@
 import { media } from '../render/media';
 
-export const SFX = ['whoosh', 'swoosh', 'pop', 'ding', 'click', 'boom', 'impact', 'riser', 'glitch', 'typing', 'shutter', 'heartbeat', 'chime', 'bass drop'] as const;
+export const SFX = ['whoosh', 'swoosh', 'pop', 'ding', 'click', 'boom', 'impact', 'riser', 'glitch', 'typing', 'shutter', 'heartbeat', 'chime', 'bass drop', 'pen', 'paper', 'typewriter', 'boing', 'blip', 'steps', 'tada', 'slide-whistle', 'thud'] as const;
 
 const SR = 44100;
 const cache = new Map<string, Promise<AudioBuffer>>();
@@ -136,6 +136,73 @@ const RECIPES: Record<string, [number, (c: OfflineAudioContext) => void]> = {
     g.gain.exponentialRampToValueAtTime(0.001, at + 0.18);
     o.connect(g).connect(c.destination);
   })],
+  // v5.4 style sounds.
+  pen: [0.5, (c) => {
+    const f = c.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 3;
+    f.frequency.setValueAtTime(2400, 0);
+    f.frequency.linearRampToValueAtTime(3600, 0.45);
+    noise(c, 0.5).connect(f);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, 0);
+    for (let i = 0; i < 6; i++) (g.gain.linearRampToValueAtTime(0.55, i * 0.08 + 0.03), g.gain.linearRampToValueAtTime(0.15, i * 0.08 + 0.07));
+    g.gain.linearRampToValueAtTime(0, 0.5);
+    f.connect(g).connect(c.destination);
+  }],
+  paper: [0.6, (c) => {
+    const f = c.createBiquadFilter();
+    f.type = 'highpass';
+    f.frequency.value = 1500;
+    noise(c, 0.6).connect(f);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, 0);
+    for (let i = 0; i < 10; i++) g.gain.setValueAtTime(0.15 + ((i * 7) % 5) * 0.1, i * 0.05);
+    g.gain.linearRampToValueAtTime(0, 0.6);
+    f.connect(g).connect(c.destination);
+  }],
+  typewriter: [0.9, (c) => {
+    for (let i = 0; i < 6; i++) {
+      const at = i * 0.12 + ((i * 13) % 3) * 0.01;
+      env(c, noise(c, 0.04, at), at + 0.002, 0.7, at + 0.035).connect(c.destination);
+      env(c, tone(c, 'square', 180, 120, 0.03, at), at + 0.002, 0.15, at + 0.03).connect(c.destination);
+    }
+    env(c, tone(c, 'sine', 2600, 2590, 0.5, 0.75), 0.76, 0.25, 0.9).connect(c.destination);
+  }],
+  boing: [0.7, (c) => {
+    const o = c.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(160, 0);
+    for (let i = 0; i < 7; i++) o.frequency.linearRampToValueAtTime(i % 2 ? 160 : 320 - i * 20, 0.05 + i * 0.08);
+    o.start(0);
+    o.stop(0.7);
+    env(c, o, 0.01, 0.7, 0.7).connect(c.destination);
+  }],
+  blip: [0.15, (c) => env(c, tone(c, 'sine', 600, 1400, 0.1), 0.004, 0.6, 0.14).connect(c.destination)],
+  steps: [1.0, (c) => [0, 0.27, 0.54, 0.81].forEach((at) => {
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 900;
+    noise(c, 0.08, at).connect(f);
+    env(c, f, at + 0.005, 0.8, at + 0.08).connect(c.destination);
+    env(c, tone(c, 'sine', 110, 60, 0.08, at), at + 0.004, 0.5, at + 0.08).connect(c.destination);
+  })],
+  tada: [1.6, (c) => [[523, 0], [659, 0.1], [784, 0.2], [1047, 0.32]].forEach(([f, at]) => {
+    env(c, tone(c, 'sawtooth', f, f, 1.2, at), at + 0.01, 0.12, at + 1.2).connect(c.destination);
+    env(c, tone(c, 'triangle', f * 2, f * 2, 1.2, at), at + 0.01, 0.12, at + 1.2).connect(c.destination);
+  })],
+  'slide-whistle': [0.7, (c) => {
+    const o = tone(c, 'sine', 500, 1800, 0.6);
+    env(c, o, 0.05, 0.4, 0.65).connect(c.destination);
+  }],
+  thud: [1.2, (c) => {
+    env(c, tone(c, 'sine', 70, 28, 1.1), 0.005, 1, 1.15).connect(c.destination);
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 180;
+    noise(c, 0.4).connect(f);
+    env(c, f, 0.003, 0.6, 0.4).connect(c.destination);
+  }],
 };
 
 /** Returns a decoded buffer for a built-in synth (`whoosh`) or an uploaded sound (`asset:<id>`). */

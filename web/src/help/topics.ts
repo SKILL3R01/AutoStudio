@@ -102,6 +102,23 @@ export const TOPICS: HelpTopic[] = [
     },
   },
   {
+    id: 'sound', group: 'Audio',
+    title: { en: 'Style sound and music', ar: 'صوت الأسلوب والموسيقى' },
+    what: { en: 'Sound effects that match your style, and music made by the app that follows your story.', ar: 'مؤثرات صوتية تناسب أسلوبك، وموسيقى يصنعها البرنامج تتبع قصتك.' },
+    steps: {
+      en: ['Press “Add sound effects”: whooshes, pens, footsteps or boings, depending on the style.', 'Press ▶ on a music card to listen, click the card to choose it.', 'Press “Add music”: it is calm while you explain, stops for a moment before each reveal and lifts at the end.'],
+      ar: ['اضغط «أضف المؤثرات»: صوت حركة أو قلم أو خطوات أو قفزات حسب الأسلوب.', 'اضغط ▶ على بطاقة موسيقى للاستماع، وانقر البطاقة لاختيارها.', 'اضغط «أضف الموسيقى»: هادئة أثناء الشرح، تتوقف لحظة قبل كل مفاجأة، وترتفع في النهاية.'],
+    },
+    tips: {
+      en: ['Make the music after the voice: it ducks under the narration automatically.', 'Changed the scenes? Press “Make the music again” so the stops land on the new reveals.', 'The music is made by the app, so it is free to use on YouTube.'],
+      ar: ['اصنع الموسيقى بعد الصوت: تنخفض تلقائيًا تحت التعليق.', 'غيّرت المشاهد؟ اضغط «اصنع الموسيقى مجددًا» لتقع التوقفات على المفاجآت الجديدة.', 'الموسيقى من صنع البرنامج، فهي مجانية للاستخدام على يوتيوب.'],
+    },
+    problems: {
+      en: [['The music is too loud', 'Lower “Music volume” and make it again, or change the music track volume in the Audio panel.'], ['I prefer my own track', 'Add it in the Audio panel — it ducks under the voice too.']],
+      ar: [['الموسيقى عالية', 'اخفض «مستوى الموسيقى» واصنعها مجددًا، أو غيّر مستوى مسار الموسيقى في لوحة الصوت.'], ['أفضّل مقطوعتي', 'أضفها من لوحة الصوت — تنخفض تحت الصوت أيضًا.']],
+    },
+  },
+  {
     id: 'smart', group: 'Editing',
     title: { en: 'Smart layers on your video', ar: 'الطبقات الذكية على الفيديو' },
     what: { en: 'Name tags, quotes, numbers and topic tabs placed around the face from what is said — for talking heads and podcasts. On gameplay: hype alerts, a kill counter and a facecam frame, never over the HUD.', ar: 'أسماء واقتباسات وأرقام وعناوين مواضيع توضع حول الوجه حسب الكلام — للفيديوهات الحوارية والبودكاست. وفي الألعاب: تنبيهات حماس وعدّاد وإطار للكاميرا، دون تغطية واجهة اللعبة.' },

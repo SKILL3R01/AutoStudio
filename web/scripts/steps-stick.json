@@ -78,6 +78,34 @@
   "wait": 500
  },
  {
+  "eval": "(() => { const b = [...document.querySelectorAll('.sound-card button')].find((x) => x.textContent.includes('Add sound effects')); if (!b) return 'NO SOUND CARD'; b.click(); return 'sound kit: ' + document.querySelector('.sound-card b').textContent; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "'sfx toast: ' + ([...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => /sound effects placed/.test(t)) ?? 'NO SFX TOAST')"
+ },
+ {
+  "eval": "(() => { document.querySelector('.music-card[data-music=cartoon] button').click(); return 'music cards ' + document.querySelectorAll('.music-card').length + ' · picked ' + document.querySelector('.music-card.on')?.dataset.music; })()"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.sound-card button')].find((x) => x.textContent === 'Add music').click(); return 'making music'; })()"
+ },
+ {
+  "waitFor": "[...document.querySelectorAll('.sound-card button')].some((x) => x.textContent === 'Make the music again')",
+  "timeout": 90000
+ },
+ {
+  "eval": "'music: ' + ([...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => /Music/.test(t)) ?? 'no toast')"
+ },
+ {
+  "shot": "stick-sound"
+ },
+ {
   "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /Open in the editor/.test(b.textContent)).click(); return 'back to editor'; })()"
  },
  {
