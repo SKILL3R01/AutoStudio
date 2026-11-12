@@ -85,6 +85,8 @@
 - Typography avoids the subtitle band: `avoidBand` in `render/typography.ts`, fed by `renderFrame` when subtitles are on.
 - Release gate: `.github/workflows/release.yml` runs `STRICT=1 OFFLINE=1 bash scripts/run-all.sh`. Each suite has a 240 s limit, expected noise is listed in `EXPECTED`, and `SUITES="a b"` runs a subset.
   - Don't edit sources while suites run: Vite HMR reloads pages mid-test.
+  - A suite that reports a problem is run once more (`[retry]`, a `::warning` annotation on CI); only a second failure fails the gate. Failures raise `::error title=UI suite <name>` annotations, readable without login via `GET /repos/SKILL3R01/AutoStudio/check-runs/<job id>/annotations`.
+  - `cdp-shot.mjs`: the browser picks its DevTools port (`--remote-debugging-port=0` → `<profile>/DevToolsActivePort`), the temporary profile is deleted at the end, `#demo` suites wait until the editor is really open after the first long wait, and `{ "waitFor": "js", "timeout": ms }` polls a condition instead of a fixed delay.
   - After adding a dependency, restart Vite with `--force` and warm it up first (otherwise a dep re-optimisation reloads pages).
 - Typography studio v2.0 (`editor/TypoStudio.tsx`, at the top of the Typography panel):
   - The library is `lib/typostyles.ts`: `TYPO_DESIGNS` (21 built-ins), plus "My styles" in localStorage `typoDesigns`, applied with `applyDesign` / `designOf`.

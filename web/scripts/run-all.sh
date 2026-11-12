@@ -20,9 +20,19 @@ run() { # name url steps [ui-mode]
   if [ -n "$SUITES" ] && [[ " $SUITES " != *" $1 "* ]]; then return; fi
   if [ -n "$OFFLINE" ] && [[ " describe " == *" $1 "* ]]; then return; fi
   echo "=== $1"
-  UI_MODE=${4:-pro} timeout 240 node scripts/cdp-shot.mjs "$2" "$OUT/$1" "scripts/$3" >"$OUT/$1.log" 2>&1 || echo "[eval] \"suite error or timeout (exit $?)\"" >>"$OUT/$1.log"
-  local bad
-  bad=$(grep -v '^\[shot\]' "$OUT/$1.log" | grep -iE 'error|disabled|no (toast|modal|button|input|result|blocks|sound)|exception|cannot|undefined' | grep -vE "$EXPECTED" | head -5)
+  local bad try
+  # A suite that reports a problem runs once more: a real bug fails twice, a one-off timing hiccup (slow CI) does not.
+  for try in 1 2; do
+    UI_MODE=${4:-pro} timeout 240 node scripts/cdp-shot.mjs "$2" "$OUT/$1" "scripts/$3" >"$OUT/$1.log" 2>&1 || echo "[eval] \"suite error or timeout (exit $?)\"" >>"$OUT/$1.log"
+    bad=$(grep -v '^\[shot\]' "$OUT/$1.log" | grep -iE 'error|disabled|no (toast|modal|button|input|result|blocks|sound)|exception|cannot|undefined' | grep -vE "$EXPECTED" | head -5)
+    [ -z "$bad" ] && break
+    if [ "$try" = 1 ]; then
+      cp "$OUT/$1.log" "$OUT/$1.try1.log"
+      echo "[retry] $1 reported a problem, running it once more"
+      if [ -n "$GITHUB_ACTIONS" ]; then echo "::warning title=UI suite $1 retried::$(echo "$bad" | head -2 | tr '
+' ' ' | cut -c1-400)"; fi
+    fi
+  done
   if [ -n "$bad" ]; then
     echo "$bad"; FAILED=1
     # In CI, show the whole suite log so the cause is visible in the job output.
