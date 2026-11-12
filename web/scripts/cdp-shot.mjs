@@ -1,6 +1,6 @@
 // Headless Edge/Chrome harness: open a URL, run optional JS steps, print console errors, save screenshots.
 // Usage: node scripts/cdp-shot.mjs <url> <out-prefix> [steps.json]
-// steps.json: [{ "wait": ms } | { "eval": "js" } | { "shot": "name" } | { "drag": { "from": "js → [x, y]", "to": "js → [x, y]" } }]
+// steps.json: [{ "wait": ms } | { "waitFor": "js", "timeout": ms } | { "eval": "js" } | { "shot": "name" } | { "drag": { "from": "js → [x, y]", "to": "js → [x, y]" } }]
 // "drag" is a real mouse drag: the browser runs its own HTML5 drag-and-drop (CDP drag interception).
 import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync, unlinkSync } from 'node:fs';
@@ -64,6 +64,16 @@ for (const s of steps) {
     await sleep(1500);
   }
   first = false;
+  // { waitFor: 'js expression', timeout: ms }: poll until the expression is truthy (slow machines / CI).
+  if (s.waitFor) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < (s.timeout ?? 30000)) {
+      const v = (await send('Runtime.evaluate', { expression: s.waitFor, returnByValue: true })).result?.result?.value;
+      if (v) break;
+      await sleep(300);
+    }
+    if (Date.now() - t0 >= (s.timeout ?? 30000)) console.log('[wait]', 'gave up waiting for: ' + s.waitFor.slice(0, 80));
+  }
   if (s.eval) {
     const r = await send('Runtime.evaluate', { expression: s.eval, awaitPromise: true, returnByValue: true });
     console.log('[eval]', JSON.stringify(r.result?.result?.value ?? r.result?.exceptionDetails?.exception?.description ?? null).slice(0, 2000));

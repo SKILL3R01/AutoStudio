@@ -6,7 +6,8 @@
   "eval": "localStorage.setItem('uiMode', 'simple'); location.hash = '#projects'; location.reload(); 'fresh'"
  },
  {
-  "wait": 3500
+  "waitFor": "!!document.querySelector('.pcard.new')",
+  "timeout": 30000
  },
  {
   "eval": "[...document.querySelectorAll('.pcard.new')].map(c => c.textContent.trim().slice(0, 40)).join(' | ')"
@@ -15,7 +16,11 @@
   "eval": "(async () => { document.querySelector('.pcard.new').click(); await new Promise((r) => setTimeout(r, 400)); [...document.querySelectorAll('.start-tile')].find((b) => b.textContent.includes('Guided')).click(); [...document.querySelectorAll('.start-tile')].find((b) => b.textContent.includes('Horizontal')).click(); await new Promise((r) => setTimeout(r, 150)); [...document.querySelectorAll('.modal button')].find((b) => b.textContent.includes('Create')).click(); return 'new Guided'; })()"
  },
  {
-  "wait": 3000
+  "waitFor": "!!document.querySelector('.wizard') && !!document.querySelector('.rail button')",
+  "timeout": 40000
+ },
+ {
+  "wait": 800
  },
  {
   "eval": "(() => ({ wizard: !!document.querySelector('.wizard'), steps: [...document.querySelectorAll('.wz-steps li')].map(l => l.textContent).join(','), rail: [...document.querySelectorAll('.rail button')].map(b => b.textContent.trim()).join(','), mode: document.querySelector('.mode-switch .on')?.textContent, pills: [...document.querySelectorAll('.header .pill')].map(p => p.textContent.trim()).join(',') }))()"
@@ -78,7 +83,7 @@
   "wait": 800
  },
  {
-  "eval": "(document.querySelector('.modal h3')?.textContent ?? 'no modal') + ' \u00b7 aspect: ' + ([...document.querySelectorAll('.modal select')].map(s => s.value).join(','))"
+  "eval": "(document.querySelector('.modal h3')?.textContent ?? 'no modal') + ' · aspect: ' + ([...document.querySelectorAll('.modal select')].map(s => s.value).join(','))"
  },
  {
   "eval": "document.querySelector('.modal-bg')?.click(); [...document.querySelectorAll('.rail button')].find(b => b.textContent.trim() === 'Style').click(); 'style'"
@@ -99,7 +104,7 @@
   "wait": 500
  },
  {
-  "eval": "[...document.querySelectorAll('.panels .section')].map(s => (s.classList.contains('folded') ? '\u25b8' : '\u25be') + s.querySelector('h4').textContent.trim()).join(' | ')"
+  "eval": "[...document.querySelectorAll('.panels .section')].map(s => (s.classList.contains('folded') ? '▸' : '▾') + s.querySelector('h4').textContent.trim()).join(' | ')"
  },
  {
   "shot": "simple"
