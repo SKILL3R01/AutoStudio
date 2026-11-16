@@ -8,6 +8,7 @@ import { clamp, easeInOut, hash } from '../lib/util';
 import { clipMotionXform, isDepthMotion, parallaxCamera, resolveMotion, resolveTransition } from './motion';
 import { drawTypography } from './typography';
 import { animateRegions } from './regions';
+import { renderLiving } from './living';
 import { renderParallax } from './parallax';
 import { drawCaptions, roundRect } from './captions';
 import { drawEffect, effectQuality, setEffectQuality } from './effects';
@@ -48,6 +49,7 @@ export function imagesNeededAt(m: RenderModel, t: number): string[] {
     if (c.depthId) ids.push(c.depthId);
     if (c.keyBg?.kind === 'image') ids.push(c.keyBg.assetId);
     c.regions?.forEach((r) => ids.push(r.maskId));
+    if (c.living?.on) c.living.parts.forEach((lp) => lp.on && ids.push(lp.maskId));
   }
   for (const o of m.project.overlays) if (o.assetId && t >= o.start && t <= o.start + o.duration) ids.push(o.assetId);
   for (const c of activePips(m.project, t)) if (m.assets.get(c.assetId)?.kind === 'image') ids.push(c.assetId);
@@ -136,6 +138,7 @@ function drawClip(g: CanvasRenderingContext2D, m: RenderModel, i: number, t: num
   if (!w || !h) return;
   let d: Drawable = raw;
   if (clip.regions?.length) d = animateRegions(d, clip, t, m, src, i);
+  if (clip.living?.on && clip.living.parts.some((lp) => lp.on)) d = renderLiving(d, clip, local, span, src) ?? d;
   let motion = resolveMotion(clip.motion, i);
   if (isDepthMotion(motion)) {
     const depth = clip.depthId ? src.image(clip.depthId) : undefined;

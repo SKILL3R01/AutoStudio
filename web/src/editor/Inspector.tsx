@@ -58,6 +58,7 @@ import { makeDepthAsset } from '../ai/jobs';
 import { confirmHeavyAi } from '../lib/perf';
 
 import { RegionDialog } from './RegionDialog';
+import { LivingSection } from './LivingSection';
 
 import { useVision } from '../ai/vision';
 
@@ -348,6 +349,8 @@ function ClipInspector({ id }: { id: string }) {
 
       <FramingSection clipId={clip.id} />
       <ChromaSection target={{ kind: 'clip', id: clip.id }} />
+
+      {asset?.kind === 'image' && <LivingSection clip={clip} />}
 
       <Section title="Depth & animated details" hint="Make the image come alive: 3D depth motion, and effects on a part of the image you click.">
 

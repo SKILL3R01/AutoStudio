@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import { mergeWindows, windows, type TimedWord } from '../lib/asrchunks';
 const fmtClock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-import { AutoProcessor, AutoTokenizer, CLIPTextModelWithProjection, CLIPVisionModelWithProjection, RawImage, SamModel, pipeline } from '@huggingface/transformers';
+import { AutoProcessor, AutoTokenizer, CLIPTextModelWithProjection, CLIPVisionModelWithProjection, RawImage, SamModel, Tensor, pipeline } from '@huggingface/transformers';
 
 const DEPTH_MODEL = 'onnx-community/depth-anything-v2-small';
 const SAM_MODEL = 'Xenova/slimsam-77-uniform';
@@ -12,6 +12,7 @@ type Req =
   | { id: number; type: 'depth'; image: Blob }
   | { id: number; type: 'embed'; key: string; image: Blob }
   | { id: number; type: 'mask'; key: string; points: [number, number][]; labels: number[] }
+  | { id: number; type: 'maskBatch'; key: string; points: [number, number][]; size: number }
   | { id: number; type: 'clipImages'; images: Blob[] }
   | { id: number; type: 'clipText'; texts: string[] }
   | { id: number; type: 'transcribe'; audio: Float32Array; model: 'base' | 'small'; language: string }
@@ -93,6 +94,34 @@ async function mask(key: string, points: [number, number][], labels: number[]) {
   const c = new OffscreenCanvas(mw, mh);
   c.getContext('2d')!.putImageData(new ImageData(rgba, mw, mh), 0, 0);
   return { blob: await c.convertToBlob({ type: 'image/png' }), score: scores[best] };
+}
+
+/** One single-point prompt per point (segment everything): small binary masks (longest side `size`) + scores. */
+async function maskBatch(key: string, points: [number, number][], size: number) {
+  const { model, processor } = await samModel();
+  const e = embeddings.get(key);
+  if (!e) throw new Error('Image not prepared');
+  const { width: W, height: H } = e.image;
+  const out: { w: number; h: number; data: Uint8Array; score: number }[] = [];
+  // Pre-process the image once; each point only needs its own (resized) coordinates.
+  const inputs = await processor(e.image, { input_points: [[[points[0][0] * W, points[0][1] * H]]], input_labels: [[1]] });
+  const [rh0, rw0] = (inputs.reshaped_input_sizes[0] as number[]).map(Number), sx = rw0 / W, sy = rh0 / H;
+  const labels = new Tensor('int64', BigInt64Array.from([1n]), [1, 1, 1]);
+  for (const [x, y] of points) {
+    const ip = new Tensor('float32', Float32Array.from([x * W * sx, y * H * sy]), [1, 1, 1, 2]);
+    const o = await model({ ...e.emb, input_points: ip, input_labels: labels });
+    const scores: Float32Array = o.iou_scores.data;
+    let best = 0;
+    for (let i = 1; i < scores.length; i++) if (scores[i] > scores[best]) best = i;
+    // Low-res mask logits (256×256 over the padded 1024 square) — far cheaper than post_process_masks at full size.
+    const pm = o.pred_masks, [, , , lh, lw] = pm.dims, logits: Float32Array = pm.data, off = best * lh * lw;
+    const [rh, rw] = (inputs.reshaped_input_sizes[0] as number[]).map(Number), side = 1024;
+    const vh = (rh / side) * lh, vw = (rw / side) * lw; // valid (unpadded) part of the low-res mask
+    const k = size / Math.max(W, H), w = Math.max(1, Math.round(W * k)), h = Math.max(1, Math.round(H * k)), small = new Uint8Array(w * h);
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) small[yy * w + xx] = logits[off + Math.min(lh - 1, Math.floor((yy / h) * vh)) * lw + Math.min(lw - 1, Math.floor((xx / w) * vw))] > 0 ? 1 : 0;
+    out.push({ w, h, data: small, score: scores[best] });
+  }
+  return { masks: out };
 }
 
 // CLIP runs on the CPU (WASM): 8-bit models are fast enough there and avoid WebGPU quirks on integrated GPUs.
@@ -187,6 +216,7 @@ async function handle(r: Req) {
   if (r.type === 'embed') return embed(r.key, r.image);
   if (r.type === 'clipImages') return clipImages(r.images);
   if (r.type === 'clipText') return clipTexts(r.texts);
+  if (r.type === 'maskBatch') return maskBatch(r.key, r.points, r.size);
   return mask(r.key, r.points, r.labels);
 }
 

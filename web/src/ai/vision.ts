@@ -47,7 +47,7 @@ async function call<T>(msg: { type: string; key?: string; [k: string]: unknown }
     worker?.terminate();
     worker = undefined;
     useVision.setState({ label: 'GPU failed — retrying on CPU', value: 0, device: 'wasm' });
-    if (msg.type === 'mask' && msg.key && prepared.has(msg.key)) await raw({ type: 'embed', key: msg.key, image: prepared.get(msg.key) });
+    if ((msg.type === 'mask' || msg.type === 'maskBatch') && msg.key && prepared.has(msg.key)) await raw({ type: 'embed', key: msg.key, image: prepared.get(msg.key) });
     return raw<T>(msg);
   }
 }
@@ -80,6 +80,9 @@ export async function prepareSegment(key: string, image: Blob) {
   return r;
 }
 
+/** Segment everything: one mask per point (single-point prompts) at `size` px, with SAM's confidence. */
+export const segmentGrid = (key: string, points: [number, number][], size = 192) =>
+  call<{ masks: { w: number; h: number; data: Uint8Array; score: number }[] }>({ type: 'maskBatch', key, points, size });
 /** Mask PNG for clicks (normalised x/y), label 1 = include, 0 = exclude. */
 export const segmentAt = (key: string, points: [number, number][], labels: number[]) =>
   call<{ blob: Blob; score: number }>({ type: 'mask', key, points, labels });

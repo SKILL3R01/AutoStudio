@@ -2,6 +2,12 @@
 export interface NewsItem { title: string; text: string; tryIt?: { event: string; detail?: string } }
 export const WHATS_NEW: { version: string; items: NewsItem[] }[] = [
   {
+    version: '5.6.0',
+    items: [
+      { title: 'Living illustration', text: 'Select an image clip → Properties → “Bring this image to life”: ships rock, sails billow, oars row, whales glide, water flows — slightly, in a perfect loop. Moods: Calm, Stormy, Underwater, Dreamy.' },
+    ],
+  },
+  {
     version: '5.5.0',
     items: [
       { title: 'Your voiceover drives the story', text: 'Story Studio → Script → Use my voiceover: upload the audio and its subtitles (ElevenLabs / TurboScribe .srt, adverts removed) or transcribe on this PC.', tryIt: { event: 'autostudio:dialog', detail: 'story' } },

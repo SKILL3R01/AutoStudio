@@ -1,0 +1,33 @@
+[
+ {
+  "wait": 6000
+ },
+ {
+  "eval": "localStorage.setItem('llm', JSON.stringify({ preset: 'custom', url: 'http://localhost:1235/v1', key: '', model: '' })); sessionStorage.setItem('helpOn', '1'); localStorage.setItem('help:noTours', '1'); localStorage.setItem('help:noNews', '1'); location.reload(); 'configured'"
+ },
+ {
+  "waitFor": "!!(document.querySelector('.rail button') && document.querySelector('.tl-inner'))",
+  "timeout": 40000
+ },
+ {
+  "wait": 2500
+ },
+ {
+  "eval": "(() => { const c = document.querySelector('.stage canvas'); const r = c.getBoundingClientRect(); const o = { bubbles: true, clientX: r.left + r.width * 0.15, clientY: r.top + r.height * 0.85, pointerId: 1, button: 0 }; c.dispatchEvent(new PointerEvent('pointerdown', o)); c.dispatchEvent(new PointerEvent('pointerup', o)); window.dispatchEvent(new PointerEvent('pointerup', o)); return 'clicked the picture'; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "(() => { const h = [...document.querySelectorAll('aside .section-head, aside summary, aside h4, aside button')].find((x) => /Living illustration/.test(x.textContent)); if (!h) return 'NO LIVING SECTION'; if (!document.querySelector('[data-tour=living]')) h.click(); return 'section found'; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "'living button: ' + ([...document.querySelectorAll('[data-tour=living] button')].map((b) => b.textContent).join(' | ') || 'NO BUTTON')"
+ },
+ {
+  "shot": "living"
+ }
+]

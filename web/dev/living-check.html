@@ -1,0 +1,35 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Living illustration check</title>
+<style>body{margin:0;background:#111;color:#eee;font:13px Arial}#grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;padding:6px}canvas{width:100%;display:block}pre{white-space:pre-wrap;padding:6px;margin:0}</style></head>
+<body><pre id="log">loading…</pre><div id="grid"></div>
+<script type="module">
+// Dev tool: /dev/living-check.html?img=/ui-results/living/ship.png — runs the real analysis + renderer, shows pieces and 3 loop moments.
+import { analyseLiving } from '../src/ai/living';
+import { renderLiving } from '../src/render/living';
+const qs = new URLSearchParams(location.search), url = qs.get('img') || '/ui-results/living/ship.png', span = +(qs.get('span') || 6);
+const log = (s) => (document.getElementById('log').textContent = s);
+try {
+  const blob = await (await fetch(url)).blob(), img = await createImageBitmap(blob);
+  const t0 = performance.now();
+  const r = await analyseLiving('check:' + url, blob);
+  const masks = await Promise.all(r.parts.map((p) => createImageBitmap(p.mask)));
+  const parts = r.parts.map(({ mask, ...p }, i) => ({ ...p, maskId: 'm' + i }));
+  const clip = { id: 'c', assetId: 'a', living: { on: true, preset: 'stormy', strength: +(qs.get('k') || 1.3), speed: 1, analysedAt: 0, assetId: 'a', parts } };
+  const src = { image: (id) => masks[+id.slice(1)], clip: () => img };
+  const grid = document.getElementById('grid');
+  // pieces overlay
+  const ov = document.createElement('canvas'); ov.width = img.width; ov.height = img.height; const og = ov.getContext('2d'); og.drawImage(img, 0, 0); og.globalAlpha = 0.45;
+  const cols = ['#ff4d4d', '#4dff88', '#4da6ff', '#ffd24d', '#d24dff', '#4dffff', '#ff9f4d', '#ffffff'];
+  parts.forEach((p, i) => { const t = document.createElement('canvas'); t.width = img.width; t.height = img.height; const tg = t.getContext('2d'); tg.drawImage(masks[i], 0, 0, img.width, img.height); tg.globalCompositeOperation = 'source-in'; tg.fillStyle = cols[i % 8]; tg.fillRect(0, 0, img.width, img.height); og.drawImage(t, 0, 0); });
+  og.globalAlpha = 1; og.font = 'bold 16px Arial';
+  parts.forEach((p, i) => { og.fillStyle = '#000'; og.fillRect(p.bbox[0] * img.width, p.bbox[1] * img.height, 150, 20); og.fillStyle = cols[i % 8]; og.fillText(`${i} ${p.kind}:${p.motion}${p.on ? '' : ' (off)'}`, p.bbox[0] * img.width + 3, p.bbox[1] * img.height + 15); og.beginPath(); og.arc(p.pivot[0] * img.width, p.pivot[1] * img.height, 6, 0, 7); og.fill(); });
+  grid.appendChild(ov);
+  const frames = [];
+  for (const t of [0, span * 0.25, span * 0.5]) { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const out = renderLiving(img, clip, t, span, src); c.getContext('2d').drawImage(out || img, 0, 0, img.width, img.height); grid.appendChild(c); frames.push(c); }
+  // how much each frame differs from the original (mean abs diff), as a sanity check
+  const px = (c) => c.getContext('2d').getImageData(0, 0, c.width, c.height).data, base = document.createElement('canvas'); base.width = img.width; base.height = img.height; base.getContext('2d').drawImage(img, 0, 0);
+  const b0 = px(base), diffs = frames.map((f) => { const d = px(f); let s = 0; for (let i = 0; i < d.length; i += 16) s += Math.abs(d[i] - b0[i]); return (s / (d.length / 16)).toFixed(2); });
+  window.__report = { ms: Math.round(performance.now() - t0), parts: parts.map((p) => `${p.kind}:${p.motion}${p.on ? '' : '(off)'}${p.parentId ? '↳' : ''}`), weather: r.weather, diffs };
+  log(JSON.stringify(window.__report));
+} catch (e) { window.__report = { error: String(e && e.stack || e) }; log('ERROR ' + window.__report.error); }
+</script></body></html>

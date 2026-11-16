@@ -119,6 +119,23 @@ export const TOPICS: HelpTopic[] = [
     },
   },
   {
+    id: 'living', group: 'Editing',
+    title: { en: 'Living illustration', ar: 'الرسم الحي' },
+    what: { en: 'The app finds the pieces of a picture (ship, sails, oars, whale, waves, clouds…) and moves each one slightly, the way it really moves, in a perfect loop.', ar: 'يجد البرنامج أجزاء الصورة (سفينة، أشرعة، مجاديف، حوت، أمواج، غيوم…) ويحرك كل جزء قليلًا كما يتحرك في الواقع، في حلقة متصلة.' },
+    steps: {
+      en: ['Select an image clip and press “Bring this image to life”.', 'Pick a mood: Calm, Stormy (adds rain), Underwater, Dreamy.', 'Fix a piece if needed: change what it is, its motion, or turn it off.'],
+      ar: ['اختر مقطع صورة واضغط «أحيِ هذه الصورة».', 'اختر مزاجًا: هادئ، عاصف (يضيف مطرًا)، تحت الماء، حالم.', 'صحّح جزءًا عند الحاجة: نوعه أو حركته أو أوقفه.'],
+    },
+    tips: {
+      en: ['Works best on illustrations and AI art with clear shapes.', 'Pieces on a ship ride with it: sails billow, oars row, the crew bobs.', '“Animate every image” brings a whole slideshow to life.'],
+      ar: ['يعمل أفضل على الرسوم وصور الذكاء الاصطناعي ذات الأشكال الواضحة.', 'الأجزاء على السفينة تتحرك معها: الأشرعة تنتفخ والمجاديف تجدف.', '«حرّك كل الصور» يحيي عرض الصور بالكامل.'],
+    },
+    problems: {
+      en: [['A piece moves wrongly', 'Change its type or motion in the list, or untick it.'], ['It takes a while', 'The first analysis downloads the models; then each image takes about a minute on the processor.']],
+      ar: [['جزء يتحرك بشكل خاطئ', 'غيّر نوعه أو حركته في القائمة، أو ألغِ تحديده.'], ['التحليل بطيء', 'التحليل الأول ينزّل النماذج؛ بعدها تأخذ كل صورة نحو دقيقة على المعالج.']],
+    },
+  },
+  {
     id: 'smart', group: 'Editing',
     title: { en: 'Smart layers on your video', ar: 'الطبقات الذكية على الفيديو' },
     what: { en: 'Name tags, quotes, numbers and topic tabs placed around the face from what is said — for talking heads and podcasts. On gameplay: hype alerts, a kill counter and a facecam frame, never over the HUD.', ar: 'أسماء واقتباسات وأرقام وعناوين مواضيع توضع حول الوجه حسب الكلام — للفيديوهات الحوارية والبودكاست. وفي الألعاب: تنبيهات حماس وعدّاد وإطار للكاميرا، دون تغطية واجهة اللعبة.' },

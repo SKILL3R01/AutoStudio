@@ -139,6 +139,8 @@ export interface Clip {
   /** Asset id of a grayscale depth map (white = near). */
   depthId?: string;
   regions?: Region[];
+  /** Living illustration (v5.6): pieces of the image animated by kind (see living/model.ts). */
+  living?: import('./living/model').LivingState;
   /** The user chose to ignore the too-short / too-long warning for this clip. */
   ignoreDuration?: boolean;
   /** Framing per output format: the point of the image kept in frame (0..1) and an extra zoom. */
