@@ -6,13 +6,17 @@ const toSec = (t: string) => {
   return m.length === 3 ? m[0] * 3600 + m[1] * 60 + m[2] : m.length === 2 ? m[0] * 60 + m[1] : m[0];
 };
 
+/** Remove transcription-service adverts, e.g. "(Transcribed by TurboScribe. Go Unlimited to remove this message.)". */
+export const stripAds = (t: string) =>
+  t.replace(/\((?:transcribed|subtitles?|captions?|translated) by[^)]*\)/gi, '').replace(/go unlimited to remove this message\.?/gi, '').replace(/[ 	]{2,}/g, ' ');
+
 /** Parse SRT or VTT into lines (each cue becomes one line). */
 function parseCues(text: string): CaptionLine[] {
   const out: CaptionLine[] = [];
   const re = /((?:\d+:)?\d+:\d+[.,]\d+)\s*-->\s*((?:\d+:)?\d+:\d+[.,]\d+)[^\n]*\n([\s\S]*?)(?=\n\s*\n|$)/g;
   for (const m of text.replace(/\r/g, '').matchAll(re)) {
     const start = toSec(m[1]), end = toSec(m[2]);
-    const content = m[3].replace(/<[^>]+>/g, '').trim();
+    const content = stripAds(m[3].replace(/<[^>]+>/g, '')).trim();
     if (content) out.push({ start, end, words: spreadWords(content, start, end) });
   }
   return out;

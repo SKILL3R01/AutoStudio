@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ToolPage } from './common';
 import { Select } from '../components/ui';
 import { Icon } from '../components/icons';
+import { copyText } from '../lib/clipboard';
 import { toast } from '../components/Toast';
 import { listProjects, loadProject, type ProjectMeta } from '../lib/db';
 import { normalizeProject } from '../lib/project';
@@ -14,12 +15,15 @@ import type { Project } from '../types';
 const VARS_KEY = 'promptVars';
 
 /** Copy the prompt, then open the AI site (pre-filled when the site supports it and the prompt is short enough). */
-export async function handOff(prompt: string, target: Target) {
-  await navigator.clipboard.writeText(prompt).catch(() => {});
+/** Copy the prompt and open the AI. Returns whether the copy really worked. */
+export async function handOff(prompt: string, target: Target): Promise<boolean> {
+  const ok = await copyText(prompt);
   const t = TARGETS[target];
   const prefill = t.prefill && prompt.length <= PREFILL_LIMIT;
   window.open(t.url(prefill ? prompt : ''), '_blank', 'noopener');
-  toast(prefill ? `Opened ${t.label} with the prompt filled in (also copied)` : `Prompt copied — paste it into ${t.label} (Ctrl+V)`, 'ok');
+  if (prefill) toast(`Opened ${t.label} with the prompt filled in${ok ? ' (also copied)' : ''}`, 'ok');
+  else toast(ok ? `Prompt copied — paste it into ${t.label} (Ctrl+V)` : `Opened ${t.label}, but copying was blocked — select the message and press Ctrl+C`, ok ? 'ok' : 'error');
+  return ok;
 }
 
 export function PromptStudio() {

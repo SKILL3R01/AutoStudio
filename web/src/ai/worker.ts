@@ -15,7 +15,7 @@ type Req =
   | { id: number; type: 'clipImages'; images: Blob[] }
   | { id: number; type: 'clipText'; texts: string[] }
   | { id: number; type: 'transcribe'; audio: Float32Array; model: 'base' | 'small'; language: string }
-  | { id: number; type: 'kokoro'; text: string; voice: string; speed: number };
+  | { id: number; type: 'kokoro'; text: string; voice: string; speed: number; gpu?: boolean };
 
 type Device = 'webgpu' | 'wasm';
 const post = (m: unknown) => (self as unknown as Worker).postMessage(m);
@@ -161,12 +161,12 @@ async function transcribe(audio: Float32Array, model: 'base' | 'small', language
 
 // Kokoro 82M (Apache-2.0): natural English preset voices, fast on the CPU — "instant drafts" in Voice Studio.
 let kokoro: Promise<any> | undefined;
-async function speakKokoro(text: string, voice: string, speed: number) {
+async function speakKokoro(text: string, voice: string, speed: number, gpu = false) {
   kokoro ??= (async () => {
     const { KokoroTTS } = await import('kokoro-js');
     const id = 'onnx-community/Kokoro-82M-v1.0-ONNX';
-    // WebGPU (fp32) is much faster where available; otherwise 8-bit on the CPU.
-    if (await deviceFor('depth') === 'webgpu') {
+    // The processor (8-bit) is the default: WebGPU is faster but sounds garbled on some graphics cards. Opt in per PC.
+    if (gpu && (await deviceFor('depth')) === 'webgpu') {
       try {
         return await KokoroTTS.from_pretrained(id, { dtype: 'fp32', device: 'webgpu', progress_callback: progress('Draft voice model') });
       } catch {
@@ -181,7 +181,7 @@ async function speakKokoro(text: string, voice: string, speed: number) {
 }
 
 async function handle(r: Req) {
-  if (r.type === 'kokoro') return speakKokoro(r.text, r.voice, r.speed);
+  if (r.type === 'kokoro') return speakKokoro(r.text, r.voice, r.speed, r.gpu);
   if (r.type === 'transcribe') return transcribe(r.audio, r.model, r.language);
   if (r.type === 'depth') return depth(r.image);
   if (r.type === 'embed') return embed(r.key, r.image);

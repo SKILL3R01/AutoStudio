@@ -1,4 +1,5 @@
 /** Story Studio: Script → Style → Storyboard → Make it → Polish. Visual everywhere (cards and thumbnails, no dropdowns). */
+import { copyText } from '../lib/clipboard';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../store';
 import { useProject } from './hooks';
@@ -6,7 +7,7 @@ import { FilePick, Toggle } from '../components/ui';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { fmtTime } from '../lib/util';
-import { KOKORO_VOICES, speakDraft } from '../ai/vision';
+import { KOKORO_VOICES, draftVoiceGpu, speakDraft } from '../ai/vision';
 import { suggestChapters } from '../lib/chapters';
 import { LiveThumb, makeGroup } from './pickers/LiveThumb';
 import { StyleCard, TemplateStrip, stylePreview } from './pickers/pickers';
@@ -15,13 +16,14 @@ import { HandoffPanel, type HandoffResult } from './HandoffPanel';
 import { HelpButton, useFirstTour } from '../components/HelpButton';
 import { allKits, getKit, loadMyStyles, paletteFromColors, paletteFromPixels, saveMyStyles, variantOf, type MyStyle } from '../motion/styles';
 import { importPack, userPackDirection } from '../motion/packs/importer';
-import { buildStory, mergeScene, newStory, pickTemplates, sceneBlockId, splitScene, type Scene } from '../motion/story/model';
-import { continueMessage, localStoryMessage, partsOf, redoMessage, resendMessage, scriptMessage, storyMessage } from '../motion/story/prompt';
+import { buildStory, insertScene, mergeScene, newStory, pasteScenes, pickTemplates, removeScene, sceneBlockId, setSceneText, splitScene, type Scene } from '../motion/story/model';
+import { PART_SIZE, continueMessage, localStoryMessage, partsOf, redoMessage, resendMessage, scriptMessage, storyMessage } from '../motion/story/prompt';
 import { applySceneRecipe, applyStoryAnswer, partNumbers } from '../motion/story/apply';
 import { makeDraftVoice } from '../motion/story/voice';
 import { buildMotionPrompt } from '../motion/prompt';
 import { applyChapterCards, thumbnailPicks } from '../motion/finish';
 import { SoundCard } from './SoundCard';
+import { VoiceUpload } from './VoiceUpload';
 import { drawGroup } from '../motion/render';
 import { tip } from '../help/tips';
 import type { Project } from '../types';
@@ -37,6 +39,10 @@ export const openStory = (scene?: string) => window.dispatchEvent(new CustomEven
 export function StoryStudio({ onClose }: { onClose: () => void }) {
   const p = useProject();
   const update = useEditor((s) => s.update);
+  const [view, setViewS] = useState<'grid' | 'list'>(() => (localStorage.getItem('storyView') === 'list' ? 'list' : 'grid'));
+  const setView = (v: 'grid' | 'list') => (setViewS(v), localStorage.setItem('storyView', v));
+  const [pasting, setPasting] = useState(false);
+  const [pasteText, setPasteText] = useState('');
   const st = p.story;
   const [step, setStep] = useState<Step>(st ? 'board' : 'script');
   const [mode, setMode] = useState<'paste' | 'voice' | 'idea'>(() => (narrationWords(p).length >= 5 ? 'voice' : 'paste'));
@@ -142,7 +148,7 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
     const nums = (ticked.length ? ticked : selScene ? [selScene] : []).map((id) => st.scenes.findIndex((s) => s.id === id) + 1).filter((n) => n > 0);
     if (!nums.length) return toast('Tick the scenes to redo in the storyboard first (✓ on a card)', 'info');
     setExpect(nums);
-    void navigator.clipboard.writeText(redoMessage(st, nums, how)).catch(() => undefined).then(() => toast(`“Redo ${nums.length} scene${nums.length > 1 ? 's' : ''}” copied — paste it into the SAME chat, then paste the answer in step ④`, 'ok'));
+    void copyText(redoMessage(st, nums, how)).then((ok) => ok ? toast(`“Redo ${nums.length} scene${nums.length > 1 ? 's' : ''}” copied — paste it into the SAME chat, then paste the answer in step ④`, 'ok') : toast('Copy was blocked by the browser — try again with the window focused', 'error'));
   };
 
   /* ---------- voice ---------- */
@@ -203,8 +209,8 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
               </div>
             )}
             <div className="choice-cards">
-              {([['paste', 'text', 'Paste my script', 'Every sentence becomes a scene'], ['voice', 'mic', 'Use my voiceover', words.length ? `${words.length} words · ${fmtTime(words[words.length - 1].end)}` : 'Record or upload one first (Voice panel)'], ['idea', 'wand', 'I have an idea', 'The AI writes the script for you']] as const).map(([k, icon, title, sub]) => (
-                <button key={k} className={`choice-card ${mode === k ? 'on' : ''}`} disabled={k === 'voice' && words.length < 5} onClick={() => setMode(k)} data-tour={`script-${k}`}>
+              {([['paste', 'text', 'Paste my script', 'Every sentence becomes a scene'], ['voice', 'mic', 'Use my voiceover', words.length ? `${words.length} words · ${fmtTime(words[words.length - 1].end)}` : 'Upload your audio + subtitles'], ['idea', 'wand', 'I have an idea', 'The AI writes the script for you']] as const).map(([k, icon, title, sub]) => (
+                <button key={k} className={`choice-card ${mode === k ? 'on' : ''}`} onClick={() => setMode(k)} data-tour={`script-${k}`}>
                   <Icon name={icon} size={28} /><b>{title}</b><span className="hint">{sub}</span>
                 </button>
               ))}
@@ -215,7 +221,7 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
                 <p className="hint">{script.trim() ? `${script.trim().split(/\s+/).length} words · about ${fmtTime(script.trim().split(/\s+/).length / 2.6)} spoken` : 'Tip: write how you speak — short sentences make clear scenes.'}</p>
               </>
             )}
-            {mode === 'voice' && <p className="hint">Scenes will follow your voiceover’s words exactly ({words.length} words).</p>}
+            {mode === 'voice' && <><VoiceUpload />{words.length >= 5 && <p className="hint">Scenes will follow your voiceover’s words exactly ({words.length} words).</p>}</>}
             {mode === 'idea' && (
               <div className="idea-pane">
                 <textarea rows={3} placeholder="e.g. Why airplane windows are round" value={idea} onChange={(e) => setIdea(e.target.value)} />
@@ -272,7 +278,24 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
               <div className="grow" />
               <button className="btn sm" onClick={() => update((d) => (pickTemplates(d.story!.scenes, getKit(d.story!.styleId), true), void buildStory(d)))}>Re-pick designs (keeps 🔒)</button>
               <button className="btn sm ghost" onClick={() => setTicked(ticked.length ? [] : st.scenes.map((s) => s.id))}>{ticked.length ? 'Untick all' : 'Tick all'}</button>
+              <div className="seg" data-tour="board-view">
+                <button className={view === 'grid' ? 'on' : ''} onClick={() => setView('grid')} title="Cards with live previews">▦ Grid</button>
+                <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')} title="Every scene in order, editable">☰ List</button>
+              </div>
             </div>
+            <div className="row wrap board-tools">
+              <button className="btn sm" data-act="add-scene" onClick={() => update((d) => void (insertScene(d.story!, d.story!.scenes[d.story!.scenes.length - 1]?.id ?? null, 'New scene'), buildStory(d)))}><Icon name="plus" /> Add scene</button>
+              <button className="btn sm ghost" data-act="paste-scenes" onClick={() => setPasting(!pasting)}><Icon name="copy" /> Paste a scene list</button>
+            </div>
+            {pasting && (
+              <div className="paste-scenes">
+                <textarea rows={5} placeholder={'One scene per line, e.g.\n1. Meet Sam.\n2. Every morning he was late.'} value={pasteText} onChange={(e) => setPasteText(e.target.value)} />
+                <div className="row">
+                  <button className="btn sm primary" disabled={!pasteText.trim()} onClick={() => { let n = 0; update((d) => void ((n = pasteScenes(d.story!, pasteText, 'append')), buildStory(d))); toast(`${n} scenes added`, 'ok'); setPasteText(''); setPasting(false); }}>Add to the end</button>
+                  <button className="btn sm" disabled={!pasteText.trim()} onClick={() => { if (!confirm('Replace every scene with this list?')) return; let n = 0; update((d) => void ((n = pasteScenes(d.story!, pasteText, 'replace')), buildStory(d, undefined, true))); toast(`${n} scenes — the storyboard was replaced`, 'ok'); setPasteText(''); setPasting(false); }}>Replace all scenes</button>
+                </div>
+              </div>
+            )}
             {st.timing === 'script' && (
               <div className="voice-banner">
                 <span>Scenes are timed by reading speed. <b>Make the voice</b> and they will follow it:</span>
@@ -282,13 +305,20 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
                   </button>
                 ))}</div>
                 <button className="btn sm primary" disabled={!!busy} onClick={() => void makeVoice()}>{busy || 'Make the voice'}</button>
-                <span className="hint">Arabic or your own voice: Voice panel → record / clone, then “Use my voiceover”.</span>
+                <span className="hint">Arabic or your own voice (e.g. ElevenLabs): Script → “Use my voiceover” → upload the audio + subtitles.</span>
+                <Toggle label="Use the graphics card for draft voices (faster — turn off if the voice sounds strange; reload after changing)" value={draftVoiceGpu()} onChange={(v) => (localStorage.setItem('draftVoiceGpu', v ? '1' : '0'), toast('Reload the app to switch where draft voices run', 'info'))} />
               </div>
             )}
             <div className="board">
+              {view === 'list' ? (
+                <div className="scene-list" data-tour="scene-list">
+                  {st.scenes.map((s, i) => <SceneRow key={s.id} p={p} s={s} i={i} on={s.id === selScene} onOpen={() => setSelScene(s.id === selScene ? null : s.id)} />)}
+                </div>
+              ) : (
               <div className="scene-grid" data-tour="scene-grid">
                 {st.scenes.map((s, i) => <SceneCard key={s.id} p={p} s={s} i={i} on={s.id === selScene} ticked={ticked.includes(s.id)} onOpen={() => setSelScene(s.id === selScene ? null : s.id)} onTick={() => setTicked((t) => (t.includes(s.id) ? t.filter((x) => x !== s.id) : [...t, s.id]))} />)}
               </div>
+              )}
               {scene && <SceneDrawer p={p} s={scene} i={st.scenes.indexOf(scene)} onClose={() => setSelScene(null)} />}
             </div>
             <div className="studio-next">
@@ -302,7 +332,10 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
           <section className="studio-pane">
             <h2>Make it</h2>
             <p>Every scene is already built from its design — you can stop here. <b>Improve with AI</b> lets Claude / ChatGPT pick the best design for each scene and write sharper titles ({parts.length === 1 ? 'one message' : `${parts.length} messages`} for {st.scenes.length} scenes).</p>
-            <HandoffPanel parts={parts.length} what={(i) => `scenes ${parts[i].from + 1}–${parts[i].to}`} message={(i) => storyMessage(st, p, i)} localMessage={(i) => localStoryMessage(st, p, i)} apply={applyPart} onDone={() => (toast('All scenes designed — check them in the storyboard or go to Polish', 'ok'), tip('story-ai-done'))} />
+            {st.scenes.length > PART_SIZE && (
+              <Toggle label={`Send all ${st.scenes.length} scenes in one message (long answer — if it gets cut off, the app copies a “continue” reply for you)`} value={!!st.onePart} onChange={(v) => update((d) => void (d.story && (d.story.onePart = v)))} />
+            )}
+            <HandoffPanel key={`ho-${parts.length}`} parts={parts.length} what={(i) => `scenes ${parts[i].from + 1}–${parts[i].to}`} message={(i) => storyMessage(st, p, i)} localMessage={(i) => localStoryMessage(st, p, i)} apply={applyPart} onDone={() => (toast('All scenes designed — check them in the storyboard or go to Polish', 'ok'), tip('story-ai-done'))} />
             <div className="redo-row">
               <b>Not happy with some scenes?</b> Tick them in the storyboard, then:
               <button className="btn sm" onClick={() => redo('stronger')}>Stronger</button>
@@ -319,6 +352,27 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
 
         {step === 'polish' && st && <Polish p={p} onClose={onClose} />}
       </div>
+    </div>
+  );
+}
+
+/** List row: number, time, editable words, design chip, play, lock, insert after, delete. */
+function SceneRow({ p, s, i, on, onOpen }: { p: Project; s: Scene; i: number; on: boolean; onOpen: () => void }) {
+  const update = useEditor((x) => x.update);
+  const seek = useEditor((x) => x.seek);
+  const tpl = getKit(p.story!.styleId).templates.find((t) => t.id === s.templateId);
+  const g = p.motion?.find((x) => x.id === sceneBlockId(s));
+  return (
+    <div className={`scene-row ${on ? 'on' : ''} ${s.locked ? 'locked' : ''}`} data-scene={s.id}>
+      <span className="scene-n">{i + 1}</span>
+      <span className="hint">{fmtTime(s.start)}–{fmtTime(s.end)}</span>
+      {g ? <LiveThumb group={{ ...g, start: 0 }} width={96} height={p.export.aspect === '9:16' ? 170 : 54} onClick={onOpen} title="Open this scene" /> : <span className="scene-empty sm">—</span>}
+      <textarea className="scene-edit" rows={2} defaultValue={s.text} key={s.text} onBlur={(e) => { const v = e.target.value; update((d) => void (setSceneText(d.story!, s.id, v) && buildStory(d))); }} />
+      <button className={`chip src-${s.source}`} onClick={onOpen} title="Change the design">{s.source === 'ai' ? '✦ AI' : tpl?.name ?? 'design'}</button>
+      <button className="icon-btn" title="Play this scene" onClick={() => seek(s.start + 0.05)}>▶</button>
+      <button className={`lock ${s.locked ? 'on' : ''}`} title={s.locked ? 'Unlock' : 'Lock (the AI never replaces it)'} onClick={() => update((d) => void (d.story!.scenes.find((x) => x.id === s.id)!.locked = !s.locked))}>🔒</button>
+      <button className="icon-btn" title="Insert a scene after this one" data-act="insert-after" onClick={() => update((d) => void (insertScene(d.story!, s.id, 'New scene'), buildStory(d)))}><Icon name="plus" /></button>
+      <button className="icon-btn" title="Delete this scene" onClick={() => update((d) => { if (!removeScene(d.story!, s.id)) return; d.motion = (d.motion ?? []).filter((g2) => g2.id !== sceneBlockId(s)); buildStory(d); })}><Icon name="trash" /></button>
     </div>
   );
 }

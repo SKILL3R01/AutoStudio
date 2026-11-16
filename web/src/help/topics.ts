@@ -27,8 +27,8 @@ export const TOPICS: HelpTopic[] = [
       ar: ['اكتب فكرة واحدة في كل جملة: كل جملة تصبح مشهدًا.', 'ضع أرقامًا في نصك («40%»، «2 مليون»): تصبح عدادات ورسومًا متحركة.', 'اقفل المشهد الذي يعجبك (🔒) حتى لا يستبدله الذكاء الاصطناعي.', 'جرّب بمثال جاهز لترى كل الخطوات في دقيقة.'],
     },
     problems: {
-      en: [['The scenes don’t match my voice timing', 'Use “Use my voiceover” (captions needed) or press “Make the voice” in the storyboard.']],
-      ar: [['المشاهد لا تطابق توقيت صوتي', 'استخدم «استخدم تعليقي الصوتي» (تحتاج الترجمة) أو اضغط «اصنع الصوت» في لوحة المشاهد.']],
+      en: [['The scenes don’t match my voice timing', 'Script → “Use my voiceover” → upload the audio and its subtitles (.srt from ElevenLabs / TurboScribe works), or press “Transcribe on this PC”.'], ['Copy doesn’t work', 'If the browser blocks copying, the message opens already selected — press Ctrl+C. “Send all scenes in one message” avoids several parts.'], ['I can’t see small details on the preview', 'Ctrl+scroll on the preview zooms in (up to 400 %); Space+drag or middle-drag moves it; “Fit” goes back.']],
+      ar: [['المشاهد لا تطابق توقيت صوتي', 'النص ← «استخدم تعليقي الصوتي» ← ارفع الصوت وملف الترجمة (.srt)، أو اضغط «انسخ الكلام على هذا الجهاز».'], ['النسخ لا يعمل', 'إذا منع المتصفح النسخ، تُفتح الرسالة محددة — اضغط Ctrl+C. «أرسل كل المشاهد في رسالة واحدة» يتجنب الأجزاء.'], ['لا أرى التفاصيل الصغيرة في المعاينة', 'Ctrl+عجلة الفأرة يكبّر المعاينة حتى 400٪؛ المسافة+السحب لتحريكها؛ «ملاءمة» للعودة.']],
     },
     tour: [
       { sel: '[data-tour="step-script"]', en: '① Start here: your script, your voiceover or just an idea.', ar: '① ابدأ هنا: نصك أو تعليقك الصوتي أو مجرد فكرة.' },

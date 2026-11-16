@@ -138,6 +138,48 @@ export function Preview() {
     return () => ro.disconnect();
   }, []);
   const fitScale = box.w && box.h ? Math.min(box.w / W, box.h / H) : 0;
+  // View zoom (1 = fit) and pan, for precise editing. Ctrl+scroll zooms around the cursor; Space / middle-drag pans.
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const view = useRef({ zoom: 1, pan: { x: 0, y: 0 } });
+  view.current = { zoom, pan };
+  const space = useRef(false);
+  const zoomTo = (z: number, cx?: number, cy?: number) => {
+    const el = stageRef.current;
+    const nz = Math.max(1, Math.min(4, z)), { zoom: z0, pan: p0 } = view.current;
+    if (nz === 1) return ((view.current = { zoom: 1, pan: { x: 0, y: 0 } }), setZoom(1), setPan({ x: 0, y: 0 }));
+    const r = el?.getBoundingClientRect(), ox = r && cx !== undefined ? cx - (r.left + r.width / 2) - p0.x : 0, oy = r && cy !== undefined ? cy - (r.top + r.height / 2) - p0.y : 0, k = nz / z0;
+    const np = { x: p0.x - ox * (k - 1), y: p0.y - oy * (k - 1) };
+    view.current = { zoom: nz, pan: np };
+    setZoom(nz);
+    setPan(np);
+  };
+  useEffect(() => setZoom(1), [m.project.id, m.project.export.aspect]);
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      zoomTo(view.current.zoom * Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY);
+    };
+    const kd = (e: KeyboardEvent) => { if (e.code === 'Space' && !(e.target as HTMLElement)?.closest?.('input,textarea,[contenteditable]')) space.current = true; };
+    const ku = (e: KeyboardEvent) => { if (e.code === 'Space') space.current = false; };
+    el.addEventListener('wheel', wheel, { passive: false });
+    window.addEventListener('keydown', kd);
+    window.addEventListener('keyup', ku);
+    return () => (el.removeEventListener('wheel', wheel), window.removeEventListener('keydown', kd), window.removeEventListener('keyup', ku));
+  }, []);
+  const startPan = (e: React.PointerEvent) => {
+    if (!(e.button === 1 || (e.button === 0 && space.current)) || view.current.zoom <= 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const x0 = e.clientX, y0 = e.clientY, p0 = view.current.pan;
+    const move = (ev: PointerEvent) => setPan({ x: p0.x + ev.clientX - x0, y: p0.y + ev.clientY - y0 });
+    const up = () => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up));
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
 
   useEffect(() => media.onLoad(() => setTick((x) => x + 1)), []);
   useEffect(() => onMotionAsset(() => setTick((x) => x + 1)), []);
@@ -418,7 +460,7 @@ export function Preview() {
   };
   return (
     <div className={`preview ${full ? 'full' : ''}`}>
-      <div className="stage" ref={stageRef}
+      <div className={`stage ${zoom > 1 ? 'zoomed' : ''}`} ref={stageRef} onPointerDownCapture={startPan}
         onDragOver={(e) => (e.dataTransfer.types.includes(ASSET_MIME) || e.dataTransfer.types.includes(MOTION_MIME)) && (e.preventDefault(), setDropping(true))}
         onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setDropping(false)}
         onDrop={(e) => {
@@ -434,7 +476,7 @@ export function Preview() {
           const id = e.dataTransfer.getData(ASSET_MIME);
           if (id) (e.preventDefault(), dropAssetAt(id, useEditor.getState().time));
         }}>
-        <div className="frame" style={{ width: W * fitScale, height: H * fitScale }}>
+        <div className="frame" style={{ width: W * fitScale * zoom, height: H * fitScale * zoom, transform: zoom > 1 ? `translate(${pan.x}px, ${pan.y}px)` : undefined, flexShrink: 0 }}>
           <canvas ref={canvas} width={W} height={H} onPointerDown={onPointerDown} onDoubleClick={(e) => startInline(e) || useEditor.getState().setPlaying(!playing)} />
           <ZonesOverlay />
           {snapLines && snapLines.v.map((x) => <i key={`v${x}`} className="snap-line v" style={{ left: `${x * 100}%` }} />)}
@@ -459,6 +501,12 @@ export function Preview() {
           {selClip && clipVisible && <ClipFrameBar clip={selClip} />}
         </div>
         {status && <span className="stage-status">{status}</span>}
+        <div className="zoom-bar" data-tour="preview-zoom" onPointerDown={(e) => e.stopPropagation()}>
+          <button title="Zoom out (Ctrl+scroll)" onClick={() => zoomTo(zoom / 1.25)} disabled={zoom <= 1}>−</button>
+          <span className="zoom-pct" title="Ctrl+scroll to zoom · Space+drag or middle-drag to move">{Math.round(zoom * 100)}%</span>
+          <button title="Zoom in (Ctrl+scroll)" onClick={() => zoomTo(zoom * 1.25)} disabled={zoom >= 4}>+</button>
+          <button title="Fit the preview" onClick={() => zoomTo(1)} disabled={zoom === 1}>Fit</button>
+        </div>
       </div>
       <div className="scrub" onMouseDown={seek} onMouseMove={(e) => e.buttons === 1 && seek(e)}>
         <div style={{ width: `${(time / m.length) * 100}%` }} />

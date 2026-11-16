@@ -28,6 +28,8 @@ export interface StoryState {
   /** Scenes timed by the narration words, or estimated from the script (until a voice arrives). */
   timing: 'voice' | 'script';
   createdAt: number;
+  /** Send every scene in ONE message to the AI (instead of parts of 48). */
+  onePart?: boolean;
 }
 
 export const sceneBlockId = (s: Scene) => `scene_${s.id}`;
@@ -178,6 +180,76 @@ export function retimeScenes(st: StoryState, words: DWord[]) {
   });
   for (let i = 1; i < st.scenes.length; i++) st.scenes[i].start = st.scenes[i - 1].end;
   st.timing = 'voice';
+}
+
+/* ---------- editing the scene list ---------- */
+const sceneOf = (id: string, text: string, start: number, end: number, words: DWord[]): Scene => ({ id, start, end, words, text, hints: hintsOf(text), keys: keysOf(words), templateId: '', slots: {}, source: 'template' });
+let nid = 0;
+const newId = () => `n${Date.now().toString(36)}${(nid++).toString(36)}`;
+/** Script-timed stories: re-time every scene from its own words (reading speed), in order. */
+export function retimeFromText(st: StoryState) {
+  let t = 0.3;
+  for (const sc of st.scenes) {
+    const ws = wordsFromScript(sc.text).map((w) => ({ ...w, t: w.t - 0.3 + t, end: w.end - 0.3 + t }));
+    const end = ws.length ? ws[ws.length - 1].end + 0.6 : t + 1.6;
+    sc.start = t;
+    sc.end = Math.max(t + 1.2, end);
+    sc.words = ws;
+    t = sc.end;
+  }
+  st.script = st.scenes.map((s) => s.text).join('\n\n');
+}
+/** Change what a scene says (its design is re-picked from the new words unless locked). */
+export function setSceneText(st: StoryState, id: string, text: string) {
+  const sc = st.scenes.find((s) => s.id === id);
+  if (!sc || !text.trim() || sc.text === text.trim()) return false;
+  sc.text = text.trim();
+  sc.hints = hintsOf(sc.text);
+  sc.slots = {};
+  if (!sc.locked) (sc.templateId = ''), (sc.source = 'template');
+  if (st.timing === 'script') retimeFromText(st);
+  else sc.keys = keysOf(sc.words.length ? sc.words : wordsFromScript(sc.text));
+  return true;
+}
+/** Insert a new scene after `afterId` (null = at the start). Voice-timed: it takes the second half of that scene's time. */
+export function insertScene(st: StoryState, afterId: string | null, text: string) {
+  const i = afterId ? st.scenes.findIndex((s) => s.id === afterId) : -1;
+  const clean = text.trim() || 'New scene';
+  if (st.timing === 'script' || !st.scenes.length) {
+    st.scenes.splice(i + 1, 0, sceneOf(newId(), clean, 0, 1, []));
+    retimeFromText(st);
+    return st.scenes[i + 1].id;
+  }
+  const prev = st.scenes[Math.max(0, i)], mid = (prev.start + prev.end) / 2;
+  const sc = sceneOf(newId(), clean, i < 0 ? prev.start : mid, i < 0 ? mid : prev.end, prev.words.filter((w) => (i < 0 ? w.t < mid : w.t >= mid)));
+  if (i < 0) prev.start = mid;
+  else prev.end = mid;
+  st.scenes.splice(i + 1, 0, sc);
+  return sc.id;
+}
+export function removeScene(st: StoryState, id: string) {
+  const i = st.scenes.findIndex((s) => s.id === id);
+  if (i < 0 || st.scenes.length < 2) return false;
+  const [sc] = st.scenes.splice(i, 1);
+  if (st.timing === 'script') retimeFromText(st);
+  else if (i > 0) st.scenes[i - 1].end = sc.end;
+  else st.scenes[0].start = sc.start;
+  return true;
+}
+/** Paste a list of scenes (one per line, numbering / bullets stripped): replace all, or add at the end. */
+export function pasteScenes(st: StoryState, list: string, mode: 'replace' | 'append') {
+  const lines = list.split(/\r?\n/).map((l) => l.replace(/^\s*(?:\d+[.)]\s*|[-*•]\s*|scene\s*\d+\s*[:.-]\s*)/i, '').trim()).filter((l) => l.length > 1);
+  if (!lines.length) return 0;
+  if (mode === 'replace') (st.scenes = []), (st.timing = 'script');
+  if (st.timing === 'script' || !st.scenes.length) {
+    for (const l of lines) st.scenes.push(sceneOf(newId(), l, 0, 1, []));
+    st.timing = 'script';
+    retimeFromText(st);
+    return lines.length;
+  }
+  // voice-timed: share the last scene's time between it and the new ones
+  for (const l of lines) insertScene(st, st.scenes[st.scenes.length - 1].id, l);
+  return lines.length;
 }
 
 /** Split a scene at the middle word / merge it with the next one. */

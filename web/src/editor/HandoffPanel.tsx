@@ -8,6 +8,7 @@ import { toast } from '../components/Toast';
 import { TARGETS, type Target } from '../lib/prompts';
 import { handOff } from '../tools/PromptStudio';
 import { chat, useLlm } from '../lib/llm';
+import { copyText } from '../lib/clipboard';
 
 export interface HandoffResult {
   ok: boolean;
@@ -39,21 +40,27 @@ export function HandoffPanel({ parts, what, message, localMessage, apply, onDone
   const [result, setResult] = useState<HandoffResult | null>(null);
   const [done, setDone] = useState<number[]>([]);
   const [busy, setBusy] = useState('');
+  const [manual, setManual] = useState(false);
+  const box = useRef<HTMLTextAreaElement>(null);
   const stop = useRef(false);
   const llmOk = useLlm((s) => !!s.model);
   const msg = message(part);
   useEffect(() => void setCopied(false), [part]);
 
+  /** Copy for real; if the browser refuses, open the message box with everything selected so Ctrl+C works. */
   const copy = async () => {
-    await navigator.clipboard.writeText(msg).catch(() => {});
-    setCopied(true);
-    toast(part === 0 ? 'Copied — paste it into a NEW chat' : 'Copied — paste it into the SAME chat as before', 'ok');
+    const ok = await copyText(msg);
+    setCopied(ok);
+    if (ok) return toast(part === 0 ? 'Copied — paste it into a NEW chat' : 'Copied — paste it into the SAME chat as before', 'ok');
+    setManual(true);
+    requestAnimationFrame(() => (box.current?.focus(), box.current?.select()));
+    toast('Copy was blocked by the browser — the message is selected below: press Ctrl+C, then paste it into the chat', 'error');
   };
   const run = (raw: string, i = part) => {
     if (!raw.trim()) return;
     const r = apply(i, raw);
     setResult(r);
-    if (r.reply) void navigator.clipboard.writeText(r.reply).then(() => toast('A reply for the AI is on the clipboard — paste it into the same chat', 'info')).catch(() => toast('Copy this reply into the same chat: ' + r.reply!.slice(0, 120), 'info'));
+    if (r.reply) void copyText(r.reply).then((ok) => toast(ok ? 'A reply for the AI is on the clipboard — paste it into the same chat' : 'Copy this reply into the same chat: ' + r.reply!, ok ? 'info' : 'error'));
     if (r.ok && !r.reply) {
       setPaste('');
       const nd = [...new Set([...done, i])];
@@ -103,7 +110,7 @@ export function HandoffPanel({ parts, what, message, localMessage, apply, onDone
         <div>
           <b>Copy the message</b>
           <button className={`btn big ${copied ? 'ok' : 'primary'}`} onClick={() => void copy()}><Icon name={copied ? 'check' : 'copy'} /> {copied ? 'Copied ✓' : `Copy message for ${what(part)}`}</button>
-          <details><summary>See the message ({msg.length.toLocaleString()} characters)</summary><textarea readOnly rows={5} value={msg} onFocus={(e) => e.currentTarget.select()} /></details>
+          <details open={manual} onToggle={(e) => setManual((e.currentTarget as HTMLDetailsElement).open)}><summary>See the message ({msg.length.toLocaleString()} characters)</summary><textarea ref={box} className="ho-msg" readOnly rows={5} value={msg} onFocus={(e) => e.currentTarget.select()} /></details>
         </div>
       </div>
       <div className="ho-step" data-tour="ho-ai">
@@ -112,7 +119,7 @@ export function HandoffPanel({ parts, what, message, localMessage, apply, onDone
           <b>Paste it into the AI</b>
           <div className="ho-ais">
             {(['claude', 'chatgpt', 'gemini'] as Target[]).map((k) => (
-              <button key={k} className={`ho-ai ${k === best ? 'best' : ''}`} onClick={() => (setCopied(true), void handOff(msg, k))}>
+              <button key={k} className={`ho-ai ${k === best ? 'best' : ''}`} onClick={() => void handOff(msg, k).then((ok) => (setCopied(ok), ok || (setManual(true), requestAnimationFrame(() => box.current?.select()))))}>
                 <span className={`ho-logo ${k}`}>{TARGETS[k].label[0]}</span>{TARGETS[k].label}{k === best && <small>best</small>}
               </button>
             ))}

@@ -1,4 +1,5 @@
 /** Scene strip above the timeline: live scene thumbnails, the playing one highlighted; click = jump, right-click = actions. */
+import { copyText } from '../lib/clipboard';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from '../store';
 import { useProject } from './hooks';
@@ -29,7 +30,7 @@ export function SceneStrip() {
     if (what === 'design') return openStory(id);
     if (what === 'stronger' || what === 'simpler') {
       const n = st.scenes.findIndex((s) => s.id === id) + 1;
-      return void navigator.clipboard.writeText(redoMessage(st, [n], what)).then(() => toast(`“Redo scene ${n}” copied — paste it into your story chat, then paste the answer in Story → Make it`, 'ok'));
+      return void copyText(redoMessage(st, [n], what)).then((ok) => ok ? toast(`“Redo scene ${n}” copied — paste it into your story chat, then paste the answer in Story → Make it`, 'ok') : toast('Copy was blocked by the browser — try again with the window focused', 'error'));
     }
     update((d) => {
       const s = d.story!;

@@ -7,7 +7,8 @@ import type { StoryState } from './model';
 export const PART_SIZE = 48;
 export const partsOf = (st: StoryState) => {
   const out: { i: number; from: number; to: number }[] = [];
-  for (let a = 0; a < st.scenes.length; a += PART_SIZE) out.push({ i: out.length, from: a, to: Math.min(st.scenes.length, a + PART_SIZE) });
+  const size = st.onePart ? Math.max(1, st.scenes.length) : PART_SIZE;
+  for (let a = 0; a < st.scenes.length; a += size) out.push({ i: out.length, from: a, to: Math.min(st.scenes.length, a + size) });
   return out;
 };
 

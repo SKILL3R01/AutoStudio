@@ -1009,3 +1009,29 @@ kbd { padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0
 .music-card { display: flex; gap: 6px; align-items: center; padding: 6px; border: 1px solid var(--line, #333); border-radius: 8px; cursor: pointer; font-size: 12px; }
 .music-card.on { border-color: var(--accent, #7c6cff); background: rgba(124,108,255,0.12); }
 .music-card em { display: block; font-style: normal; opacity: 0.65; font-size: 11px; }
+
+/* Story list view */
+.board-tools { gap: 6px; margin: 4px 0 8px; }
+.paste-scenes { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.paste-scenes textarea { width: 100%; font-size: 13px; }
+.scene-list { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.scene-row { display: grid; grid-template-columns: 28px 92px auto 1fr auto auto auto auto auto; gap: 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line, #2a2f3a); border-radius: 8px; background: var(--panel, #161a22); }
+.scene-row.on { border-color: var(--accent, #7c6cff); }
+.scene-row.locked { opacity: 0.85; }
+.scene-row .scene-edit { width: 100%; resize: vertical; font-size: 13px; min-height: 38px; }
+.seg { display: inline-flex; border: 1px solid var(--line, #2a2f3a); border-radius: 8px; overflow: hidden; }
+.seg button { padding: 4px 10px; font-size: 12px; background: transparent; }
+.seg button.on { background: var(--accent, #7c6cff); color: #fff; }
+
+/* Preview zoom */
+.zoom-bar { position: absolute; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 2px; background: rgba(0,0,0,0.65); border-radius: 8px; padding: 2px; z-index: 5; font-size: 12px; }
+.zoom-bar button { background: transparent; border: 0; color: #fff; padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+.zoom-bar button:disabled { opacity: 0.35; cursor: default; }
+.zoom-bar button:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
+.zoom-pct { min-width: 42px; text-align: center; color: #fff; }
+.stage.zoomed { cursor: grab; }
+
+/* Story voiceover upload */
+.voice-upload { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--line, #2a2f3a); border-radius: 10px; margin: 8px 0; }
+.vu-step { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; }
+.ho-num.done { background: #19c39c; }

@@ -1,0 +1,152 @@
+[
+ {
+  "wait": 6000
+ },
+ {
+  "eval": "localStorage.setItem('llm', JSON.stringify({ preset: 'custom', url: 'http://localhost:1235/v1', key: '', model: '' })); sessionStorage.setItem('helpOn', '1'); localStorage.setItem('help:noTours', '1'); localStorage.setItem('help:noNews', '1'); location.reload(); 'configured'"
+ },
+ {
+  "waitFor": "!!(document.querySelector('.rail button') && document.querySelector('.tl-inner'))",
+  "timeout": 40000
+ },
+ {
+  "wait": 2500
+ },
+ {
+  "eval": "(() => { document.querySelector('[data-tour=story-top]').click(); return 'story opened'; })()"
+ },
+ {
+  "waitFor": "!!document.querySelector('.studio')",
+  "timeout": 10000
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "(() => { document.querySelector('[data-tour=script-voice]').click(); return 'voice card · upload panel ' + !!document.querySelector('.voice-upload'); })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "(() => { const N = String.fromCharCode(10); const inp = [...document.querySelectorAll('.voice-upload input[type=file]')].find((i) => i.accept.includes('.srt')); if (!inp) return 'NO SRT INPUT'; const dt = new DataTransfer(); dt.items.add(new File([[['1','00:00:00,300 --> 00:00:02,400','(Transcribed by TurboScribe. Go Unlimited to remove this message.) Have you ever felt tired'].join(N),['2','00:00:02,400 --> 00:00:05,000','before the day even started?'].join(N),['3','00:00:05,200 --> 00:00:09,000','Forty percent of us check the phone first.'].join(N),['4','00:00:09,300 --> 00:00:14,000','Coffee, emails and news fill the first hour.'].join(N)].join(N + N)], 'voice.srt', { type: 'text/plain' })); inp.files = dt.files; inp.dispatchEvent(new Event('change', { bubbles: true })); return 'srt uploaded'; })()"
+ },
+ {
+  "wait": 700
+ },
+ {
+  "eval": "'srt toast: ' + ([...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => /timed words|Could not/.test(t)) ?? 'NO SRT TOAST') + ' · card ' + document.querySelector('[data-tour=script-voice] .hint').textContent"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /pick a style/.test(b.textContent)).click(); return 'style'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /storyboard/.test(b.textContent)).click(); return 'build'; })()"
+ },
+ {
+  "waitFor": "document.querySelectorAll('.scene-card').length > 1",
+  "timeout": 10000
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "'first scene: ' + document.querySelector('.scene-card .scene-text').textContent"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('[data-tour=board-view] button')].find((b) => /List/.test(b.textContent)).click(); return 'list view'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(window.__n0 = document.querySelectorAll('.scene-row').length, 'rows ' + window.__n0)"
+ },
+ {
+  "eval": "(() => { document.querySelector('[data-act=add-scene]').click(); return 'add scene'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "'rows after add ' + document.querySelectorAll('.scene-row').length + ' (was ' + window.__n0 + ')'"
+ },
+ {
+  "eval": "(() => { document.querySelector('[data-act=paste-scenes]').click(); return 'paste open'; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "(() => { const ta = document.querySelector('.paste-scenes textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, ['1. A pasted scene.', '2. Another pasted scene.'].join(String.fromCharCode(10))); ta.dispatchEvent(new Event('input', { bubbles: true })); return 'typed list'; })()"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.paste-scenes button')].find((b) => /Add to the end/.test(b.textContent)).click(); return 'pasted'; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "'rows after paste ' + document.querySelectorAll('.scene-row').length + ' · last: ' + [...document.querySelectorAll('.scene-row .scene-edit')].pop().value"
+ },
+ {
+  "eval": "(() => { const ta = document.querySelector('.scene-row .scene-edit'); ta.focus(); ta.value = 'Edited first scene words.'; ta.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); return 'edited'; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "'first row now: ' + document.querySelector('.scene-row .scene-edit').value"
+ },
+ {
+  "shot": "list"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.studio-next button')].find((b) => /make it/.test(b.textContent)).click(); return 'make it'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { document.querySelector('[data-tour=ho-copy] button').click(); return 'copy clicked'; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "'copy result: ' + (document.querySelector('[data-tour=ho-copy] button').textContent.includes('Copied') ? 'copied' : document.querySelector('[data-tour=ho-copy] details')?.open ? 'message box opened + selected' : 'NOTHING HAPPENED')"
+ },
+ {
+  "eval": "(() => { document.querySelector('.studio-head .icon-btn[title^=Back]').click(); return 'closed studio'; })()"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "(() => { const st = document.querySelector('.stage'); const r = st.getBoundingClientRect(); for (let i = 0; i < 4; i++) st.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, ctrlKey: true, deltaY: -200, clientX: r.left + r.width * 0.6, clientY: r.top + r.height * 0.5 })); return 'ctrl+wheel'; })()"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "'zoom ' + document.querySelector('.zoom-pct').textContent + ' · frame ' + Math.round(document.querySelector('.stage .frame').getBoundingClientRect().width) + 'px vs stage ' + Math.round(document.querySelector('.stage').getBoundingClientRect().width) + 'px'"
+ },
+ {
+  "shot": "zoomed"
+ },
+ {
+  "eval": "(() => { [...document.querySelectorAll('.zoom-bar button')].find((b) => b.textContent === 'Fit').click(); return 'fit'; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "'zoom after fit ' + document.querySelector('.zoom-pct').textContent"
+ }
+]

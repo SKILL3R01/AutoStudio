@@ -2,6 +2,15 @@
 export interface NewsItem { title: string; text: string; tryIt?: { event: string; detail?: string } }
 export const WHATS_NEW: { version: string; items: NewsItem[] }[] = [
   {
+    version: '5.5.0',
+    items: [
+      { title: 'Your voiceover drives the story', text: 'Story Studio → Script → Use my voiceover: upload the audio and its subtitles (ElevenLabs / TurboScribe .srt, adverts removed) or transcribe on this PC.', tryIt: { event: 'autostudio:dialog', detail: 'story' } },
+      { title: 'Scene list', text: 'Storyboard → List: every scene in order with editable words, add scene, paste a scene list, delete. “Send all scenes in one message” for long stories.' },
+      { title: 'Zoom the preview', text: 'Ctrl+scroll on the preview to zoom up to 400 %, Space+drag to move, Fit to go back.' },
+      { title: 'Copy you can trust', text: '“Copied ✓” only shows when it really copied — otherwise the message opens selected for Ctrl+C. Draft voices now run on the processor by default (no more strange noises).' },
+    ],
+  },
+  {
     version: '5.4.0',
     items: [
       { title: 'Music that follows your story', text: 'Story Studio → Polish: four music styles made by the app (free to use) — calm while you explain, a short stop before each reveal, a lift at the end, ducking under your voice. Press ▶ to listen first.', tryIt: { event: 'autostudio:dialog', detail: 'story' } },

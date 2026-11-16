@@ -124,4 +124,6 @@ export const KOKORO_VOICES: [string, string][] = [
   ['bf_emma', 'UK · female · Emma'], ['bf_alice', 'UK · female · Alice'], ['bf_isabella', 'UK · female · Isabella'], ['bf_lily', 'UK · female · Lily'],
   ['bm_george', 'UK · male · George'], ['bm_daniel', 'UK · male · Daniel'], ['bm_fable', 'UK · male · Fable'], ['bm_lewis', 'UK · male · Lewis'],
 ];
-export const speakDraft = (text: string, voice = 'af_heart', speed = 1) => call<{ wav: Blob; seconds: number }>({ type: 'kokoro', text, voice, speed });
+/** Draft voices on the graphics card: faster, but garbled on some PCs, so off unless the user turns it on. */
+export const draftVoiceGpu = () => localStorage.getItem('draftVoiceGpu') === '1';
+export const speakDraft = (text: string, voice = 'af_heart', speed = 1) => call<{ wav: Blob; seconds: number }>({ type: 'kokoro', text, voice, speed, gpu: draftVoiceGpu() });
