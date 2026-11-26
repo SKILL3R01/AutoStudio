@@ -1,5 +1,6 @@
 import { isDepthMotion } from '../render/motion';
 import { removeLiving } from './LivingSection';
+import { useReplace } from './ReplaceDialog';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { useEditor, projectLength, type Selection } from '../store';
@@ -77,6 +78,7 @@ export function ContextMenu() {
       {item('Duplicate', 'copy', duplicate)}
       {item('Copy', 'copy', copySelection)}
       {item('Paste here', 'paste', () => paste(at.time), !hasClipboard())}
+      {(clip || target.kind === 'pip') && item('Replace with…', 'image', () => useReplace.getState().open(clip ? 'clip' : 'pip', target.id))}
       {(clip || music) && item('Set start time…', 'clock', setStart)}
       {clip && item('Set length…', 'clock', setLength, ci + 1 >= p.clips.length)}
       {music && item('Fade in…', 'music', () => fade('fadeIn'))}

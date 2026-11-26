@@ -71,6 +71,7 @@ run cartoon "http://localhost:5173/#demo" steps-cartoon.json
 run storyfix "http://localhost:5173/#demo" steps-storyfix.json
 run living "http://localhost:5173/#demo" steps-living.json
 run pip "http://localhost:5173/#demo" steps-pip.json
+run v58 "http://localhost:5173/#demo" steps-v58.json
 run wizard "http://localhost:5173/" steps-wizard.json simple
 echo "=== done"
 if [ -n "$STRICT" ] && [ "$FAILED" = 1 ]; then echo "UI suites reported problems"; exit 1; fi

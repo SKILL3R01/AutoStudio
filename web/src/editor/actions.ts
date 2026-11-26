@@ -2,7 +2,7 @@
 import { splitGroup } from '../motion/edit';
 import { addVideoTrack, newPip, splitPip } from '../lib/pip';
 import { addTrack, newAudioClip, resolveOverlap } from '../lib/audiotracks';
-import { insertAssetAt } from './MediaPanel';
+import { placeVisual } from './MediaPanel';
 import { useEditor, findAsset } from '../store';
 import { media } from '../render/media';
 import { cutBuffer, encodeWav } from '../audio/silence';
@@ -208,7 +208,7 @@ export function dropAssetAt(assetId: string, t: number, target?: string) {
       });
       return select({ kind: 'pip', id });
     }
-    return update((d) => insertAssetAt(d, a.id, time));
+    return placeVisual(a.id, time);
   }
   let moved = '';
   let id = '';

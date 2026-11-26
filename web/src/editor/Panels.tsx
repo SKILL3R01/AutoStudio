@@ -26,6 +26,7 @@ import { SilenceDialog } from './SilenceDialog';
 import { GradeEditor } from './GradeEditor';
 import { EFFECT_COST, EFFECT_LABELS } from '../render/effects';
 import { SFX, sfxBuffer } from '../audio/sfx';
+import { ScriptSounds } from './ScriptSounds';
 import { blankClip, probe, setVoiceStart } from '../lib/project';
 import { uid } from '../lib/util';
 
@@ -377,6 +378,7 @@ function SfxPanel() {
   const placed = p.audio.filter((c) => p.audioTracks.find((t) => t.id === c.trackId)?.kind === 'sfx').sort((a, b) => a.start - b.start);
   return (
     <>
+      <ScriptSounds />
       <Section title="Sound effects" hint="▶ to listen, + to drop at the playhead. Drag them on the SFX track to retime.">
         <Slider label="Volume" value={vol} min={0} max={1.5} onChange={setVol} fmt={(v) => `${Math.round(v * 100)}%`} />
         <div className="list">

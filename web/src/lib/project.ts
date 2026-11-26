@@ -183,16 +183,41 @@ export interface TimedFile {
   time: number;
 }
 
-/** Add visuals at reviewed times (from the import review table). Existing clips stay where they are. */
-export async function importVisuals(p: Project, entries: TimedFile[], onProgress?: (done: number) => void): Promise<Project> {
+/** Natural length of a new main-track clip: the video's length, else 4 s. */
+export const naturalLength = (a?: Asset) => (a?.kind === 'video' ? a.duration ?? 4 : 4);
+
+/** Add media files to the project's Media only — nothing is placed on the timeline. */
+export async function importToMedia(p: Project, files: { file: File | Blob; name: string }[], onProgress?: (done: number) => void): Promise<Project> {
   const next = structuredClone(p);
-  const sorted = [...entries].sort((a, b) => a.time - b.time);
+  for (const [i, f] of files.entries()) {
+    const kind = kindOf(f.file instanceof File ? f.file : new File([f.file], f.name, { type: f.file.type }));
+    if (kind) next.assets.push(await probe(f.file, f.name, kind));
+    onProgress?.(i + 1);
+  }
+  return next;
+}
+
+/**
+ * Add visuals at reviewed times (from the import review table). Existing clips stay where they are.
+ * `atEnd`: ignore the times and append the files one after another at the end of the main track.
+ * A file timed after the end of the main track leaves a blank section in between (the previous clip is never stretched).
+ */
+export async function importVisuals(p: Project, entries: TimedFile[], onProgress?: (done: number) => void, atEnd = false): Promise<Project> {
+  const next = structuredClone(p);
+  const sorted = atEnd ? entries : [...entries].sort((a, b) => a.time - b.time);
   const toSeparate: string[] = [];
+  let end = next.clips.length ? next.length : 0;
+  let gapAfter = next.clips.length > 0;
   for (const [i, e] of sorted.entries()) {
     const kind = e.file.type.startsWith('video') || /\.(mp4|webm|mov|mkv)$/i.test(e.name) ? 'video' : 'image';
     const asset = await probe(e.file, e.name, kind);
     next.assets.push(asset);
-    next.clips.push(defaultClip(asset.id, e.time));
+    const at = atEnd ? end : e.time;
+    // Only the gap after the clips already there becomes blank; new timed files still run until the next one.
+    if (gapAfter && at > end + 0.25) next.clips.push(blankClip(end));
+    if (at >= end - 0.05) gapAfter = false;
+    next.clips.push(defaultClip(asset.id, at));
+    end = Math.max(end, at + naturalLength(asset));
     if (kind === 'video') toSeparate.push(next.clips[next.clips.length - 1].id);
     onProgress?.(i + 1);
   }
@@ -202,11 +227,7 @@ export async function importVisuals(p: Project, entries: TimedFile[], onProgress
     const { detachAudio } = await import('../editor/edit');
     toSeparate.forEach((id) => detachAudio(next, id, true));
   }
-  if (next.clips.length) {
-    const last = next.clips[next.clips.length - 1];
-    const lastAsset = next.assets.find((a) => a.id === last.assetId);
-    next.length = Math.max(next.length, narrationEnd(next), last.start + (lastAsset?.kind === 'video' ? lastAsset.duration ?? 4 : 4));
-  }
+  if (next.clips.length) next.length = Math.max(next.length, narrationEnd(next), end);
   return next;
 }
 

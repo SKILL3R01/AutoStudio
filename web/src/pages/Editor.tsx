@@ -17,6 +17,7 @@ import { Splitter, usePanelSize } from '../editor/Splitter';
 import { AutoEditDialog } from '../editor/AutoEditDialog';
 import { Wizard } from '../editor/Wizard';
 import { ContextMenu } from '../editor/ContextMenu';
+import { ReplaceDialog } from '../editor/ReplaceDialog';
 import { FormatSwitch } from '../editor/Framing';
 import { ShortsDialog } from '../editor/ShortsDialog';
 import { StoryStudio } from '../editor/StoryStudio';
@@ -124,6 +125,7 @@ function Workspace() {
       {(dialog === 'director' || dialog === 'story') && <StoryStudio onClose={() => setDialog(null)} />}
       {p.wizardStep !== undefined && <Wizard />}
       <ContextMenu />
+      <ReplaceDialog />
     </div>
   );
 }

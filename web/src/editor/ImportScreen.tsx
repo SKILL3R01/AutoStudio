@@ -2,16 +2,21 @@ import { mainVoiceAsset } from '../lib/audiotracks';
 import { useEffect, useRef, useState } from 'react';
 import { navigate } from '../App';
 import { useEditor, findAsset } from '../store';
-import { importAudio, importVisuals, kindOf, placeAudio, probe } from '../lib/project';
-import { FilePick, Progress } from '../components/ui';
+import { importAudio, importToMedia, importVisuals, kindOf, placeAudio, probe } from '../lib/project';
+import { FilePick, Progress, Seg } from '../components/ui';
+import { fmtClock } from '../lib/timecode';
 import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
+import { HelpButton } from '../components/HelpButton';
 import { ReviewTable, reviewReady } from './ReviewTable';
 import { toReviewItems, type ReviewItem } from './review';
 import type { Project } from '../types';
 
 /** Pick visuals, review their timestamps, then add them to the project. */
-export function ImportReview({ project, voice, onBuilt, cta = 'Validate & build timeline →' }: { project: Project; voice?: File | null; onBuilt?: () => void; cta?: string }) {
+/** Where imported files go: at the times in their names, one after another at the end, or only into Media. */
+export type Placement = 'times' | 'end' | 'media';
+
+export function ImportReview({ project, voice, onBuilt, cta = 'Validate & build timeline →', placement = 'times' }: { project: Project; voice?: File | null; onBuilt?: () => void; cta?: string; placement?: Placement }) {
   const update = useEditor((s) => s.update);
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [busy, setBusy] = useState<number | null>(null);
@@ -49,10 +54,31 @@ export function ImportReview({ project, voice, onBuilt, cta = 'Validate & build 
       return [...cur, ...toReviewItems(files.filter((f) => !names.has(f.name)), hasVoice)];
     });
   };
-  const ready = reviewReady(items, length);
+  const ready = placement === 'times' ? reviewReady(items, length) : items.some((i) => i.include);
   const build = async () => {
-    const chosen = items.filter((i) => i.include && i.time !== null && i.kind !== 'audio');
+    const chosen = items.filter((i) => i.include && (i.time !== null || placement !== 'times') && i.kind !== 'audio');
     const sounds = items.filter((i) => i.include && i.kind === 'audio');
+    if (placement === 'media') {
+      setBusy(0);
+      try {
+        const files = items.filter((i) => i.include);
+        const next = await importToMedia(project, files.map((i) => ({ file: i.file, name: i.name })), setBusy);
+        update((d) => Object.assign(d, next));
+        toast(`Added ${files.length} file${files.length > 1 ? 's' : ''} to Media — drag them onto the timeline when you need them`, 'ok');
+        onBuilt?.();
+      } catch (e) {
+        toast((e as Error).message, 'error');
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+    // A file timed far after the end (often a date in its name read as a time) would leave a long blank: ask first.
+    const end = Math.max(project.clips.length ? project.length : 0, length ?? 0);
+    const far = placement === 'times' ? chosen.filter((i) => i.time! > end + 60) : [];
+    if (far.length && !confirm(`${far.length} file${far.length > 1 ? 's are' : ' is'} timed long after the end of the video (${far.map((i) => `${i.name} → ${fmtClock(i.time!)}`).slice(0, 3).join(', ')}). This leaves a blank section of ${fmtClock(Math.max(...far.map((i) => i.time!)) - end)}.
+
+OK = add anyway · Cancel = go back (tip: choose “At the end” or “Media only”)`)) return;
     setBusy(0);
     try {
       let next = voice ? await importAudio(project, [voice], { asVoiceover: true }) : project;
@@ -71,7 +97,7 @@ export function ImportReview({ project, voice, onBuilt, cta = 'Validate & build 
           placeAudio(next, asset.id, 'sfx', a.time ?? 0, asset.duration ?? 1.5).volume = 0.8;
         }
       }
-      next = await importVisuals(next, chosen.map((i) => ({ file: i.file, name: i.name, time: i.time! })), setBusy);
+      next = await importVisuals(next, chosen.map((i) => ({ file: i.file, name: i.name, time: i.time ?? 0 })), setBusy, placement === 'end');
       update((d) => Object.assign(d, next));
       toast(`Added ${chosen.length} clips${sounds.length ? ` · ${sounds.length} sound file${sounds.length > 1 ? 's' : ''}` : ''}`, 'ok');
       onBuilt?.();
@@ -89,6 +115,7 @@ export function ImportReview({ project, voice, onBuilt, cta = 'Validate & build 
         <span>Images or video clips named by timestamp (0-00, 0-06…), Flow downloads (001_v1…), and sound files (voiceover, music, sound effects). Drop files or whole folders — even several at once.</span>
       </FilePick>
       {items.length > 0 && <ReviewTable items={items} setItems={(f) => setItems(f)} length={length} flowScenes={project.flowScenes} />}
+      {items.length > 0 && placement !== 'times' && <p className="hint center">{placement === 'media' ? 'Times are ignored: the files only go into Media.' : 'Times are ignored: the files are added one after another at the end.'}</p>}
       {busy !== null ? (
         <Progress value={busy / Math.max(1, items.filter((i) => i.include).length)} label={`Importing ${busy}…`} />
       ) : (
@@ -126,11 +153,16 @@ export function ImportScreen() {
 
 export function ImportDialog({ onClose }: { onClose: () => void }) {
   const p = useEditor((s) => s.project!);
+  const [place, setPlace] = useState<Placement>(() => (localStorage.getItem('importPlace') as Placement) || 'media');
+  const choose = (v: Placement) => (setPlace(v), localStorage.setItem('importPlace', v));
   return (
     <div className="modal-bg" onClick={onClose}>
       <div className="modal wide" onClick={(e) => e.stopPropagation()}>
-        <div className="row between"><h3>Add media</h3><button className="icon-btn" onClick={onClose}><Icon name="x" /></button></div>
-        <ImportReview project={p} onBuilt={onClose} cta="Validate & add to timeline" />
+        <div className="row between"><h3>Add media <HelpButton topic="replace" small /></h3><button className="icon-btn" onClick={onClose}><Icon name="x" /></button></div>
+        <div className="row wrap import-place"><span className="hint">Where should they go?</span>
+          <Seg options={[['media', 'Media only'], ['end', 'At the end'], ['times', 'Times in file names']] as const} value={place} onChange={choose} />
+        </div>
+        <ImportReview project={p} onBuilt={onClose} placement={place} cta={place === 'media' ? 'Add to Media' : 'Validate & add to timeline'} />
       </div>
     </div>
   );

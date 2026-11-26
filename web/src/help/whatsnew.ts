@@ -2,6 +2,15 @@
 export interface NewsItem { title: string; text: string; tryIt?: { event: string; detail?: string } }
 export const WHATS_NEW: { version: string; items: NewsItem[] }[] = [
   {
+    version: '5.8.0',
+    items: [
+      { title: 'Media only', text: 'Import media → Media only keeps files in Media until you need them, or add them at the end. A date in a file name can no longer stretch a clip over minutes.' },
+      { title: 'Insert without stretching', text: 'A file dropped on a clip goes in at the nearest cut and the later clips move along; after the end you get a visible blank section.' },
+      { title: 'Replace with…', text: 'Right-click any picture or video clip → Replace with…: pick from Media or upload. It keeps the place, length, motion and transition; the old file stays in Media.' },
+      { title: 'Sounds from the script', text: 'Audio → Sound effects → Find sounds: footsteps, breathing, knocks, rain, thunder… on the spoken word. Your own sound files (by name) are used first.' },
+    ],
+  },
+  {
     version: '5.7.0',
     items: [
       { title: 'Calmer living illustrations', text: 'One wind and one sea per image: pieces move together as a gust across the picture. Remove it from one image or from all images in one click.' },

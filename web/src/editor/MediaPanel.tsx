@@ -14,7 +14,7 @@ import { useProject, useThumb } from './hooks';
 import { Section, Seg } from '../components/ui';
 import { Icon } from '../components/icons';
 import { ImportDialog } from './ImportScreen';
-import { defaultClip } from '../lib/project';
+import { blankClip, defaultClip, naturalLength } from '../lib/project';
 import { clipIndexAt } from '../render/renderer';
 import type { Asset, Project } from '../types';
 import { indexMedia, matchPercent, queryVector, rank, unindexed } from '../lib/mediasearch';
@@ -104,27 +104,50 @@ function MediaItem({ a, uses, onInsert, onReplace, canReplace, match, list }: { 
 
 export const autoSeparate = () => globalThis.localStorage?.getItem('autoSeparate') === '1';
 
-/** Add a clip using `assetId` at timeline time t (splits nothing — the new clip starts at t). */
-export function insertAssetAt(d: Project, assetId: string, time: number) {
-  const i = clipIndexAt(d.clips, time);
-  const end = d.clips.length ? clipEnd(d, i) : 0;
-  const at = d.clips.length && time - (i === 0 ? 0 : d.clips[i].start) < 0.2 ? Math.min(end - 0.2, time + 0.2) : time;
-  const start = d.clips.length ? at : 0;
-  d.clips.push(defaultClip(assetId, start));
-  d.clips.sort((x, y) => x.start - y.start);
-  const added = d.clips.find((c) => c.assetId === assetId && c.start === start);
-  if (added && autoSeparate() && d.assets.find((x) => x.id === assetId)?.kind === 'video') detachAudio(d, added.id, true);
-  // Appended at the end: the main track grows by the new clip (video length, or 4 s for an image).
-  if (d.clips[d.clips.length - 1].assetId === assetId && d.clips[d.clips.length - 1].start === start) {
-    const a = d.assets.find((x) => x.id === assetId);
-    d.length = Math.max(d.length, start + (a?.kind === 'video' ? a.duration ?? 4 : 4), d.clips.length === 1 ? narrationEnd(d) : 0);
+/**
+ * Add a clip using `assetId` at timeline time t without stretching any clip:
+ * - inside a clip: it goes in at that clip's nearest cut and the later clips move along by its length;
+ * - at / after the end: it is appended (a gap after the end becomes a visible blank section).
+ * Returns how far later clips moved (0 when appended).
+ */
+export function insertAssetAt(d: Project, assetId: string, time: number): number {
+  const len = naturalLength(d.assets.find((x) => x.id === assetId));
+  const added = defaultClip(assetId, 0);
+  let moved = 0;
+  if (!d.clips.length) d.clips.push(added);
+  else if (time >= d.length - 0.05) {
+    if (time > d.length + 0.25) d.clips.push(blankClip(d.length));
+    added.start = Math.max(time, d.length);
+    d.clips.push(added);
+  } else {
+    const i = clipIndexAt(d.clips, time);
+    const s = i === 0 ? 0 : d.clips[i].start, e = clipEnd(d, i);
+    const before = time - s <= e - time;
+    added.start = before ? s : e;
+    d.clips.forEach((c, j) => (j > i || (before && j === i)) && (c.start += len));
+    d.clips.push(added);
+    d.length += len;
+    moved = len;
   }
+  d.clips.sort((x, y) => x.start - y.start);
+  if (autoSeparate() && d.assets.find((x) => x.id === assetId)?.kind === 'video') detachAudio(d, added.id, true);
+  if (!moved) d.length = Math.max(d.length, added.start + len, d.clips.length === 1 ? narrationEnd(d) : 0);
+  return moved;
 }
 
-/** Swap the media of a clip (keeps its timing, motion and transition). */
+/** Put a picture / video on the main track at `time` (see `insertAssetAt`) and say when later clips moved. */
+export function placeVisual(assetId: string, time: number) {
+  let moved = 0;
+  useEditor.getState().update((d) => void (moved = insertAssetAt(d, assetId, time)));
+  if (moved) toast(`Inserted at the nearest cut — the clips after it moved ${moved.toFixed(1)} s later (sound and captions stay put)`, 'info');
+}
+
+/** Swap the media of a main or overlay clip (keeps its timing, motion and transition; the old file stays in Media). */
 export function replaceClipAsset(d: Project, clipId: string, assetId: string) {
   const c = d.clips.find((x) => x.id === clipId);
-  if (c) Object.assign(c, { assetId, trimIn: 0, trimOut: undefined, depthId: undefined, regions: [] });
+  if (c) Object.assign(c, { assetId, trimIn: 0, trimOut: undefined, depthId: undefined, regions: [], living: undefined, fill: undefined });
+  const o = d.pips.find((x) => x.id === clipId);
+  if (o) Object.assign(o, { assetId, trimIn: 0 });
 }
 
 export function MediaPanel() {
@@ -155,7 +178,7 @@ export function MediaPanel() {
       update((d) => void (id = placePip(d, a.id, time, a.kind === 'video' ? Math.min(a.duration ?? 4, 8) : 4).id));
       return select({ kind: 'pip', id });
     }
-    if (a.kind !== 'audio') return update((d) => insertAssetAt(d, a.id, time));
+    if (a.kind !== 'audio') return placeVisual(a.id, time);
     let info: ReturnType<typeof addVoiceTake> | undefined;
     update((d) => void (as === 'voice' ? (info = addVoiceTake(d, a.id, a.duration ?? 0, narrationClips(d).length ? 0 : time)) : placeAudio(d, a.id, as === 'sfx' ? 'sfx' : 'music', time, a.duration ?? 5)));
     if (info?.take) toast(`Added as ${info.take} of the narration — switch takes in Properties`, 'ok');

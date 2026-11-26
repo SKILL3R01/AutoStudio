@@ -119,6 +119,40 @@ export const TOPICS: HelpTopic[] = [
     },
   },
   {
+    id: 'scriptsounds', group: 'Audio',
+    title: { en: 'Sounds from the script', ar: 'أصوات من النص' },
+    what: { en: 'Finds words like walked, sighed, screamed, knock, rain or phone in the narration and puts a matching sound effect exactly on the spoken word.', ar: 'يجد كلمات مثل مشى، تنهد، صرخ، طرق، مطر أو هاتف في التعليق الصوتي ويضع مؤثرًا صوتيًا مناسبًا على الكلمة تمامًا.' },
+    steps: {
+      en: ['Audio → Sound effects → Find sounds (needs captions or your .srt).', 'Listen with ▶ and untick what you don’t want.', 'Press Add: the sounds go on the “Script sounds” track.'],
+      ar: ['الصوت ← المؤثرات ← ابحث عن الأصوات (يحتاج ترجمة أو ملف ‎.srt).', 'استمع بـ ▶ وألغِ ما لا تريده.', 'اضغط إضافة: توضع الأصوات على مسار «أصوات النص».'],
+    },
+    tips: {
+      en: ['For realistic sounds, download free effects (YouTube Audio Library, Pixabay) and import them with Add media → Media only. Files named “footsteps”, “scream”, “breathing”… are picked automatically.', 'Export → Auto levels keeps every effect under the voice.', 'Remove script sounds takes them all away again.'],
+      ar: ['لأصوات واقعية، نزّل مؤثرات مجانية (مكتبة صوتيات يوتيوب، Pixabay) واستوردها عبر إضافة وسائط ← الوسائط فقط. الملفات المسماة «footsteps» و«scream» و«breathing»… تُختار تلقائيًا.', 'التصدير ← المستويات التلقائية تبقي كل مؤثر تحت الصوت.', '«إزالة أصوات النص» يحذفها كلها.'],
+    },
+    problems: {
+      en: [['“Needs a sound file”', 'There is no built-in version (scream, laugh, crowd): import a file named after it, then Find sounds again.'], ['A sound is wrong for the meaning', 'Words like “run a business” are found too: untick them before adding.']],
+      ar: [['«يحتاج ملف صوت»', 'لا توجد نسخة مدمجة (صراخ، ضحك، جمهور): استورد ملفًا باسمه ثم ابحث مجددًا.'], ['الصوت لا يناسب المعنى', 'كلمات مثل «يدير عملًا» تُلتقط أيضًا: ألغِ تحديدها قبل الإضافة.']],
+    },
+  },
+  {
+    id: 'replace', group: 'Editing',
+    title: { en: 'Add & replace media', ar: 'إضافة الوسائط واستبدالها' },
+    what: { en: 'Add files to Media without touching the timeline, insert them without stretching other clips, and swap any clip’s picture or video from the right-click menu.', ar: 'أضف ملفات إلى الوسائط دون لمس الخط الزمني، وأدرجها دون تمديد المقاطع الأخرى، واستبدل صورة أو فيديو أي مقطع من قائمة الزر الأيمن.' },
+    steps: {
+      en: ['Import media → choose Media only, At the end, or Times in file names.', 'Drag a file from Media onto the timeline: it goes in at the nearest cut and later clips move along.', 'Right-click a clip → Replace with… → pick from Media or Upload new.'],
+      ar: ['استيراد وسائط ← اختر الوسائط فقط، في النهاية، أو الأوقات في أسماء الملفات.', 'اسحب ملفًا من الوسائط إلى الخط الزمني: يدخل عند أقرب قطع وتتحرك المقاطع التالية.', 'زر أيمن على مقطع ← استبدل بـ… ← اختر من الوسائط أو ارفع ملفًا.'],
+    },
+    tips: {
+      en: ['The new media keeps the clip’s place, length, motion and transition.', 'The old file stays in Media (filter “Unused”).', 'A file timed long after the end asks first, and leaves a visible blank section instead of stretching a clip.'],
+      ar: ['تحتفظ الوسائط الجديدة بمكان المقطع وطوله وحركته وانتقاله.', 'يبقى الملف القديم في الوسائط (تصفية «غير مستخدم»).', 'الملف المؤقت بعد النهاية بكثير يسأل أولًا، ويترك قسمًا فارغًا ظاهرًا بدل تمديد مقطع.'],
+    },
+    problems: {
+      en: [['A date in the file name was read as a time', 'Choose “At the end” or “Media only” in Import media.'], ['Clips after the insert are out of sync with the voice', 'Undo (Ctrl+Z) and drop the file on an overlay track, or use Replace with… instead.']],
+      ar: [['تاريخ في اسم الملف قُرئ كوقت', 'اختر «في النهاية» أو «الوسائط فقط» في استيراد الوسائط.'], ['المقاطع بعد الإدراج لم تعد متزامنة مع الصوت', 'تراجع (Ctrl+Z) وأسقط الملف على مسار تراكب، أو استخدم «استبدل بـ…».']],
+    },
+  },
+  {
     id: 'living', group: 'Editing',
     title: { en: 'Living illustration', ar: 'الرسم الحي' },
     what: { en: 'The app finds the pieces of a picture (ship, sails, oars, whale, waves, clouds…) and moves each one slightly, the way it really moves, in a perfect loop.', ar: 'يجد البرنامج أجزاء الصورة (سفينة، أشرعة، مجاديف، حوت، أمواج، غيوم…) ويحرك كل جزء قليلًا كما يتحرك في الواقع، في حلقة متصلة.' },
