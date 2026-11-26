@@ -34,6 +34,12 @@ export async function makeLiving(clipId: string, preset: LivingPreset = 'calm'):
   });
   return state.parts.filter((x) => x.on && x.motion !== 'still').length;
 }
+/** Take the living animation (and the weather its mood added) off some clips. */
+export function removeLiving(ids: string[]) {
+  useEditor.getState().update((d) => {
+    for (const c of d.clips) if (ids.includes(c.id) && c.living) (c.living = undefined), applyWeather(d, c, undefined);
+  });
+}
 /** Rain / snow / dust for this clip only (existing weather effects, scoped to the clip). */
 function applyWeather(d: Project, c: Clip, w?: 'rain' | 'snow' | 'dust') {
   d.effects = d.effects.filter((e) => !(e.scope?.kind === 'clips' && e.scope.ids.length === 1 && e.scope.ids[0] === c.id && ['rain', 'snow', 'dust'].includes(e.kind)));
@@ -79,10 +85,16 @@ export function LivingSection({ clip }: { clip: Clip }) {
       <div className="row wrap" data-tour="living">
         <button className="btn sm primary" disabled={!!busy} onClick={() => void analyse()}><Icon name="wand" /> {busy ? (vision.label ? `${vision.label} ${Math.round(vision.value * 100)}%` : busy) : L ? (stale ? 'Analyse the new picture' : 'Analyse again') : 'Bring this image to life'}</button>
         <button className="btn sm ghost" disabled={!!busy} onClick={() => void animateAll()} title="Analyse every image clip that is not living yet">Animate every image</button>
+        {p.clips.some((c) => c.living) && <button className="btn sm ghost" data-act="living-remove-all" onClick={() => { if (!confirm('Remove the living animation from every image?')) return; removeLiving(p.clips.filter((c) => c.living).map((c) => c.id)); toast('Living animation removed from every image', 'ok'); }}><Icon name="x" /> Remove from all images</button>}
       </div>
       {L && (
+        <div className="row wrap living-top">
+          <Toggle label={L.on ? 'Moving' : 'Paused'} value={L.on} onChange={(v) => set((l) => void (l.on = v))} />
+          <button className="btn sm ghost" data-act="living-remove" onClick={() => removeLiving([clip.id])}><Icon name="x" /> Remove from this image</button>
+        </div>
+      )}
+      {L && (
         <>
-          <Toggle label="On" value={L.on} onChange={(v) => set((l) => void (l.on = v))} />
           <label className="lbl">Mood</label>
           <div className="living-presets">
             {(Object.keys(PRESETS) as LivingPreset[]).map((k) => <button key={k} className={`chip ${L.preset === k ? 'on' : ''}`} onClick={() => preset(k)}>{PRESETS[k].name}{PRESETS[k].weather ? ` · ${PRESETS[k].weather}` : ''}</button>)}
@@ -101,7 +113,6 @@ export function LivingSection({ clip }: { clip: Clip }) {
               </div>
             ))}
           </div>
-          <button className="btn sm ghost" onClick={() => update((d) => { const c = d.clips.find((x) => x.id === clip.id)!; c.living = undefined; applyWeather(d, c, undefined); })}><Icon name="x" /> Remove</button>
         </>
       )}
     </Section>

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useEditor, projectLength } from '../store';
 import { useLines, useProject } from './hooks';
-import { Progress, Select } from '../components/ui';
+import { Progress, Select, Toggle } from '../components/ui';
 import { Icon } from '../components/icons';
 import { outputSize } from '../render/renderer';
 import { exportAudio, type AudioFormat, exportVideo, videoBitrate } from '../export/exporter';
@@ -79,10 +79,11 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         </div>
         <div className="row">
           <Select label="Aspect" value={e.aspect} options={[['16:9', '16:9'], ['9:16', '9:16'], ['1:1', '1:1'], ['4:5', '4:5']]} onChange={(v) => set({ aspect: v })} />
-          <Select label="Resolution" value={e.resolution} options={[['full', '1080p'], ['720', '720p'], ['480', '480p']]} onChange={(v) => set({ resolution: v })} />
+          <Select label="Resolution" value={e.resolution} options={[['2160', '4K · 2160p'], ['1440', '2K · 1440p'], ['full', '1080p'], ['720', '720p'], ['480', '480p']]} onChange={(v) => set({ resolution: v })} />
           <Select label="FPS" value={e.fps} options={[24, 25, 30, 60]} onChange={(v) => set({ fps: v })} />
         </div>
         <div className="row">
+          <Toggle label="Auto levels — music −6 dB under the voice, effects ≤ −6 dB, no ducking, one gain + −1 dB limiter" value={!!e.autoLevels} onChange={(v) => set({ autoLevels: v })} />
           <Select label="Quality" value={e.quality} options={[['high', 'High (8 Mbps @1080p)'], ['medium', 'Medium (5 Mbps)'], ['low', 'Low (2.5 Mbps)']]} onChange={(v) => set({ quality: v })} />
           <Select label="Format" value={e.format} options={[['mp4', 'MP4 (H.264 + AAC)'], ['webm', 'WebM (VP9 + Opus)']]} onChange={(v) => set({ format: v })} />
           <Select label="Fill for 'fit' clips" value={e.background} options={[['blur', 'Blurred background'], ['black', 'Black bars']]} onChange={(v) => set({ background: v })} />

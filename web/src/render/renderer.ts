@@ -71,7 +71,7 @@ export function assetByRef(m: RenderModel, ref: string) {
 
 export const outputSize = (p: Project, preview?: number) => {
   const [aw, ah] = p.export.aspect.split(':').map(Number);
-  const long = preview ?? (p.export.resolution === 'full' ? 1920 : p.export.resolution === '720' ? 1280 : 854);
+  const long = preview ?? (p.export.resolution === '2160' ? 3840 : p.export.resolution === '1440' ? 2560 : p.export.resolution === 'full' ? 1920 : p.export.resolution === '720' ? 1280 : 854);
   const even = (n: number) => Math.round(n / 2) * 2;
   return aw >= ah ? { W: even(long), H: even((long * ah) / aw) } : { W: even((long * aw) / ah), H: even(long) };
 };

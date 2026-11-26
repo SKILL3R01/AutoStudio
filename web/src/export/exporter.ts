@@ -8,7 +8,7 @@ import type { Asset, Clip, Project } from '../types';
 import { renderMix, type Stem } from '../audio/mix';
 import { zipFiles } from '../lib/zip';
 import { encodeWav } from '../audio/silence';
-import { media } from '../render/media';
+import { media, mediaLimits } from '../render/media';
 import { ensureTypoFonts } from '../render/typography';
 import {
   activeClipIndices, clipSourceTime, clipStart, imagesNeededAt, makeModel, outputSize, renderFrame, type Drawable, type FrameSource,
@@ -79,6 +79,8 @@ export async function exportVideo(p: Project, lines: CaptionLine[], onProgress: 
   const audioCodec = await getFirstEncodableAudioCodec(webm ? ['opus'] : ['aac', 'opus'], { numberOfChannels: 2, sampleRate: 48000 });
 
   onProgress({ stage: 'Mixing audio', progress: 0 });
+  // 2K / 4K: decode pictures at full size for this export (the preview keeps 1920 px)
+  mediaLimits.maxDim = p.export.resolution === '2160' ? 3840 : p.export.resolution === '1440' ? 2560 : 1920;
   const mix = await renderMix(p, 48000);
 
   const format = webm ? new WebMOutputFormat() : new Mp4OutputFormat({ fastStart: 'in-memory' });

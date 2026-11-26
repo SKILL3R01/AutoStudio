@@ -1,4 +1,5 @@
 import { isDepthMotion } from '../render/motion';
+import { removeLiving } from './LivingSection';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { useEditor, projectLength, type Selection } from '../store';
@@ -87,6 +88,7 @@ export function ContextMenu() {
           <div className="row wrap">{QUICK_MOTIONS.map((m) => <button key={m} className={`chip ${clip.motion === m ? 'on' : ''}`} onPointerDown={(e) => e.stopPropagation()} onClick={run(() => update((d) => void (d.clips[ci].motion = m)))}>{MOTION_LABELS[m]}</button>)}</div>
         </div>
       )}
+      {clip?.living && item('Remove living animation', 'x', () => removeLiving([clip.id]))}
       {clip?.depthId && item('Remove 3D depth', 'x', () => update((d) => void ((d.clips[ci].depthId = undefined), isDepthMotion(d.clips[ci].motion) && (d.clips[ci].motion = 'zoomIn'))))}
       {clip && item(clip.ignoreDuration ? 'Warn about length again' : 'Ignore length warning', 'warn', () => update((d) => void (d.clips[ci].ignoreDuration = !clip.ignoreDuration)))}
       <hr />

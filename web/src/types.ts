@@ -459,7 +459,9 @@ export type Aspect = '16:9' | '9:16' | '1:1' | '4:5';
 export interface ExportSettings {
   aspect: Aspect;
   fps: number;
-  resolution: 'full' | '720' | '480';
+  resolution: '2160' | '1440' | 'full' | '720' | '480';
+  /** mix.py-style level lock (music −6 dB under the voice, SFX ≤ −6 dB, peaks capped, no ducking) + one gain + limiter. */
+  autoLevels?: boolean;
   quality: 'low' | 'medium' | 'high';
   background: 'blur' | 'black';
   format: 'mp4' | 'webm';

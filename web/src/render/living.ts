@@ -187,7 +187,8 @@ export function renderLiving(d: Drawable, clip: Clip, t: number, span: number, s
   drawMesh((x, y) => [x, y], [0, 0, 1, 1]);
   // 2. the pieces, far to near; a child applies its own pose, then its parent's
   gl.bindTexture(gl.TEXTURE_2D, G.img);
-  const poses = new Map(L.parts.map((p) => [p.id, poseAt({ ...p, strength: p.strength * L.strength, speed: p.speed * L.speed }, t, span)]));
+  // one image-wide clock: per-piece speed is ignored for the rhythm (only the image's speed), so pieces stay in step
+  const poses = new Map(L.parts.map((p) => [p.id, poseAt({ ...p, strength: p.strength * L.strength, speed: L.speed }, t, span)]));
   const order = parts.map((p, i) => ({ p, m: masks[i]! })).sort((a, b) => a.p.depth - b.p.depth);
   for (const { p, m } of order) {
     const pose = poses.get(p.id)!, parent = p.parentId ? L.parts.find((q) => q.id === p.parentId && q.on) : undefined, pp = parent ? poses.get(parent.id) : undefined;

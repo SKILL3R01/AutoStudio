@@ -1,4 +1,5 @@
 import { voiceChain } from './enhance';
+import { levelLock, master } from './autolevels';
 import type { Project } from '../types';
 import { clipEnd, projectLength } from '../store';
 import { audibleTrack, clipEndOf, narrationClips } from '../lib/audiotracks';
@@ -67,7 +68,7 @@ export function speechRanges(p: Project, bufs?: Buffers): [number, number][] {
 export type Stem = 'voice' | 'music' | 'sfx' | 'clips';
 
 /** `only` limits the mix to some stems (audio export); ducking still follows the voice. */
-export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from: number, at: number, until = projectLength(p), only?: Set<Stem>) {
+export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from: number, at: number, until = projectLength(p), only?: Set<Stem>, noDuck = false) {
   const want = (s: Stem) => !only || only.has(s);
   const nodes: AudioScheduledSourceNode[] = [];
   const master = ctx.createGain();
@@ -158,7 +159,7 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
     const end = m.start + m.duration;
     g.gain.setValueAtTime(m.fadeIn > 0 && from < m.start + m.fadeIn ? v * Math.max(0, (from - m.start) / m.fadeIn) : v, at);
     if (m.fadeIn > 0) set(m.start + m.fadeIn, v);
-    if (m.duck && m.trackId !== p.narrationTrackId) {
+    if (m.duck && !noDuck && !p.export.autoLevels && m.trackId !== p.narrationTrackId) {
       const duck = v * (m.duckDepth ?? 0.35);
       const attack = m.duckAttack ?? 0.25, release = m.duckRelease ?? 0.4;
       for (const [s, e] of speech) {
@@ -205,10 +206,24 @@ export function buildMix(ctx: BaseAudioContext, p: Project, bufs: Buffers, from:
 export async function renderMix(p: Project, sampleRate = 48000, only?: Set<Stem>) {
   const len = projectLength(p);
   const bufs = await loadBuffers(p);
-  const ctx = new OfflineAudioContext(2, Math.ceil(len * sampleRate), sampleRate);
-  buildMix(ctx, p, bufs, 0, 0, len, only);
-  return ctx.startRendering();
+  const stem = async (set?: Set<Stem>) => {
+    const ctx = new OfflineAudioContext(2, Math.ceil(len * sampleRate), sampleRate);
+    buildMix(ctx, p, bufs, 0, 0, len, set, !!p.export.autoLevels);
+    return ctx.startRendering();
+  };
+  if (!p.export.autoLevels || only) return stem(only);
+  // Auto levels (mix.py rules): stems rendered separately, music / SFX locked to the voice, one gain + limiter.
+  const [v, m, s] = await Promise.all([stem(new Set(['voice', 'clips'])), stem(new Set(['music'])), stem(new Set(['sfx']))]);
+  const ch = (b: AudioBuffer) => [b.getChannelData(0), b.getChannelData(1)];
+  const { gm, gs, report } = levelLock(ch(v), ch(m), ch(s), sampleRate);
+  const out = ch(v);
+  for (let c = 0; c < 2; c++) { const mm = m.getChannelData(c), ss = s.getChannelData(c); for (let i = 0; i < out[c].length; i++) out[c][i] += mm[i] * gm + ss[i] * gs; }
+  const mst = master(out, sampleRate);
+  lastLevels = { ...report, ...mst };
+  return v;
 }
+/** Levels measured by the last Auto-levels render (shown in the Export dialog). */
+export let lastLevels: (ReturnType<typeof levelLock>['report'] & { lufsBefore: number; gainDb: number }) | null = null;
 
 /** The narration as heard (all unmuted voice clips in place) as a 16 kHz WAV, plus its timeline offset — for transcription. */
 export async function narrationAudio(p: Project): Promise<{ blob: Blob; offset: number } | null> {

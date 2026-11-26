@@ -151,9 +151,13 @@ export const loopPeriod = (base: number, span: number) => (base <= 0 ? span : sp
 
 /** Transform of a piece at local time t (0..span): rotation (rad) around the pivot, shift (0..1 of the image), bend amount for meshes. */
 export interface PartPose { rot: number; dx: number; dy: number; bend: number; phase: number; flow: number; bright: number }
-export function poseAt(p: Pick<LivingPart, 'motion' | 'strength' | 'speed' | 'axis' | 'id'>, t: number, span: number, global = 1): PartPose {
+/** One wind / one sea per image: every piece shares the clock; the phase is a gust travelling across the picture
+ *  (left → right, a little top → bottom) instead of a random start per piece, so neighbours move together. */
+export const gustLag = (bbox?: [number, number, number, number]) => (bbox ? -((bbox[0] + bbox[2] / 2) * 1.6 + (bbox[1] + bbox[3] / 2) * 0.5) : 0);
+export function poseAt(p: Pick<LivingPart, 'motion' | 'strength' | 'speed' | 'axis' | 'id'> & { bbox?: [number, number, number, number] }, t: number, span: number, global = 1): PartPose {
+  // the speed only scales the image-wide clock (pieces of one image never drift out of step)
   const k = p.strength * global, base = PERIOD[p.motion] / Math.max(0.25, p.speed);
-  const T = loopPeriod(base, span), w = (2 * Math.PI) / T, ph = seed(p.id) * Math.PI * 2;
+  const T = loopPeriod(base, span), w = (2 * Math.PI) / T, ph = p.bbox ? gustLag(p.bbox) : seed(p.id) * Math.PI * 2;
   const s = Math.sin(w * t + ph), c = Math.cos(w * t + ph);
   const out: PartPose = { rot: 0, dx: 0, dy: 0, bend: 0, phase: w * t + ph, flow: 0, bright: 0 };
   switch (p.motion) {

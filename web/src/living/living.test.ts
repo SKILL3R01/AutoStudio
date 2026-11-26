@@ -62,3 +62,14 @@ describe('pieces of a ship', () => {
     expect(refineChild('animal', { cy: 0.5, elong: 2 }, 'rigid', 0.7).motion).toBe('still');
   });
 });
+
+describe('one wind per image', () => {
+  it('neighbouring sails billow nearly in step; far pieces follow as a travelling gust', () => {
+    const sail = (x: number) => ({ motion: 'billow' as const, strength: 1, speed: 1, axis: 0, id: 'any' + x, bbox: [x, 0.2, 0.1, 0.2] as [number, number, number, number] });
+    const a = poseAt(sail(0.3), 1, 6), b = poseAt(sail(0.32), 1, 6), far = poseAt(sail(0.9), 1, 6);
+    expect(Math.abs(a.bend - b.bend)).toBeLessThan(0.0015);
+    expect(Math.abs(a.bend - far.bend)).toBeGreaterThan(Math.abs(a.bend - b.bend));
+    // still loops
+    expect(poseAt(sail(0.3), 0, 6).bend).toBeCloseTo(poseAt(sail(0.3), 6, 6).bend, 6);
+  });
+});

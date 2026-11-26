@@ -2,6 +2,14 @@
 export interface NewsItem { title: string; text: string; tryIt?: { event: string; detail?: string } }
 export const WHATS_NEW: { version: string; items: NewsItem[] }[] = [
   {
+    version: '5.7.0',
+    items: [
+      { title: 'Calmer living illustrations', text: 'One wind and one sea per image: pieces move together as a gust across the picture. Remove it from one image or from all images in one click.' },
+      { title: 'Auto levels', text: 'Export → Auto levels: music exactly −6 dB under the voice, effects at or below, no ducking, one gain to −14 LUFS and a −1 dB limiter.' },
+      { title: '2K and 4K export', text: 'Export → Resolution: 2K · 1440p and 4K · 2160p.' },
+    ],
+  },
+  {
     version: '5.6.0',
     items: [
       { title: 'Living illustration', text: 'Select an image clip → Properties → “Bring this image to life”: ships rock, sails billow, oars row, whales glide, water flows — slightly, in a perfect loop. Moods: Calm, Stormy, Underwater, Dreamy.' },
