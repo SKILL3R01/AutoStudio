@@ -678,6 +678,7 @@ export function widgetBox(it: MotionItem): { w: number; h: number } {
   const id = String(it.widget);
   const items = Array.isArray(it.items) ? it.items.length : 3;
   const box: Record<string, [number, number]> = {
+    ktype: [n(it.width, 1500), n(it.size, 120) * Math.max(1, Math.ceil((str(it.text).length * n(it.size, 120) * 0.62) / n(it.width, 1500))) * 1.05], kphoto: [n(it.w, 1920), n(it.h, 1080)],
     headline: [n(it.width, 1500), n(it.size, 96) * 2.2], kinetic: [1400, n(it.size, 120) * 1.4], say: [1400, n(it.size, 110) * 1.5], tag: [300, 56], quote: [n(it.w, 1100), n(it.h, 420)],
     cards: [n(it.w, Math.min(1500, items * 400)), n(it.cardH, 260)], chips: [Math.min(1600, items * 300), 96], checklist: [n(it.w, 900), items * 96], steps: [n(it.w, 1400) + 160, 260],
     compare: [n(it.w, 1400), n(it.h, 440)], bento: [n(it.w, 1500), n(it.h, 460)], stat: [n(it.size, 200) * 3, n(it.size, 200) * 1.5], 'chart-line': [n(it.w, 760), n(it.h, 440)],

@@ -6,10 +6,10 @@ import type { MotionItem } from './types';
 import { widgetBox } from './widgets';
 
 const SKIP = new Set(['background', 'light', 'camera', 'marker']);
-const DECOR = new Set(['rays', 'sparkles', 'arrow', 'circle-draw', 'tape', 'cursor', 'click-pulse', 'light-streaks', 'speed-lines', 'confetti', 'burst', 'wipe', 'slices', 'band-wipe', 'spotlight', 'hud-rings', 'plus-badge', 'starburst', 'set']);
+const DECOR = new Set(['rays', 'sparkles', 'arrow', 'circle-draw', 'tape', 'cursor', 'click-pulse', 'light-streaks', 'speed-lines', 'confetti', 'burst', 'wipe', 'slices', 'band-wipe', 'spotlight', 'hud-rings', 'plus-badge', 'starburst', 'set', 'kphoto']);
 /** Story staging that must not move (a character, its props and its speech bubbles are composed together). */
 const PINNED = new Set(['character', 'prop', 'bubble']);
-const TEXTY = new Set(['headline', 'kinetic', 'say', 'slam', 'quote']);
+const TEXTY = new Set(['headline', 'kinetic', 'say', 'slam', 'quote', 'ktype']);
 
 let mctx: CanvasRenderingContext2D | null | undefined;
 function textWidth(text: string, size: number, font: string, weight: unknown): number {

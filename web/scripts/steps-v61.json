@@ -1,0 +1,18 @@
+[
+ { "wait": 6000 },
+ { "eval": "sessionStorage.setItem('helpOn', '1'); localStorage.setItem('help:noTours', '1'); localStorage.setItem('help:noNews', '1'); localStorage.setItem('stockBase', 'http://localhost:1239'); localStorage.setItem('stockRank', '0'); location.reload(); 'configured'" },
+ { "waitFor": "!!(document.querySelector('.rail button') && document.querySelector('.tl-inner'))", "timeout": 40000 },
+ { "wait": 2500 },
+ { "eval": "(() => { const b = [...document.querySelectorAll('.rail button')].find((x) => /Media/.test(x.textContent + (x.title || ''))); if (!b) return 'NO BUTTON media rail'; b.click(); return 'media tab'; })()" },
+ { "wait": 500 },
+ { "eval": "(() => { window.__assets = [...document.querySelectorAll('.section-head, h3, summary')].map((x) => x.textContent).find((t) => /Media \\(/.test(t)) || ''; const b = document.querySelector('[data-act=free-images]'); if (!b) return 'NO BUTTON free images'; b.click(); return 'picker opened (' + window.__assets + ')'; })()" },
+ { "wait": 500 },
+ { "eval": "(() => { const i = document.querySelector('.image-picker input'); if (!i) return 'NO MODAL image picker'; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, 'lighthouse storm'); i.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('.image-picker form button').click(); return 'searching'; })()" },
+ { "waitFor": "document.querySelectorAll('.image-picker .stock-tile').length > 0", "timeout": 20000 },
+ { "eval": "(() => { const t = [...document.querySelectorAll('.image-picker .stock-grid .stock-tile .name')].map((x) => x.textContent); const bySource = {}; t.forEach((x) => (bySource[x.split(' · ')[0]] = (bySource[x.split(' · ')[0]] || 0) + 1)); const nonFree = t.filter((x) => !/CC0|Public domain/.test(x)); return nonFree.length ? 'NO RESULT licence ' + nonFree.join('|') : 'results ' + t.length + ' ' + JSON.stringify(bySource); })()" },
+ { "shot": "v61-picker" },
+ { "eval": "(() => { document.querySelector('.image-picker .stock-tile').click(); return 'use clicked'; })()" },
+ { "wait": 1500 },
+ { "eval": "(() => { const open = !!document.querySelector('.image-picker'); const head = [...document.querySelectorAll('.section-head, h3, summary')].map((x) => x.textContent).find((t) => /Media \\(/.test(t)) || ''; return open ? 'NO MODAL close after use' : 'media ' + window.__assets + ' -> ' + head; })()" },
+ { "eval": "(() => { localStorage.removeItem('stockBase'); localStorage.removeItem('stockRank'); return 'cleaned'; })()" }
+]

@@ -14,6 +14,7 @@ import { useProject, useThumb } from './hooks';
 import { Section, Seg } from '../components/ui';
 import { Icon } from '../components/icons';
 import { ImportDialog } from './ImportScreen';
+import { useImagePicker } from './ImagePicker';
 import { blankClip, defaultClip, naturalLength } from '../lib/project';
 import { clipIndexAt } from '../render/renderer';
 import type { Asset, Project } from '../types';
@@ -210,7 +211,10 @@ export function MediaPanel() {
 
   return (
     <Section title={`Media (${all.length})`}>
-      <button className="btn primary" onClick={() => setOpen(true)}><Icon name="upload" /> Import media…</button>
+      <div className="row wrap">
+        <button className="btn primary" onClick={() => setOpen(true)}><Icon name="upload" /> Import media…</button>
+        <button className="btn" data-act="free-images" onClick={() => useImagePicker.getState().open({ title: 'Find free images', query: '', onPick: () => toast('Added to Media', 'ok') })}><Icon name="image" /> Find free images…</button>
+      </div>
       {p.assets.some(needsProxy) && (
         <div className="card notice">
           <b>{p.assets.filter(needsProxy).length} large video{p.assets.filter(needsProxy).length > 1 ? 's' : ''} (above 1080p)</b>

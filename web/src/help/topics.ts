@@ -153,6 +153,23 @@ export const TOPICS: HelpTopic[] = [
     },
   },
   {
+    id: 'stockimages', group: 'Media',
+    title: { en: 'Free pictures (no watermark)', ar: 'صور مجانية (بدون علامة مائية)' },
+    what: { en: 'Find free pictures for your scenes: public domain or CC0 only, from Openverse, Wikimedia Commons, NASA, The Met and the Art Institute of Chicago — ranked by how well they match your words with the on-device image AI.', ar: 'ابحث عن صور مجانية لمشاهدك: ملكية عامة أو CC0 فقط، من Openverse وويكيميديا كومنز وناسا ومتحف المتروبوليتان ومعهد شيكاغو للفنون — مرتبة حسب مطابقتها لكلماتك بالذكاء الاصطناعي على جهازك.' },
+    steps: {
+      en: ['Story Studio → Storyboard → Free pictures for scenes (or a scene → Find a free picture…, or Media → Find free images…).', 'Look at the 3 best matches per scene; Change… to search other words.', 'Use: the picture goes into Media (licence and source saved) and into the scene.'],
+      ar: ['استوديو القصة ← لوحة القصة ← صور مجانية للمشاهد (أو مشهد ← ابحث عن صورة مجانية…، أو الوسائط ← ابحث عن صور مجانية…).', 'انظر إلى أفضل 3 نتائج لكل مشهد؛ «تغيير…» للبحث بكلمات أخرى.', '«استخدم»: تدخل الصورة إلى الوسائط (مع الترخيص والمصدر) وإلى المشهد.'],
+    },
+    tips: {
+      en: ['Short searches work best: one or two nouns (lighthouse storm, old map).', 'The sources are strongest for nature, space, history and art; modern lifestyle photos are rarer.', 'No credit is required for public domain / CC0, but the source page is kept with each file.'],
+      ar: ['البحث القصير أفضل: اسم أو اسمان (منارة عاصفة، خريطة قديمة).', 'المصادر أقوى في الطبيعة والفضاء والتاريخ والفن؛ صور الحياة العصرية أقل.', 'لا يلزم ذكر المصدر للملكية العامة / CC0، لكن صفحة المصدر تُحفظ مع كل ملف.'],
+    },
+    problems: {
+      en: [['Nothing matches my scene', 'Use Change… with simpler words, or upload your own picture.'], ['Results are not ranked', 'Ranking needs the image AI (downloaded once); without it the search order is kept.']],
+      ar: [['لا شيء يطابق مشهدي', 'استخدم «تغيير…» بكلمات أبسط، أو ارفع صورتك.'], ['النتائج غير مرتبة', 'الترتيب يحتاج نموذج الصور (يُنزّل مرة واحدة)؛ بدونه يبقى ترتيب البحث.']],
+    },
+  },
+  {
     id: 'depth3d', group: 'Editing',
     title: { en: '3D depth without damage', ar: 'عمق ثلاثي الأبعاد دون تشويه' },
     what: { en: 'The 3D move now keeps the picture clean: depth edges follow the real outlines, the move is limited automatically so nothing stretches or smears, and Layers mode moves the cut-out subject over a filled-in background.', ar: 'الحركة ثلاثية الأبعاد تحافظ الآن على نقاء الصورة: حواف العمق تتبع الحدود الحقيقية، وتُحد الحركة تلقائيًا فلا يتمدد شيء أو يتلطخ، ووضع الطبقات يحرك العنصر المقصوص فوق خلفية مكتملة.' },

@@ -11,6 +11,7 @@ node scripts/fake-llm.mjs 1235 >"$OUT/fake-llm.log" 2>&1 &
 node scripts/fake-tryai.mjs 1236 >"$OUT/fake-tryai.log" 2>&1 &
 node scripts/fake-engine.mjs 1237 >"$OUT/fake-engine.log" 2>&1 &
 node scripts/fake-youtube.mjs 1238 >"$OUT/fake-youtube.log" 2>&1 &
+node scripts/fake-stock.mjs 1239 >"$OUT/fake-stock.log" 2>&1 &
 trap 'kill $(jobs -p) 2>/dev/null' EXIT
 sleep 2
 FAILED=0
@@ -74,6 +75,7 @@ run pip "http://localhost:5173/#demo" steps-pip.json
 run v58 "http://localhost:5173/#demo" steps-v58.json
 run v59 "http://localhost:5173/#demo" steps-v59.json
 run v60 "http://localhost:5173/#demo" steps-v60.json
+run v61 "http://localhost:5173/#demo" steps-v61.json
 run wizard "http://localhost:5173/" steps-wizard.json simple
 echo "=== done"
 if [ -n "$STRICT" ] && [ "$FAILED" = 1 ]; then echo "UI suites reported problems"; exit 1; fi

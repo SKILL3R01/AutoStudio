@@ -1065,3 +1065,13 @@ kbd { padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0
 .fx-tile .fx-del { position: absolute; top: 6px; right: 6px; background: #000a; border-radius: 4px; padding: 2px; }
 .fx-options { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
 .fx-options input[type=color] { width: 44px; height: 26px; border: 0; background: none; }
+.stock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 10px 0; max-height: 46vh; overflow: auto; }
+.stock-grid.small { grid-template-columns: repeat(3, 150px); max-height: none; }
+.stock-tile { position: relative; display: flex; flex-direction: column; padding: 3px; border-radius: 8px; border: 1px solid var(--line, #2a2a36); background: var(--panel2, #1b1b24); cursor: pointer; color: inherit; }
+.stock-tile:hover, .stock-tile:focus-visible { border-color: var(--accent, #7c6cff); }
+.stock-tile img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 6px; background: #0004; }
+.stock-tile .name { font-size: 10px; opacity: .8; padding: 2px; }
+.stock-tile .badge { position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 1px 5px; border-radius: 4px; background: #000b; }
+.stock-review .review-rows { max-height: 62vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; margin: 10px 0; }
+.stock-review .review-row { border-bottom: 1px solid var(--line, #2a2a36); padding-bottom: 8px; }
+.stock-review .scene-text { margin: 0 0 4px; font-size: 13px; }

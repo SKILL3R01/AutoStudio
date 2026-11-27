@@ -4,13 +4,14 @@ import { EXPLAINER, frameExplainer } from './explainer';
 import { DOCUMENTARY } from './documentary';
 import { STICK } from './stick';
 import { CARTOON } from './cartoon';
+import { TYPOGRAPHY } from './typography';
 import type { StyleKit } from './types';
 
-export const BUILTIN_KITS: StyleKit[] = [DOCUMENTARY, EXPLAINER, STICK, CARTOON];
+export const BUILTIN_KITS: StyleKit[] = [DOCUMENTARY, EXPLAINER, TYPOGRAPHY, STICK, CARTOON];
 export { STICK, CARTOON };
 
 /** A user style: a base kit's scene designs with its own palette, font and art direction. */
-export interface MyStyle { id: string; name: string; base: 'explainer' | 'documentary' | 'stick' | 'cartoon'; palette: MotionPalette; font?: string; direction?: string; createdAt: number }
+export interface MyStyle { id: string; name: string; base: 'explainer' | 'documentary' | 'stick' | 'cartoon' | 'typography'; palette: MotionPalette; font?: string; direction?: string; createdAt: number }
 const KEY = 'myStyles';
 export const loadMyStyles = (): MyStyle[] => {
   try {
@@ -22,7 +23,7 @@ export const loadMyStyles = (): MyStyle[] => {
 export const saveMyStyles = (s: MyStyle[]) => localStorage.setItem(KEY, JSON.stringify(s));
 
 export function kitOfMyStyle(m: MyStyle): StyleKit {
-  const base = m.base === 'documentary' ? DOCUMENTARY : m.base === 'stick' ? STICK : m.base === 'cartoon' ? CARTOON : EXPLAINER;
+  const base = m.base === 'documentary' ? DOCUMENTARY : m.base === 'stick' ? STICK : m.base === 'cartoon' ? CARTOON : m.base === 'typography' ? TYPOGRAPHY : EXPLAINER;
   return { ...base, id: m.id, name: m.name, genre: 'custom', base: base.id, variants: [{ id: 'mine', name: m.name, palette: m.palette }], font: m.font ?? base.font, direction: m.direction ? `${base.direction}\n${m.direction}` : base.direction, frameScene: base.frameScene === frameExplainer ? frameExplainer : base.frameScene };
 }
 

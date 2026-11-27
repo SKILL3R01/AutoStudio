@@ -19,6 +19,7 @@ import { Wizard } from '../editor/Wizard';
 import { ContextMenu } from '../editor/ContextMenu';
 import { ReplaceDialog } from '../editor/ReplaceDialog';
 import { SoundPicker } from '../editor/SoundPicker';
+import { ImagePicker, StockReview } from '../editor/ImagePicker';
 import { FormatSwitch } from '../editor/Framing';
 import { ShortsDialog } from '../editor/ShortsDialog';
 import { StoryStudio } from '../editor/StoryStudio';
@@ -128,6 +129,8 @@ function Workspace() {
       <ContextMenu />
       <ReplaceDialog />
       <SoundPicker />
+      <ImagePicker />
+      <StockReview />
     </div>
   );
 }

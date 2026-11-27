@@ -10,6 +10,8 @@ import { fmtTime } from '../lib/util';
 import { KOKORO_VOICES, draftVoiceGpu, speakDraft } from '../ai/vision';
 import { suggestChapters } from '../lib/chapters';
 import { LiveThumb, makeGroup } from './pickers/LiveThumb';
+import { useImagePicker, useStockReview } from './ImagePicker';
+import { stockQueries } from '../lib/stockimages';
 import { StyleCard, TemplateStrip, stylePreview } from './pickers/pickers';
 import { SAMPLES, type Sample } from '../samples';
 import { HandoffPanel, type HandoffResult } from './HandoffPanel';
@@ -286,6 +288,12 @@ export function StoryStudio({ onClose }: { onClose: () => void }) {
             <div className="row wrap board-tools">
               <button className="btn sm" data-act="add-scene" onClick={() => update((d) => void (insertScene(d.story!, d.story!.scenes[d.story!.scenes.length - 1]?.id ?? null, 'New scene'), buildStory(d)))}><Icon name="plus" /> Add scene</button>
               <button className="btn sm ghost" data-act="paste-scenes" onClick={() => setPasting(!pasting)}><Icon name="copy" /> Paste a scene list</button>
+              <button className="btn sm ghost" data-act="free-pictures" onClick={() => {
+                const kit = getKit(st.styleId);
+                const need = st.scenes.filter((s) => kit.templates.find((t) => t.id === s.templateId)?.slots.includes('image') && !s.slots.image);
+                const list = (need.length ? need : st.scenes).slice(0, 12).map((s) => ({ id: s.id, text: s.text }));
+                useStockReview.getState().open({ scenes: list, onPick: (sid, assetId) => update((d) => { const x = d.story!.scenes.find((y) => y.id === sid); if (x) (x.slots = { ...x.slots, image: assetId }), buildStory(d, [sid], true); }) });
+              }}><Icon name="image" /> Free pictures for scenes</button>
             </div>
             {pasting && (
               <div className="paste-scenes">
@@ -433,7 +441,7 @@ function SceneDrawer({ p, s, i, onClose }: { p: Project; s: Scene; i: number; on
       )}
       {tpl?.slots.includes('right') && <label className="field"><span>Right side (one per line)</span><textarea rows={3} value={slots.right?.join(String.fromCharCode(10)) ?? ''} onChange={(e) => setS((x) => void (x.slots = { ...x.slots, right: e.target.value.split(String.fromCharCode(10)).filter(Boolean) }))} /></label>}
       {tpl?.slots.includes('image') && (
-        <div className="field"><span>Picture {images.length ? '' : '(add pictures in Media to use them here)'}</span>
+        <div className="field"><span>Picture {images.length ? '' : '(add pictures in Media, or find a free one)'} <button className="btn sm ghost" data-act="free-picture" onClick={() => useImagePicker.getState().open({ title: 'Free picture for this scene', query: stockQueries(s.text)[0] ?? s.text, onPick: (id) => setS((x) => void (x.slots = { ...x.slots, image: id })) })}><Icon name="image" /> Find a free picture…</button></span>
           <div className="pic-grid">{images.slice(0, 24).map((a) => (
             <LiveThumb key={a.id} width={96} height={54} className={slots.image === a.id ? 'on' : ''} title={a.name} onClick={() => setS((x) => void (x.slots = { ...x.slots, image: a.id }))}
               group={makeGroup([{ id: 'a', type: 'asset', asset: a.id, w: 1920, h: 1080, start: 0, dur: 1 }], { w: 1920, h: 1080 }, kit.variants[0].palette, 1)} />

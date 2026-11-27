@@ -2,6 +2,13 @@
 export interface NewsItem { title: string; text: string; tryIt?: { event: string; detail?: string } }
 export const WHATS_NEW: { version: string; items: NewsItem[] }[] = [
   {
+    version: '6.1.0',
+    items: [
+      { title: 'Kinetic typography', text: 'New Story Studio style: the whole video is type. 20 modern layouts (editorial, Swiss grid, brutalist, split screen, picture inside the letters, outline / fill, 3D extruded, word swap, counters…), every word animated on the voice with 10 letter animations, and a camera moving across one big canvas.', tryIt: { event: 'autostudio:dialog', detail: 'story' } },
+      { title: 'Free pictures, no watermark', text: 'Find free public-domain / CC0 pictures (Openverse, Wikimedia, NASA, The Met, Art Institute of Chicago), ranked by meaning for each scene: Storyboard → Free pictures for scenes, or Media → Find free images.' },
+    ],
+  },
+  {
     version: '6.0.0',
     items: [
       { title: 'Effects with your colours', text: '50 effects in groups with animated tiles — 25 new (teal & orange, duotone, colour pop, lens flare, halftone, comic, old film, petals, bubbles, fireflies, rain on glass, neon edges, shake…). Every effect has colours, size, speed, blend and area (top, bottom, behind or on the subject). Save your own as My effects.' },
