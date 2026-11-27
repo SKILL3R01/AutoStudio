@@ -8,6 +8,7 @@ import { Icon } from '../components/icons';
 import { toast } from '../components/Toast';
 import { HelpButton } from '../components/HelpButton';
 import { useProject } from './hooks';
+import { useSoundPicker } from './SoundPicker';
 
 async function play(c: SfxCue) {
   const b = await sfxBuffer(c.assetId ? `asset:${c.assetId}` : c.sound ?? 'pop');
@@ -39,6 +40,13 @@ export function ScriptSounds() {
     toast(`Added ${n} sound${n === 1 ? '' : 's'} on the “Script sounds” track — Auto levels in Export keeps them under the voice`, 'ok');
     setCues(null);
   };
+  const change = (i: number) => useSoundPicker.getState().open({
+    title: `Sound for “${cues![i].word}”`,
+    query: cues![i].label,
+    onPick: (pick) => setCues((cur) => cur && cur.map((x, j) => (j !== i ? x : 'sound' in pick
+      ? { ...x, sound: pick.sound, assetId: undefined, fileName: undefined, credit: pick.title, dur: Math.min(pick.duration, 10), on: true }
+      : { ...x, assetId: pick.assetId, fileName: pick.title, sound: undefined, credit: undefined, dur: Math.min(pick.duration, 10), on: true }))),
+  });
   const missing = [...new Set((cues ?? []).filter((c) => !c.assetId && !c.sound).map((c) => c.label))];
   return (
     <Section title="Sounds from the script" hint="Finds words like walked, sighed, screamed, knock, rain in the narration and puts a matching sound on the spoken word.">
@@ -60,6 +68,7 @@ export function ScriptSounds() {
                 <button className="link" title="Go to this moment" onClick={(e) => (e.preventDefault(), setTime(c.t))}>{fmtTime(c.t)}</button>
                 <span className="grow" title={c.context}><b>{c.label}</b> · “{c.word}”<br /><span className="hint">{c.assetId ? `Your file: ${c.fileName}` : c.credit ? `Recording: ${c.credit}` : 'Needs a sound file'}</span></span>
                 {(c.assetId || c.sound) && <button className="icon-btn" title="Listen" onClick={(e) => (e.preventDefault(), void play(c))}><Icon name="play" /></button>}
+                <button className="btn sm" title="Pick another sound" onClick={(e) => (e.preventDefault(), change(i))}>Change…</button>
               </label>
             ))}
           </div>

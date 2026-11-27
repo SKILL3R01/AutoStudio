@@ -131,8 +131,8 @@ export const TOPICS: HelpTopic[] = [
       ar: ['كل صوت تسجيل حقيقي (CC0 — مجاني لأي فيديو دون ذكر المصدر). ملفاتك تأتي أولًا: استوردها عبر إضافة وسائط ← الوسائط فقط؛ الملفات المسماة «footsteps» و«scream» و«breathing»… تُختار تلقائيًا.', 'التصدير ← المستويات التلقائية تبقي كل مؤثر تحت الصوت.', '«إزالة أصوات النص» يحذفها كلها.'],
     },
     problems: {
-      en: [['I want a different recording', 'SFX tab → Real recordings: ▶ to listen, + to add; or import your own file named after the sound and press Find sounds again.'], ['A sound is wrong for the meaning', 'Words like “run a business” are found too: untick them before adding.']],
-      ar: [['أريد تسجيلًا آخر', 'تبويب المؤثرات ← تسجيلات حقيقية: ▶ للاستماع و+ للإضافة؛ أو استورد ملفك باسم الصوت واضغط ابحث مجددًا.'], ['الصوت لا يناسب المعنى', 'كلمات مثل «يدير عملًا» تُلتقط أيضًا: ألغِ تحديدها قبل الإضافة.']],
+      en: [['A sound doesn’t match the script', 'Press Change… on that suggestion, or right-click the placed sound → Replace sound…, and search: built-in recordings, your files, or free CC0 sounds online (BigSoundBank, Freesound — desktop app).'], ['I want a different recording', 'SFX tab → Search sounds… or Real recordings; or import your own file named after the sound and press Find sounds again.'], ['A sound is wrong for the meaning', 'Words like “run a business” are found too: untick them before adding.']],
+      ar: [['الصوت لا يطابق النص', 'اضغط «تغيير…» على الاقتراح، أو زر أيمن على الصوت ← «استبدل الصوت…»، وابحث: التسجيلات المدمجة أو ملفاتك أو أصوات CC0 مجانية على الإنترنت (BigSoundBank وFreesound — في تطبيق سطح المكتب).'], ['أريد تسجيلًا آخر', 'تبويب المؤثرات ← ابحث عن صوت… أو تسجيلات حقيقية؛ أو استورد ملفك باسم الصوت واضغط ابحث مجددًا.'], ['الصوت لا يناسب المعنى', 'كلمات مثل «يدير عملًا» تُلتقط أيضًا: ألغِ تحديدها قبل الإضافة.']],
     },
   },
   {

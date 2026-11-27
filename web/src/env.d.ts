@@ -9,6 +9,8 @@ interface Window {
     suggest?: (q: string, lang: string) => Promise<string[]>;
     /** Download media from hosts that block cross-site requests (images / video / audio only, size-capped). */
     fetchMedia?: (url: string) => Promise<{ type: string; data: ArrayBuffer }>;
+    /** Sound library web pages (BigSoundBank / Freesound only) for the sound search. */
+    fetchText?: (url: string) => Promise<string>;
     /** Forget cached DNS answers (a new tunnel address may have been cached as "not found"). */
     flushDns?: () => Promise<void>;
     /** Local voice engine (Chatterbox on this PC). */

@@ -137,8 +137,22 @@ async function fetchMedia(url) {
   return { type, data };
 }
 
+/** Sound library pages for the in-app sound search (CC0 libraries only; https, HTML, size-capped). */
+const TEXT_HOSTS = ['bigsoundbank.com', 'freesound.org'];
+async function fetchText(url) {
+  const u = new URL(String(url));
+  if (u.protocol !== 'https:' || !TEXT_HOSTS.some((h) => u.hostname === h || u.hostname.endsWith(`.${h}`))) throw new Error('This site is not allowed');
+  const r = await net.fetch(u.toString());
+  if (!r.ok) throw new Error(`Search failed (${r.status})`);
+  if (!/text\/html/.test(r.headers.get('content-type') ?? '')) throw new Error('Not a web page');
+  const text = await r.text();
+  if (text.length > 3e6) throw new Error('Page too large');
+  return text;
+}
+
 function registerGoogle() {
   ipcMain.handle('autostudio:fetch-media', (_e, url) => fetchMedia(url));
+  ipcMain.handle('autostudio:fetch-text', (_e, url) => fetchText(url));
   ipcMain.handle('autostudio:flush-dns', () => session.defaultSession.clearHostResolverCache());
   ipcMain.handle('autostudio:google-signin', (e, opts) => {
     if (!opts?.clientId || !opts?.clientSecret || !Array.isArray(opts.scopes)) return { ok: false, error: 'Missing client ID / secret.' };

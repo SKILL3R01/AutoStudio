@@ -2,6 +2,13 @@
 export interface NewsItem { title: string; text: string; tryIt?: { event: string; detail?: string } }
 export const WHATS_NEW: { version: string; items: NewsItem[] }[] = [
   {
+    version: '5.9.0',
+    items: [
+      { title: 'Sounds that follow the story', text: 'Sounds from the script now read the words around each sound word: “the front door buzzing” plays a door buzzer, “she opened the door” a door opening, “the phone rang” a ringing phone. A bare “door”, “run a business” or “3 simple steps” make no sound.' },
+      { title: 'Search any sound', text: 'Change… on a suggestion, right-click a sound → Replace sound…, or SFX → Search sounds…: built-in recordings, your files, and free CC0 sounds from BigSoundBank and Freesound (desktop app), straight onto the timeline.' },
+    ],
+  },
+  {
     version: '5.8.1',
     items: [
       { title: 'Real sounds from the script', text: 'Sounds from the script now play real recordings (38 CC0 sounds: keyboard, footsteps, running, breathing, sighs, screams, knocks, doors, heartbeat, rain, thunder, wind, phone, laughter, applause…). The keyboard sound is a real keyboard.' },

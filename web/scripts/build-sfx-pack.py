@@ -8,7 +8,7 @@ saved as MP3. Writes pack.json (credits + rules) and CREDITS.md. Needs ffmpeg on
     python scripts/build-sfx-pack.py            # build / refresh everything
     python scripts/build-sfx-pack.py --sheet    # also render spectrograms to .shots/sfx-pack/ for review
 """
-import html, json, os, re, subprocess, sys, tempfile, urllib.parse, urllib.request
+import html, json, os, re, subprocess, sys, tempfile, time, urllib.error, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'src', 'audio', 'pack')
@@ -29,8 +29,17 @@ PACK = [
     ('scream', '220818', 'fs', 'EricSueiro', 2, True, -18),
     ('knock', '0015', 'bsb', 'knock door', 2.5, True, -19),
     ('knock', '0320', 'bsb', 'knock door', 2.5, True, -19),
-    ('door', '0223', 'bsb', 'door slam', 2.5, True, -19),
-    ('door', '1704', 'bsb', 'door close', 3, True, -19),
+    ('slam', '0223', 'bsb', 'door slam', 0.9, True, -19),
+    ('doorclose', '1704', 'bsb', 'door close', 3, True, -19),
+    ('doorclose', '3211', 'bsb', 'door creak', 3, True, -19),
+    ('dooropen', '1702', 'bsb', 'door open', 3.5, True, -19),
+    ('dooropen', '3205', 'bsb', 'door creak', 3.5, True, -19),
+    ('buzzer', '2373', 'bsb', 'intercom', 2, True, -19),
+    ('buzzer', '2374', 'bsb', 'intercom', 2, True, -19),
+    ('doorbell', '2365', 'bsb', 'doorbell', 3, True, -19),
+    ('doorbell', '0160', 'bsb', 'doorbell', 3, True, -19),
+    ('ring', '0253', 'bsb', 'phone ring', 2.5, True, -19),
+    ('ring', '0063', 'bsb', 'phone ring', 4, True, -19),
     ('heartbeat', '0218', 'bsb', 'heartbeat', 4.5, True, -19),
     ('heartbeat', '1930', 'bsb', 'heartbeat', 4.5, True, -19),
     ('thunder', '3113', 'bsb', 'thunder', 6, False, -18),
@@ -58,8 +67,14 @@ PACK = [
 
 
 def get(url, binary=False):
-    data = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read()
-    return data if binary else data.decode('utf-8', 'ignore')
+    for attempt in range(4):
+        try:
+            data = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read()
+            return data if binary else data.decode('utf-8', 'ignore')
+        except urllib.error.URLError:
+            if attempt == 3:
+                raise
+            time.sleep(3 * (attempt + 1))
 
 
 def bsb(sid, query):
@@ -71,8 +86,8 @@ def bsb(sid, query):
     page = 'https://bigsoundbank.com/' + m.group(1)
     title = re.sub(r'<[^>]+>|&nbsp;', ' ', m.group(2)).replace('#', ' #').split()
     p = get(page)
-    if not re.search(r'royalty[- ]free|CC0', p, re.I):
-        raise SystemExit(f'{page}: no CC0 / royalty-free mention, not used')
+    if not re.search(r'CC0 \(public domain\): Free and royalty-free', p):
+        raise SystemExit(f'{page}: no "CC0 (public domain): Free and royalty-free" on the sound page, not used')
     return ' '.join(title), page, f'https://bigsoundbank.com/UPLOAD/mp3/{sid}.mp3', 'Joseph SARDIN (BigSoundBank)'
 
 

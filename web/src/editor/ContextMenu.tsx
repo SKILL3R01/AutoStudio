@@ -1,6 +1,9 @@
 import { isDepthMotion } from '../render/motion';
 import { removeLiving } from './LivingSection';
 import { useReplace } from './ReplaceDialog';
+import { useSoundPicker } from './SoundPicker';
+import { replaceAudioSound } from '../audio/sfxsearch';
+import { soundLabel } from '../audio/pack';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { useEditor, projectLength, type Selection } from '../store';
@@ -81,6 +84,10 @@ export function ContextMenu() {
       {(clip || target.kind === 'pip') && item('Replace with…', 'image', () => useReplace.getState().open(clip ? 'clip' : 'pip', target.id))}
       {(clip || music) && item('Set start time…', 'clock', setStart)}
       {clip && item('Set length…', 'clock', setLength, ci + 1 >= p.clips.length)}
+      {music && ['sfx', 'other'].includes(p.audioTracks.find((t) => t.id === music.trackId)?.kind ?? '') && item('Replace sound…', 'sfx', () => useSoundPicker.getState().open({
+        title: 'Replace sound', query: soundLabel(music.sound) ?? p.assets.find((a) => a.id === music.assetId)?.name.replace(/\.[a-z0-9]+$/i, '') ?? '',
+        onPick: (pick) => update((d) => replaceAudioSound(d, music.id, pick)),
+      }))}
       {music && item('Fade in…', 'music', () => fade('fadeIn'))}
       {music && item('Fade out…', 'music', () => fade('fadeOut'))}
       {isVideo && clip!.volume > 0 && item('Separate sound', 'unlink', detachSelectedAudio)}

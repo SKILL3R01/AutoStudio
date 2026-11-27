@@ -27,6 +27,7 @@ import { GradeEditor } from './GradeEditor';
 import { EFFECT_COST, EFFECT_LABELS } from '../render/effects';
 import { SFX, sfxBuffer } from '../audio/sfx';
 import { ScriptSounds } from './ScriptSounds';
+import { useSoundPicker } from './SoundPicker';
 import { PACK, soundLabel } from '../audio/pack';
 import { blankClip, probe, setVoiceStart } from '../lib/project';
 import { uid } from '../lib/util';
@@ -382,6 +383,15 @@ function SfxPanel() {
       <ScriptSounds />
       <Section title="Sound effects" hint="▶ to listen, + to drop at the playhead. Drag them on the SFX track to retime.">
         <Slider label="Volume" value={vol} min={0} max={1.5} onChange={setVol} fmt={(v) => `${Math.round(v * 100)}%`} />
+        <button className="btn sm primary" onClick={() => useSoundPicker.getState().open({ title: 'Add a sound at the playhead', query: '', onPick: (pick) => {
+          let id = '';
+          update((d) => {
+            const c = newAudioClip(ensureTrack(d, 'sfx'), 'assetId' in pick ? pick.assetId : '', time, Math.min(pick.duration || 2, 10), 'sfx', { sound: 'sound' in pick ? pick.sound : undefined, volume: vol });
+            d.audio.push(c);
+            id = c.id;
+          });
+          select({ kind: 'audio', id });
+        } })}><Icon name="sfx" /> Search sounds…</button>
         <div className="list">
           {SFX.map((s) => (
             <div key={s} className="list-item sfx-row">

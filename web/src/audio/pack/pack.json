@@ -130,24 +130,114 @@
   "duration": 1.15
  },
  {
-  "id": "door_1",
-  "rule": "door",
-  "file": "door_1.mp3",
+  "id": "slam_1",
+  "rule": "slam",
+  "file": "slam_1.mp3",
   "title": "Door Slamming #2",
   "author": "Joseph SARDIN (BigSoundBank)",
   "source": "https://bigsoundbank.com/door-slamming-2-s0223.html",
   "licence": "CC0 1.0",
-  "duration": 2.42
+  "duration": 0.77
  },
  {
-  "id": "door_2",
-  "rule": "door",
-  "file": "door_2.mp3",
+  "id": "doorclose_1",
+  "rule": "doorclose",
+  "file": "doorclose_1.mp3",
   "title": "Apartment Door, Closing #1",
   "author": "Joseph SARDIN (BigSoundBank)",
   "source": "https://bigsoundbank.com/apartment-door-closing-1-s1704.html",
   "licence": "CC0 1.0",
   "duration": 2.6
+ },
+ {
+  "id": "doorclose_2",
+  "rule": "doorclose",
+  "file": "doorclose_2.mp3",
+  "title": "Creaking Door #8",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/creaking-door-8-s3211.html",
+  "licence": "CC0 1.0",
+  "duration": 1.9
+ },
+ {
+  "id": "dooropen_1",
+  "rule": "dooropen",
+  "file": "dooropen_1.mp3",
+  "title": "Apartment Door, Opening #1",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/apartment-door-opening-1-s1702.html",
+  "licence": "CC0 1.0",
+  "duration": 3.5
+ },
+ {
+  "id": "dooropen_2",
+  "rule": "dooropen",
+  "file": "dooropen_2.mp3",
+  "title": "Creaking Door #2",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/creaking-door-2-s3205.html",
+  "licence": "CC0 1.0",
+  "duration": 2.71
+ },
+ {
+  "id": "buzzer_1",
+  "rule": "buzzer",
+  "file": "buzzer_1.mp3",
+  "title": "Intercom, ringtone #1",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/intercom-ringtone-1-s2373.html",
+  "licence": "CC0 1.0",
+  "duration": 0.37
+ },
+ {
+  "id": "buzzer_2",
+  "rule": "buzzer",
+  "file": "buzzer_2.mp3",
+  "title": "Intercom, ringtone #2",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/intercom-ringtone-2-s2374.html",
+  "licence": "CC0 1.0",
+  "duration": 0.56
+ },
+ {
+  "id": "doorbell_1",
+  "rule": "doorbell",
+  "file": "doorbell_1.mp3",
+  "title": "Doorbell #6",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/doorbell-6-s2365.html",
+  "licence": "CC0 1.0",
+  "duration": 3.0
+ },
+ {
+  "id": "doorbell_2",
+  "rule": "doorbell",
+  "file": "doorbell_2.mp3",
+  "title": "Doorbell #2",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/doorbell-2-s0160.html",
+  "licence": "CC0 1.0",
+  "duration": 2.74
+ },
+ {
+  "id": "ring_1",
+  "rule": "ring",
+  "file": "ring_1.mp3",
+  "title": "Fixed Telephone Ring #4",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/fixed-telephone-ring-4-s0253.html",
+  "licence": "CC0 1.0",
+  "duration": 1.94
+ },
+ {
+  "id": "ring_2",
+  "rule": "ring",
+  "file": "ring_2.mp3",
+  "title": "Landline Ringtone",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/landline-ringtone-s0063.html",
+  "licence": "CC0 1.0",
+  "duration": 1.29
  },
  {
   "id": "heartbeat_1",

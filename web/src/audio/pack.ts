@@ -6,8 +6,10 @@ export interface PackSound { id: string; rule: string; file: string; title: stri
 export const PACK: PackSound[] = pack;
 const URLS = import.meta.glob('./pack/*.mp3', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
 
-export const packUrl = (id: string): string | undefined => URLS[`./pack/${id}.mp3`];
-export const packSound = (id: string) => PACK.find((s) => s.id === id);
+/** Recordings renamed since an earlier version (projects saved with the old id keep working). */
+const RENAMED: Record<string, string> = { door_1: 'slam_1', door_2: 'doorclose_1' };
+export const packUrl = (id: string): string | undefined => URLS[`./pack/${RENAMED[id] ?? id}.mp3`];
+export const packSound = (id: string) => PACK.find((s) => s.id === (RENAMED[id] ?? id));
 /** All recordings for a script-sound rule (e.g. 'typing'). */
 export const packFor = (rule: string) => PACK.filter((s) => s.rule === rule);
 

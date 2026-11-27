@@ -15,8 +15,17 @@ All sounds are released under CC0 1.0 (public domain). Thank you to the recordis
 - `scream_2.mp3`: Man frightened yelling, by EricSueiro (Freesound): https://freesound.org/people/EricSueiro/sounds/220818/
 - `knock_1.mp3`: Door, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/door-s0015.html
 - `knock_2.mp3`: Knock on a Glass Door #2, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/knock-on-the-glass-door-2-s0320.html
-- `door_1.mp3`: Door Slamming #2, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/door-slamming-2-s0223.html
-- `door_2.mp3`: Apartment Door, Closing #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/apartment-door-closing-1-s1704.html
+- `slam_1.mp3`: Door Slamming #2, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/door-slamming-2-s0223.html
+- `doorclose_1.mp3`: Apartment Door, Closing #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/apartment-door-closing-1-s1704.html
+- `doorclose_2.mp3`: Creaking Door #8, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/creaking-door-8-s3211.html
+- `dooropen_1.mp3`: Apartment Door, Opening #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/apartment-door-opening-1-s1702.html
+- `dooropen_2.mp3`: Creaking Door #2, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/creaking-door-2-s3205.html
+- `buzzer_1.mp3`: Intercom, ringtone #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/intercom-ringtone-1-s2373.html
+- `buzzer_2.mp3`: Intercom, ringtone #2, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/intercom-ringtone-2-s2374.html
+- `doorbell_1.mp3`: Doorbell #6, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/doorbell-6-s2365.html
+- `doorbell_2.mp3`: Doorbell #2, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/doorbell-2-s0160.html
+- `ring_1.mp3`: Fixed Telephone Ring #4, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/fixed-telephone-ring-4-s0253.html
+- `ring_2.mp3`: Landline Ringtone, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/landline-ringtone-s0063.html
 - `heartbeat_1.mp3`: Heart Beat, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/heart-beat-s0218.html
 - `heartbeat_2.mp3`: Heart Beat #5, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/heart-beat-5-s1930.html
 - `thunder_1.mp3`: Thunder #2, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/thunder-2-s3113.html

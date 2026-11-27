@@ -1053,3 +1053,8 @@ kbd { padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0
 .replace-tile .badge { position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 1px 5px; border-radius: 4px; background: #0009; }
 .rec-sounds { margin: 8px 0; }
 .rec-sounds summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.sound-picker .sound-results { max-height: 58vh; overflow: auto; margin: 10px 0; }
+.sound-picker h4 { margin: 12px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; opacity: .75; }
+.sound-picker form input { padding: 8px 10px; }
+.sound-hit .grow { min-width: 0; }
+.hint.warn { color: var(--warn, #e8b44a); }

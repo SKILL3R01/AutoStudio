@@ -14,6 +14,9 @@ export interface Asset {
   height?: number;
   /** 720p working copy used by the preview only (export always uses the original). */
   proxyId?: string;
+  /** Where a downloaded file came from (sound search) and its licence, for credits. */
+  source?: string;
+  licence?: string;
 }
 
 export type MotionEasing = 'easeInOut' | 'linear' | 'easeIn' | 'easeOut';
