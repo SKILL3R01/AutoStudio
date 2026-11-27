@@ -54,6 +54,7 @@ import { deleteSelection } from './shortcuts';
 import { CAPTION_FONTS } from '../render/captions';
 
 import { makeDepthAsset } from '../ai/jobs';
+import { DepthQuality } from './DepthQuality';
 
 import { confirmHeavyAi } from '../lib/perf';
 
@@ -372,7 +373,8 @@ function ClipInspector({ id }: { id: string }) {
                 <button key={m} className={`chip ${clip.motion === m ? 'on' : ''}`} onClick={() => (set((c) => void (c.motion = m)), useEditor.getState().seek(start + 0.05), useEditor.getState().setPlaying(true))}>{MOTION_LABELS[m]}</button>
               ))}
             </div>
-            <Slider label="3D strength" value={p.motionDepth} min={0} max={0.4} onChange={(v) => update((d) => void (d.motionDepth = v), 'depth3d')} fmt={(v) => `${Math.round(v * 100)}%`} />
+            <Slider label="3D strength (all clips)" value={p.motionDepth} min={0} max={0.4} onChange={(v) => update((d) => void (d.motionDepth = v), 'depth3d')} fmt={(v) => `${Math.round(v * 100)}%`} />
+            <DepthQuality clip={clip} asset={asset} set={set} />
           </div>
         )}
         <button className="btn sm primary" onClick={() => confirmHeavyAi() && setRegionOpen(true)}><Icon name="cursor" /> Animate a detail…</button>

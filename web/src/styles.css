@@ -1058,3 +1058,10 @@ kbd { padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0
 .sound-picker form input { padding: 8px 10px; }
 .sound-hit .grow { min-width: 0; }
 .hint.warn { color: var(--warn, #e8b44a); }
+.fx-groups { gap: 6px; margin-bottom: 8px; }
+.fx-gallery .fx-tile { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 4px; }
+.fx-gallery .fx-tile canvas { width: 100%; height: auto; border-radius: 6px; display: block; }
+.fx-gallery .fx-tile span { font-size: 11px; }
+.fx-tile .fx-del { position: absolute; top: 6px; right: 6px; background: #000a; border-radius: 4px; padding: 2px; }
+.fx-options { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
+.fx-options input[type=color] { width: 44px; height: 26px; border: 0; background: none; }

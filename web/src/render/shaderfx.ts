@@ -3,6 +3,9 @@
  * Built-ins (fire, fog, god rays, film burn, glow) and user / AI-written custom shaders share this engine.
  * GLSL has no access to files, network or app data, so custom code stays sandboxed on the GPU.
  */
+import { LOOK_SHADERS } from './shaderlooks';
+import { hexRgb } from './effectcontrols';
+
 const VS = `#version 300 es
 in vec2 p; out vec2 uv;
 void main() { uv = vec2(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5); gl_Position = vec4(p, 0.0, 1.0); }`;
@@ -14,6 +17,8 @@ in vec2 uv; out vec4 fragColor;
 uniform sampler2D u_frame;
 uniform vec2 u_res;
 uniform float u_time, u_amount, u_p1, u_p2, u_p3, u_p4;
+uniform vec3 u_c1, u_c2;
+float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y); }
@@ -27,35 +32,36 @@ void main() { fragColor = effect(uv, texture(u_frame, uv)); }`;
 const HEADER_LINES = SHADER_HEADER.split('\n').length - 1;
 
 export const BUILTIN_SHADERS: Record<string, string> = {
+  ...LOOK_SHADERS,
   fire: `vec4 effect(vec2 uv, vec4 frame) {
   float y = 1.0 - uv.y;                       // 0 at the bottom
   vec2 q = vec2(uv.x * 4.0 * (u_res.x / u_res.y) / 1.8, y * 3.0 - u_time * 1.8);
   float n = fbm(q + fbm(q * 1.7 + u_time * 0.5));
-  float h = (0.2 + 0.3 * u_amount) * (0.65 + 0.7 * noise(vec2(uv.x * 7.0, u_time * 0.9)));
+  float h = (0.2 + 0.3 * u_amount) * (0.5 + u_p1) * (0.65 + 0.7 * noise(vec2(uv.x * 7.0, u_time * 0.9)));
   float f = smoothstep(0.0, 0.5, h - y + (n - 0.5) * 0.25) ;
   f *= smoothstep(0.15, 0.6, n + 0.25);
-  vec3 col = mix(vec3(0.9, 0.12, 0.0), mix(vec3(1.0, 0.55, 0.08), vec3(1.0, 0.92, 0.6), f), f);
+  vec3 col = mix(u_c2, mix(u_c1, vec3(1.0, 0.92, 0.6), f), f);
   return vec4(mix(frame.rgb, frame.rgb * 0.6 + col, clamp(f * (0.55 + 0.45 * u_amount), 0.0, 0.92)), 1.0);
 }`,
   fog: `vec4 effect(vec2 uv, vec4 frame) {
-  vec2 q = uv * vec2(u_res.x / u_res.y, 1.0) * 2.0 + vec2(u_time * 0.05, 0.0);
+  vec2 q = uv * vec2(u_res.x / u_res.y, 1.0) * 2.0 + vec2(u_time * 0.05 * u_p1 / 0.3, 0.0);
   float n = fbm(q + fbm(q + u_time * 0.03));
-  float d = smoothstep(0.2, 1.0, n) * (0.35 + 0.65 * uv.y) * u_amount;
-  return vec4(mix(frame.rgb, vec3(0.82, 0.86, 0.9), d * 0.85), 1.0);
+  float d = smoothstep(0.2, 1.0, n) * mix(1.0, 0.35 + 0.65 * uv.y, u_p2 * 2.0 - 0.0) * u_amount;
+  return vec4(mix(frame.rgb, u_c1, clamp(d * 0.85, 0.0, 1.0)), 1.0);
 }`,
   godRays: `vec4 effect(vec2 uv, vec4 frame) {
-  vec2 src = vec2(0.75 + 0.05 * sin(u_time * 0.2), -0.1);
+  vec2 src = vec2(u_p1 + 0.05 * sin(u_time * 0.2), -0.1);
   vec2 d = (uv - src) / 48.0;
   vec2 q = uv; float acc = 0.0, w = 1.0;
   for (int i = 0; i < 48; i++) { q -= d; vec3 c = frameAt(q).rgb; acc += max(0.0, dot(c, vec3(0.333)) - 0.55) * w; w *= 0.97; }
   float beam = 0.6 + 0.4 * noise(vec2(atan(uv.y - src.y, uv.x - src.x) * 18.0, u_time * 0.3));
-  return vec4(frame.rgb + vec3(1.0, 0.93, 0.78) * acc * 0.06 * beam * u_amount, 1.0);
+  return vec4(frame.rgb + u_c1 * acc * 0.06 * beam * u_amount, 1.0);
 }`,
   filmBurn: `vec4 effect(vec2 uv, vec4 frame) {
-  float t = u_time * 0.35;
+  float t = u_time * 0.7 * u_p1;
   float n = fbm(uv * 3.0 + vec2(t, -t * 0.7));
   float edge = max(smoothstep(0.78, 1.05, uv.x + n * 0.35 - 0.12 + 0.12 * sin(t)), smoothstep(0.8, 1.05, 1.0 - uv.y + n * 0.3 - 0.1));
-  vec3 burn = mix(vec3(1.0, 0.35, 0.05), vec3(1.0, 0.85, 0.55), n) * edge;
+  vec3 burn = mix(u_c1, vec3(1.0, 0.85, 0.55), n) * edge;
   return vec4(frame.rgb * (1.0 - edge * 0.3 * u_amount) + burn * 0.75 * u_amount, 1.0);
 }`,
   glowPulse: `vec4 effect(vec2 uv, vec4 frame) {
@@ -64,7 +70,7 @@ export const BUILTIN_SHADERS: Record<string, string> = {
   blur /= 49.0;
   float pulse = 0.55 + 0.45 * sin(u_time * 3.14159 * (0.5 + u_p1));
   vec3 bright = max(blur - 0.45, 0.0) * 2.2;
-  return vec4(frame.rgb + bright * pulse * u_amount, 1.0);
+  return vec4(frame.rgb + bright * u_c1 * pulse * u_amount, 1.0);
 }`,
 };
 
@@ -117,7 +123,7 @@ function program(body: string) {
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) entry = { error: gl.getProgramInfoLog(prog) ?? 'link error' };
     else {
       const u: Record<string, WebGLUniformLocation | null> = {};
-      for (const n of ['u_frame', 'u_res', 'u_time', 'u_amount', 'u_p1', 'u_p2', 'u_p3', 'u_p4']) u[n] = gl.getUniformLocation(prog, n);
+      for (const n of ['u_frame', 'u_res', 'u_time', 'u_amount', 'u_p1', 'u_p2', 'u_p3', 'u_p4', 'u_c1', 'u_c2']) u[n] = gl.getUniformLocation(prog, n);
       entry = { prog, u };
     }
   }
@@ -135,7 +141,7 @@ export function compileShader(body: string): string | null {
 }
 
 /** Run a shader effect over the context's current frame. Returns false when it could not run (e.g. compile error). */
-export function applyShader(ctx: CanvasRenderingContext2D, body: string, amount: number, t: number, params: number[] = []): boolean {
+export function applyShader(ctx: CanvasRenderingContext2D, body: string, amount: number, t: number, params: number[] = [], colors: string[] = []): boolean {
   if (state === undefined) {
     try {
       state = init();
@@ -162,6 +168,7 @@ export function applyShader(ctx: CanvasRenderingContext2D, body: string, amount:
   gl.uniform1f(e.u.u_time, t);
   gl.uniform1f(e.u.u_amount, amount);
   ['u_p1', 'u_p2', 'u_p3', 'u_p4'].forEach((n, i) => gl.uniform1f(e.u[n], params[i] ?? 0.5));
+  ['u_c1', 'u_c2'].forEach((n, i) => gl.uniform3f(e.u[n], ...(hexRgb(colors[i] ?? '#ffffff').map((v) => v / 255) as [number, number, number])));
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);

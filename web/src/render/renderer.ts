@@ -10,8 +10,10 @@ import { drawTypography } from './typography';
 import { animateRegions } from './regions';
 import { renderLiving } from './living';
 import { renderParallax } from './parallax';
+import { renderLayers } from './layers3d';
+import { applyLimits, depthLimits, depthView, spreadOf } from './depthsafety';
 import { drawCaptions, roundRect } from './captions';
-import { drawEffect, effectQuality, setEffectQuality } from './effects';
+import { drawEffectLayer, effectQuality, setEffectQuality } from './effects';
 import { applyShader } from './shaderfx';
 import { drawParticles } from './particles';
 import { combineGrades, cssFilter, drawVignette, gradeDrawable, needsGpu } from './grade';
@@ -47,6 +49,7 @@ export function imagesNeededAt(m: RenderModel, t: number): string[] {
     const c = m.project.clips[i];
     if (m.assets.get(c.assetId)?.kind === 'image') ids.push(c.assetId);
     if (c.depthId) ids.push(c.depthId);
+    if (c.depth?.bgId && c.depth.fgId) ids.push(c.depth.bgId, c.depth.fgId);
     if (c.keyBg?.kind === 'image') ids.push(c.keyBg.assetId);
     c.regions?.forEach((r) => ids.push(r.maskId));
     if (c.living?.on) c.living.parts.forEach((lp) => lp.on && ids.push(lp.maskId));
@@ -140,12 +143,18 @@ function drawClip(g: CanvasRenderingContext2D, m: RenderModel, i: number, t: num
   if (clip.regions?.length) d = animateRegions(d, clip, t, m, src, i);
   if (clip.living?.on && clip.living.parts.some((lp) => lp.on)) d = renderLiving(d, clip, local, span, src) ?? d;
   let motion = resolveMotion(clip.motion, i);
-  if (isDepthMotion(motion)) {
+  const view = depthView.clipId === clip.id ? depthView.mode : null;
+  if (view === 'map' && clip.depthId && src.image(clip.depthId)) d = src.image(clip.depthId)!;
+  if (isDepthMotion(motion) && view !== 'flat') {
     const depth = clip.depthId ? src.image(clip.depthId) : undefined;
-    const pd = depth && renderParallax(d, depth, parallaxCamera(motion, local / span, local, p.motionDepth, i));
+    const amt = p.motionDepth * (clip.depth?.strength ?? 1);
+    const cam = depth && applyLimits(parallaxCamera(motion, local / span, local, amt, i), depthLimits(clip, motion, span, amt, i, spreadOf(depth as ImageBitmap)));
+    const bgL = clip.depth?.quality === 'layers' && clip.depth.bgId ? src.image(clip.depth.bgId) : undefined;
+    const fgL = bgL && clip.depth?.fgId ? src.image(clip.depth.fgId) : undefined;
+    const pd = cam && (bgL && fgL ? renderLayers(bgL as ImageBitmap, fgL, cam, Math.max(W, H)) : renderParallax(d, depth, cam, Math.max(W, H)));
     if (pd) d = pd;
     else motion = 'zoomIn';
-  }
+  } else if (isDepthMotion(motion)) motion = 'zoomIn';
   const x = clipMotionXform(clip, motion, local / span, local, p.motionDepth, i);
   const grade = combineGrades(p.color, clip.color);
   // Full grades (white balance, curves, LUT…) run on the GPU; simple ones keep the cheap canvas filter.
@@ -374,7 +383,11 @@ export function renderFrame(ctx: CanvasRenderingContext2D, m: RenderModel, t: nu
       const c = p.customEffects?.find((e) => e.id === fx.customId);
       if (c?.kind === 'shader' && c.code) applyShader(ctx, c.code, fx.intensity * k, t, fx.params);
       else if (c?.kind === 'particles' && c.particles) drawParticles(ctx, c.particles, fx.intensity * k, t, W, H, effectQuality());
-    } else drawEffect(ctx, fx.kind, fx.intensity * k, t, W, H, fx.params);
+    } else {
+      const area = fx.opts?.area;
+      const cur = area === 'behind' || area === 'front' ? p.clips[clipIndexAt(p.clips, t)] : undefined;
+      drawEffectLayer(ctx, fx, fx.intensity * k, t, W, H, cur?.depthId ? src.image(cur.depthId) ?? undefined : undefined, m.beats);
+    }
   }
   if (p.motion?.length) drawMotion(ctx, p.motion, 'overlay', t, W, H, menv);
   for (const o of p.overlays) drawOverlay(ctx, o, t, src, W, H);

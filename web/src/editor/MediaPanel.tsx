@@ -145,7 +145,7 @@ export function placeVisual(assetId: string, time: number) {
 /** Swap the media of a main or overlay clip (keeps its timing, motion and transition; the old file stays in Media). */
 export function replaceClipAsset(d: Project, clipId: string, assetId: string) {
   const c = d.clips.find((x) => x.id === clipId);
-  if (c) Object.assign(c, { assetId, trimIn: 0, trimOut: undefined, depthId: undefined, regions: [], living: undefined, fill: undefined });
+  if (c) Object.assign(c, { assetId, trimIn: 0, trimOut: undefined, depthId: undefined, depth: undefined, regions: [], living: undefined, fill: undefined });
   const o = d.pips.find((x) => x.id === clipId);
   if (o) Object.assign(o, { assetId, trimIn: 0 });
 }

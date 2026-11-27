@@ -64,8 +64,14 @@ async function shrink(image: Blob, max = 1024): Promise<Blob> {
 }
 
 /** Depth Anything V2 (small): grayscale PNG, white = near. */
+/** Depth model choice (Settings → AI): small = fast (default), base = more detail (about 100 MB once). */
+export const depthModel = (): 'small' | 'base' => (globalThis.localStorage?.getItem('depthModel') === 'base' ? 'base' : 'small');
+
+/** LaMa fill-in: 512×512 image + mask (white = fill) → filled 512×512 PNG. Downloads the model once. */
+export const inpaint512 = async (image: Blob, mask: Blob) => (await call<{ blob: Blob }>({ type: 'inpaint', image, mask })).blob;
+
 export async function estimateDepth(image: Blob): Promise<Blob> {
-  const r = await call<{ blob: Blob; device: string }>({ type: 'depth', image: await shrink(image) });
+  const r = await call<{ blob: Blob; device: string }>({ type: 'depth', image: await shrink(image), model: depthModel() });
   useVision.setState({ device: r.device });
   return r.blob;
 }

@@ -72,7 +72,7 @@ function init(): Gl | null {
 const dims = (d: Drawable) => (d instanceof HTMLVideoElement ? { w: d.videoWidth, h: d.videoHeight } : { w: d.width, h: d.height });
 
 /** Render `color` displaced by `depth` for the given camera. Returns null when WebGL2 is unavailable. */
-export function renderParallax(color: Drawable, depth: Drawable, cam: ParallaxCamera): HTMLCanvasElement | null {
+export function renderParallax(color: Drawable, depth: Drawable, cam: ParallaxCamera, maxDim = 1920): HTMLCanvasElement | null {
   if (ctx === undefined) {
     try {
       ctx = init();
@@ -83,7 +83,8 @@ export function renderParallax(color: Drawable, depth: Drawable, cam: ParallaxCa
   if (!ctx) return null;
   const { gl, canvas, prog } = ctx;
   const { w, h } = dims(color);
-  const s = Math.min(1, 1920 / Math.max(w, h));
+  // Render at the output size (sharp at 2K / 4K, light in a small preview); the picture is mip-mapped, so no shimmer.
+  const s = Math.min(1, Math.max(640, maxDim) / Math.max(w, h));
   const W = Math.round(w * s), H = Math.round(h * s);
   if (canvas.width !== W || canvas.height !== H) {
     canvas.width = W;
@@ -93,6 +94,8 @@ export function renderParallax(color: Drawable, depth: Drawable, cam: ParallaxCa
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, ctx.img);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, color as TexImageSource);
+  if (w > W * 1.2) gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, w > W * 1.2 ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
   if (ctx.lastDepth !== depth) {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, ctx.dep);

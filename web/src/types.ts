@@ -44,7 +44,10 @@ export type Transition = (typeof TRANSITIONS)[number];
 export const EFFECTS = [
   'none', 'grain', 'vhs', 'crt', 'glitch', 'lightLeak', 'vignette', 'snow', 'dust', 'rain',
   'embers', 'bokeh', 'cinematic',
-  'fire', 'fog', 'godRays', 'filmBurn', 'glowPulse', 'sparks', 'smoke', 'confetti', 'hearts', 'stars', 'lightning', 'custom',
+  'fire', 'fog', 'godRays', 'filmBurn', 'glowPulse', 'sparks', 'smoke', 'confetti', 'hearts', 'stars', 'lightning',
+  'tealOrange', 'bwFilm', 'sepia', 'bleach', 'duotone', 'colorPop', 'chromatic', 'rgbSplit', 'zoomBlur', 'heatHaze', 'lensFlare', 'lensDirt',
+  'halftone', 'comic', 'pixelate', 'oldFilm', 'paper', 'petals', 'leaves', 'bubbles', 'fireflies', 'lightDust', 'rainGlass',
+  'neonEdges', 'strobe', 'shake', 'beatGlitch', 'custom',
 ] as const;
 export type EffectKind = (typeof EFFECTS)[number];
 
@@ -60,8 +63,10 @@ export interface EffectLayer {
   fadeOut?: number;
   /** kind 'custom': which entry of `project.customEffects`. */
   customId?: string;
-  /** Up to four effect parameters (0..1), passed to shaders as u_p1..u_p4. */
+  /** Up to four effect parameters (0..1), passed to shaders as u_p1..u_p4 (older projects; new controls use `opts`). */
   params?: number[];
+  /** Effects 2.0 controls (render/effectcontrols.ts): colours, size, speed…, plus `blend` and `area`. */
+  opts?: Record<string, number | string>;
 }
 
 /** A user / AI-made effect: a GLSL shader body, or a particle system. */
@@ -141,6 +146,8 @@ export interface Clip {
   fill?: string;
   /** Asset id of a grayscale depth map (white = near). */
   depthId?: string;
+  /** 3D depth options for this clip: strength (1 = project default) and quality (safe = automatic stretch limit). */
+  depth?: { strength?: number; quality?: 'safe' | 'strong' | 'layers'; bgId?: string; fgId?: string };
   regions?: Region[];
   /** Living illustration (v5.6): pieces of the image animated by kind (see living/model.ts). */
   living?: import('./living/model').LivingState;

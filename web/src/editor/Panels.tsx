@@ -9,7 +9,7 @@ import { addVoiceTake, placeAudio } from '../lib/project';
 import { useEffect, useState } from 'react';
 import { useEditor, findAsset, projectLength } from '../store';
 import { useClipTarget, useProject } from './hooks';
-import { MOTIONS, TRANSITIONS, EFFECTS, type Motion, type Transition, type Overlay, type EffectKind, type EffectLayer } from '../types';
+import { MOTIONS, TRANSITIONS, type Motion, type Transition, type Overlay, type EffectKind, type EffectLayer } from '../types';
 import { FilePick, Section, Seg, Select, Slider, Toggle } from '../components/ui';
 import { Icon } from '../components/icons';
 import { HelpButton } from '../components/HelpButton';
@@ -24,9 +24,10 @@ import { AiPanel } from './AiPanel';
 import { MotionAiPanel } from './MotionAiPanel';
 import { SilenceDialog } from './SilenceDialog';
 import { GradeEditor } from './GradeEditor';
-import { EFFECT_COST, EFFECT_LABELS } from '../render/effects';
+import { EFFECT_LABELS } from '../render/effects';
 import { SFX, sfxBuffer } from '../audio/sfx';
 import { ScriptSounds } from './ScriptSounds';
+import { EffectGallery, EffectOptions } from './EffectControls';
 import { useSoundPicker } from './SoundPicker';
 import { PACK, soundLabel } from '../audio/pack';
 import { blankClip, probe, setVoiceStart } from '../lib/project';
@@ -449,19 +450,16 @@ function EffectsPanel() {
   return (
     <>
     <Section title="Effects" hint="Stack as many as you like. Each can cover the whole video, a time range or chosen clips.">
-      <div className="grid3">
-        {EFFECTS.filter((e) => e !== 'none' && e !== 'custom').map((k) => (
-          <button key={k} className={`tile fx fx-${k} ${p.effects.some((e) => e.kind === k) ? 'on' : ''}`} onClick={() => toggle(k)} title={`${EFFECT_COST[k]} to render`}><i />{EFFECT_LABELS[k]}{EFFECT_COST[k] === 'heavy' && <em className="cost">heavy</em>}</button>
-        ))}
-      </div>
+      <EffectGallery active={new Set(p.effects.map((e) => e.kind))} onToggle={toggle} onAddMine={(m) => update((d) => void d.effects.push({ kind: m.kind, intensity: 0.6, scope: { kind: 'all' }, opts: { ...m.opts } }))} />
       {p.effects.map((e, i) => {
         const sc = e.scope ?? { kind: 'all' as const };
         return (
           <div key={e.customId ?? e.kind} className="card">
             <div className="row between"><b>{e.kind === 'custom' ? p.customEffects?.find((c) => c.id === e.customId)?.name ?? 'Custom' : EFFECT_LABELS[e.kind]}</b><button className="icon-btn" onClick={() => update((d) => void d.effects.splice(i, 1))}><Icon name="x" /></button></div>
             <Slider label="Intensity" value={e.intensity} min={0} max={1} onChange={(v) => setFx(i, (x) => void (x.intensity = v), `fx${e.kind}`)} fmt={(v) => `${Math.round(v * 100)}%`} />
-            {(e.kind === 'custom' && p.customEffects?.find((c) => c.id === e.customId)?.kind === 'shader' || e.kind === 'glowPulse') && [0, 1, 2, 3].slice(0, e.kind === 'glowPulse' ? 1 : 4).map((k) => (
-              <Slider key={k} label={e.kind === 'glowPulse' ? 'Pulse speed' : p.customEffects?.find((c) => c.id === e.customId)?.paramNames?.[k] ?? `Param ${k + 1}`} value={e.params?.[k] ?? 0.5} min={0} max={1} onChange={(v) => setFx(i, (x) => void (x.params = Object.assign([0.5, 0.5, 0.5, 0.5], x.params, { [k]: v })), `fxp${k}`)} />
+            {e.kind !== 'custom' && <EffectOptions e={e} set={(fn, key) => setFx(i, fn, key)} />}
+            {e.kind === 'custom' && p.customEffects?.find((c) => c.id === e.customId)?.kind === 'shader' && [0, 1, 2, 3].map((k) => (
+              <Slider key={k} label={p.customEffects?.find((c) => c.id === e.customId)?.paramNames?.[k] ?? `Param ${k + 1}`} value={e.params?.[k] ?? 0.5} min={0} max={1} onChange={(v) => setFx(i, (x) => void (x.params = Object.assign([0.5, 0.5, 0.5, 0.5], x.params, { [k]: v })), `fxp${k}`)} />
             ))}
             <Seg options={[['all', 'Whole video'], ['range', 'Time range'], ['clips', 'Chosen clips']] as const} value={sc.kind} onChange={(v) => setFx(i, (x) => {
               if (v === 'all') x.scope = { kind: 'all' };

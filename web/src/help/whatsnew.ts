@@ -2,6 +2,13 @@
 export interface NewsItem { title: string; text: string; tryIt?: { event: string; detail?: string } }
 export const WHATS_NEW: { version: string; items: NewsItem[] }[] = [
   {
+    version: '6.0.0',
+    items: [
+      { title: 'Effects with your colours', text: '50 effects in groups with animated tiles — 25 new (teal & orange, duotone, colour pop, lens flare, halftone, comic, old film, petals, bubbles, fireflies, rain on glass, neon edges, shake…). Every effect has colours, size, speed, blend and area (top, bottom, behind or on the subject). Save your own as My effects.' },
+      { title: '3D depth without damage', text: 'Depth edges now follow the picture, the move is limited automatically (no stretching, no smeared borders), drawing is sharp at 2K / 4K, and each clip has its own strength. Layers mode moves the cut-out subject over a filled-in background. Optional detailed depth model.' },
+    ],
+  },
+  {
     version: '5.9.0',
     items: [
       { title: 'Sounds that follow the story', text: 'Sounds from the script now read the words around each sound word: “the front door buzzing” plays a door buzzer, “she opened the door” a door opening, “the phone rang” a ringing phone. A bare “door”, “run a business” or “3 simple steps” make no sound.' },

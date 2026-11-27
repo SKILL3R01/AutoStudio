@@ -1,15 +1,18 @@
 /// <reference lib="webworker" />
 import { mergeWindows, windows, type TimedWord } from '../lib/asrchunks';
 const fmtClock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-import { AutoProcessor, AutoTokenizer, CLIPTextModelWithProjection, CLIPVisionModelWithProjection, RawImage, SamModel, Tensor, pipeline } from '@huggingface/transformers';
+import { AutoProcessor, AutoTokenizer, CLIPTextModelWithProjection, CLIPVisionModelWithProjection, RawImage, SamModel, Tensor, env, pipeline } from '@huggingface/transformers';
 
-const DEPTH_MODEL = 'onnx-community/depth-anything-v2-small';
+const DEPTH_MODELS = { small: 'onnx-community/depth-anything-v2-small', base: 'onnx-community/depth-anything-v2-base' } as const;
+/** LaMa fill-in (Apache-2.0), fixed 512×512: fp16 graph for WebGPU, int8 weights for the CPU. */
+const LAMA = { webgpu: 'https://huggingface.co/g-ronimo/lama/resolve/main/lama_512_fp16.onnx', wasm: 'https://huggingface.co/g-ronimo/lama/resolve/main/lama_512_int8.onnx' };
 const SAM_MODEL = 'Xenova/slimsam-77-uniform';
 /** CLIP ViT-B/32 (8-bit, ~150 MB once) — image and text in one space, for "find a clip by describing it". */
 const CLIP_MODEL = 'Xenova/clip-vit-base-patch32';
 
 type Req =
-  | { id: number; type: 'depth'; image: Blob }
+  | { id: number; type: 'depth'; image: Blob; model?: 'small' | 'base' }
+  | { id: number; type: 'inpaint'; image: Blob; mask: Blob }
   | { id: number; type: 'embed'; key: string; image: Blob }
   | { id: number; type: 'mask'; key: string; points: [number, number][]; labels: number[] }
   | { id: number; type: 'maskBatch'; key: string; points: [number, number][]; size: number }
@@ -34,7 +37,7 @@ const progress = (label: string) => (p: any) => {
   if (p.status === 'progress' && p.total) post({ type: 'progress', label, value: p.loaded / p.total, file: p.file });
 };
 
-let depthPipe: Promise<any> | undefined;
+const depthPipes: Record<string, Promise<any>> = {};
 let sam: Promise<{ model: any; processor: any }> | undefined;
 const embeddings = new Map<string, { image: RawImage; emb: any }>();
 
@@ -45,11 +48,83 @@ async function toPng(img: RawImage): Promise<Blob> {
   return c.convertToBlob({ type: 'image/png' });
 }
 
-async function depth(image: Blob) {
+async function depth(image: Blob, model: 'small' | 'base' = 'small') {
   const dev = await deviceFor('depth');
-  depthPipe ??= pipeline('depth-estimation', DEPTH_MODEL, { device: dev, dtype: dev === 'webgpu' ? 'fp16' : 'q8', progress_callback: progress('Depth model') });
-  const out = await (await depthPipe)(await RawImage.fromBlob(image));
+  depthPipes[model] ??= pipeline('depth-estimation', DEPTH_MODELS[model], { device: dev, dtype: dev === 'webgpu' ? 'fp16' : model === 'base' ? 'int8' : 'q8', progress_callback: progress(model === 'base' ? 'Detailed depth model' : 'Depth model') });
+  const out = await (await depthPipes[model])(await RawImage.fromBlob(image));
   return { blob: await toPng(out.depth), device: dev };
+}
+
+/** Download a model once (Cache Storage), reporting progress. */
+async function cachedModel(url: string, label: string): Promise<ArrayBuffer> {
+  const cache = await caches.open('autostudio-models');
+  const hit = await cache.match(url);
+  if (hit) return hit.arrayBuffer();
+  const r = await fetch(url);
+  if (!r.ok || !r.body) throw new Error(`${label}: download failed (${r.status})`);
+  const total = +(r.headers.get('content-length') ?? 0);
+  const reader = r.body.getReader();
+  const parts: Uint8Array[] = [];
+  let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    parts.push(value);
+    got += value.length;
+    if (total) post({ type: 'progress', label, value: got / total });
+  }
+  const buf = new Uint8Array(got);
+  let o = 0;
+  for (const part of parts) buf.set(part, o), (o += part.length);
+  await cache.put(url, new Response(buf));
+  return buf.buffer;
+}
+
+let lama: Promise<{ session: any; ort: any }> | undefined;
+async function lamaSession() {
+  lama ??= (async () => {
+    const ort: any = await import('onnxruntime-web');
+    const paths = (env.backends.onnx as any)?.wasm?.wasmPaths;
+    if (paths) ort.env.wasm.wasmPaths = paths;
+    const dev = await deviceFor('depth');
+    try {
+      return { session: await ort.InferenceSession.create(await cachedModel(LAMA[dev], 'Fill-in model'), { executionProviders: [dev] }), ort };
+    } catch (e) {
+      if (dev !== 'webgpu') throw e;
+      return { session: await ort.InferenceSession.create(await cachedModel(LAMA.wasm, 'Fill-in model (CPU)'), { executionProviders: ['wasm'] }), ort };
+    }
+  })();
+  lama.catch(() => (lama = undefined));
+  return lama;
+}
+
+/** LaMa fill-in on a 512×512 image + mask (white = fill). Returns a 512×512 PNG. */
+async function inpaint(image: Blob, mask: Blob) {
+  const { session, ort } = await lamaSession();
+  const [ib, mb] = await Promise.all([createImageBitmap(image), createImageBitmap(mask)]);
+  const c = new OffscreenCanvas(512, 512);
+  const g = c.getContext('2d', { willReadFrequently: true })!;
+  g.drawImage(ib, 0, 0, 512, 512);
+  const px = g.getImageData(0, 0, 512, 512).data;
+  g.clearRect(0, 0, 512, 512);
+  g.drawImage(mb, 0, 0, 512, 512);
+  const mk = g.getImageData(0, 0, 512, 512).data;
+  const N = 512 * 512, input = new Float32Array(4 * N);
+  for (let i = 0; i < N; i++) {
+    const m = mk[i * 4] > 127 ? 1 : 0;
+    for (let ch = 0; ch < 3; ch++) input[ch * N + i] = m ? 0 : px[i * 4 + ch] / 255;
+    input[3 * N + i] = m;
+  }
+  const out = await session.run({ [session.inputNames[0]]: new ort.Tensor('float32', input, [1, 4, 512, 512]) });
+  const o = out[session.outputNames[0]].data as Float32Array;
+  const scale = o.length && Math.max(...o.subarray(0, 4096)) > 2 ? 1 : 255;
+  const img = g.createImageData(512, 512);
+  for (let i = 0; i < N; i++) {
+    for (let ch = 0; ch < 3; ch++) img.data[i * 4 + ch] = o[ch * N + i] * scale;
+    img.data[i * 4 + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  return { blob: await c.convertToBlob({ type: 'image/png' }) };
 }
 
 async function samModel() {
@@ -212,7 +287,8 @@ async function speakKokoro(text: string, voice: string, speed: number, gpu = fal
 async function handle(r: Req) {
   if (r.type === 'kokoro') return speakKokoro(r.text, r.voice, r.speed, r.gpu);
   if (r.type === 'transcribe') return transcribe(r.audio, r.model, r.language);
-  if (r.type === 'depth') return depth(r.image);
+  if (r.type === 'depth') return depth(r.image, r.model);
+  if (r.type === 'inpaint') return inpaint(r.image, r.mask);
   if (r.type === 'embed') return embed(r.key, r.image);
   if (r.type === 'clipImages') return clipImages(r.images);
   if (r.type === 'clipText') return clipTexts(r.texts);

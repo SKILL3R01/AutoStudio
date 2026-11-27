@@ -1,0 +1,19 @@
+[
+ { "wait": 6000 },
+ { "eval": "sessionStorage.setItem('helpOn', '1'); localStorage.setItem('help:noTours', '1'); localStorage.setItem('help:noNews', '1'); location.reload(); 'configured'" },
+ { "waitFor": "!!(document.querySelector('.rail button') && document.querySelector('.tl-inner'))", "timeout": 40000 },
+ { "wait": 2500 },
+ { "eval": "(() => { const b = [...document.querySelectorAll('.rail button')].find((x) => /Effects/i.test(x.textContent + (x.title || ''))); if (!b) return 'NO BUTTON effects rail'; b.click(); return 'effects tab'; })()" },
+ { "wait": 600 },
+ { "eval": "(() => { const groups = [...document.querySelectorAll('.fx-groups .chip')].map((c) => c.textContent); const tiles = document.querySelectorAll('.fx-gallery .fx-tile canvas').length; return groups.length >= 6 && tiles ? 'groups: ' + groups.join(' | ') + ' · tiles ' + tiles : 'NO RESULT gallery ' + groups.join('|') + ' ' + tiles; })()" },
+ { "eval": "(() => { const g = [...document.querySelectorAll('.fx-groups .chip')].find((c) => c.textContent === 'Particles'); if (!g) return 'NO BUTTON particles group'; g.click(); return 'particles group'; })()" },
+ { "wait": 300 },
+ { "eval": "(() => { const t = [...document.querySelectorAll('.fx-gallery .fx-tile')].find((x) => /Petals/.test(x.textContent)); if (!t) return 'NO BUTTON petals'; t.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true })); t.click(); return 'petals added'; })()" },
+ { "wait": 800 },
+ { "eval": "(() => { const o = [...document.querySelectorAll('.fx-options')].pop(); if (!o) return 'NO RESULT options'; const colours = o.querySelectorAll('input[type=color]').length; const labels = [...o.querySelectorAll('.field span, .slider span, label span')].map((s) => s.textContent).filter(Boolean).slice(0, 8); return 'controls: ' + colours + ' colours · ' + labels.join(', '); })()" },
+ { "eval": "(() => { const i = [...document.querySelectorAll('.fx-options')].pop().querySelector('input[type=color]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, '#00ff88'); i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); return 'colour set ' + i.value; })()" },
+ { "wait": 400 },
+ { "eval": "(() => { const s = [...document.querySelectorAll('.fx-options')].pop().querySelector('select'); if (!s) return 'NO BUTTON where'; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; set.call(s, 'top'); s.dispatchEvent(new Event('change', { bubbles: true })); return 'where = ' + s.value + ' · options ' + [...s.options].map((o) => o.text).join('/'); })()" },
+ { "wait": 600 },
+ { "shot": "v60-effects" }
+]

@@ -5,7 +5,7 @@
 import { hash } from '../lib/util';
 
 export type Emitter = 'bottom' | 'top' | 'area' | 'center' | 'left' | 'right';
-export type Shape = 'dot' | 'streak' | 'spark' | 'heart' | 'star' | 'square' | 'smoke';
+export type Shape = 'dot' | 'streak' | 'spark' | 'heart' | 'star' | 'square' | 'smoke' | 'petal' | 'leaf' | 'ring';
 
 export interface ParticleSpec {
   emitter: Emitter;
@@ -37,6 +37,11 @@ export const PARTICLE_PRESETS: Record<string, { label: string; spec: ParticleSpe
   smoke: { label: 'Smoke', spec: { emitter: 'bottom', count: 26, life: 6, speed: 0.07, direction: 0, spread: 25, gravity: -0.01, wind: 0.03, size: 9, sizeEnd: 26, colors: ['rgba(200,200,205,0.22)', 'rgba(150,150,160,0.12)'], shape: 'smoke', blend: 'normal', glow: 0, spin: 0.2 } },
   confetti: { label: 'Confetti', spec: { emitter: 'top', count: 120, life: 4.5, speed: 0.12, direction: 180, spread: 30, gravity: 0.05, wind: 0.04, size: 1.1, sizeEnd: 1.1, colors: ['#ff4d6d', '#ffd23f', '#3bceac', '#4d96ff', '#b388ff'], shape: 'square', blend: 'normal', glow: 0, spin: 4 } },
   hearts: { label: 'Hearts', spec: { emitter: 'bottom', count: 28, life: 4, speed: 0.22, direction: 0, spread: 20, gravity: -0.02, wind: 0.02, size: 2.6, sizeEnd: 1.4, colors: ['#ff4d8d', '#ff7aa8', '#ffb3c8'], shape: 'heart', blend: 'normal', glow: 0.3, spin: 0.6 } },
+  petals: { label: 'Petals', spec: { emitter: 'top', count: 40, life: 7, speed: 0.06, direction: 160, spread: 25, gravity: 0.01, wind: 0.04, size: 1.3, sizeEnd: 1.2, colors: ['#ffc2d6', '#ff8fb3', '#ffe0ea'], shape: 'petal', blend: 'normal', glow: 0, spin: 1.6 } },
+  leaves: { label: 'Leaves', spec: { emitter: 'top', count: 26, life: 8, speed: 0.06, direction: 150, spread: 30, gravity: 0.012, wind: 0.05, size: 2, sizeEnd: 2, colors: ['#e0a030', '#b5541b', '#d97b29', '#8a6a1f'], shape: 'leaf', blend: 'normal', glow: 0, spin: 1.2 } },
+  bubbles: { label: 'Bubbles', spec: { emitter: 'bottom', count: 34, life: 6, speed: 0.12, direction: 0, spread: 12, gravity: -0.004, wind: 0.015, size: 1.6, sizeEnd: 2.2, colors: ['rgba(207,239,255,0.9)', 'rgba(255,255,255,0.8)'], shape: 'ring', blend: 'normal', glow: 0.2, spin: 0 } },
+  fireflies: { label: 'Fireflies', spec: { emitter: 'area', count: 40, life: 5, speed: 0.02, direction: 0, spread: 180, gravity: 0, wind: 0.005, size: 0.45, sizeEnd: 0.35, colors: ['#fff59a', '#c6ff6b'], shape: 'dot', blend: 'add', glow: 1, spin: 0 } },
+  lightDust: { label: 'Light dust', spec: { emitter: 'area', count: 70, life: 6, speed: 0.012, direction: 20, spread: 180, gravity: 0, wind: 0.004, size: 0.25, sizeEnd: 0.2, colors: ['#fff3d6', '#ffffff'], shape: 'dot', blend: 'add', glow: 0.6, spin: 0 } },
   stars: { label: 'Star burst', spec: { emitter: 'center', count: 60, life: 2.2, speed: 0.35, direction: 0, spread: 180, gravity: 0.04, wind: 0, size: 1.6, sizeEnd: 0.2, colors: ['#fff6b0', '#ffd23f', '#ffffff'], shape: 'star', blend: 'add', glow: 0.6, spin: 2 } },
 };
 
@@ -55,6 +60,12 @@ function shapePath(g: CanvasRenderingContext2D, shape: Shape, r: number) {
     }
     g.closePath();
   } else if (shape === 'square') g.rect(-r, -r * 0.6, r * 2, r * 1.2);
+  else if (shape === 'petal') g.ellipse(0, 0, r * 0.55, r, 0, 0, Math.PI * 2);
+  else if (shape === 'leaf') {
+    g.moveTo(0, -r);
+    g.quadraticCurveTo(r * 0.9, 0, 0, r);
+    g.quadraticCurveTo(-r * 0.9, 0, 0, -r);
+  }
   else g.arc(0, 0, r, 0, Math.PI * 2);
 }
 
@@ -106,6 +117,15 @@ export function drawParticles(g: CanvasRenderingContext2D, s: ParticleSpec, amou
       r.addColorStop(1, 'rgba(0,0,0,0)');
       g.fillStyle = r;
       g.fillRect(-size, -size, size * 2, size * 2);
+    } else if (s.shape === 'ring') {
+      g.strokeStyle = col;
+      g.lineWidth = Math.max(1, size * 0.12);
+      shapePath(g, 'dot', size);
+      g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.5)';
+      g.beginPath();
+      g.arc(-size * 0.35, -size * 0.35, size * 0.18, 0, Math.PI * 2);
+      g.fill();
     } else {
       g.fillStyle = col;
       shapePath(g, s.shape, size);
@@ -117,17 +137,18 @@ export function drawParticles(g: CanvasRenderingContext2D, s: ParticleSpec, amou
 }
 
 /** Lightning: occasional flashes with a branching bolt (seeded per strike). */
-export function drawLightning(g: CanvasRenderingContext2D, amount: number, t: number, W: number, H: number) {
+export function drawLightning(g: CanvasRenderingContext2D, amount: number, t: number, W: number, H: number, color = '#c8d7ff') {
   const period = 3.2 - 1.6 * amount;
   const strike = Math.floor(t / period), local = t - strike * period;
   if (local > 0.35) return;
   const flash = local < 0.06 ? 1 : local < 0.12 ? 0.3 : local < 0.18 ? 0.8 : Math.max(0, 1 - (local - 0.18) / 0.17);
   g.save();
   g.globalCompositeOperation = 'lighter';
-  g.fillStyle = `rgba(200,215,255,${0.35 * flash * amount})`;
+  const [cr, cg, cb] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16) || 220);
+  g.fillStyle = `rgba(${cr},${cg},${cb},${0.35 * flash * Math.min(1, amount)})`;
   g.fillRect(0, 0, W, H);
   g.strokeStyle = `rgba(235,240,255,${flash})`;
-  g.shadowColor = '#9fb8ff';
+  g.shadowColor = color;
   g.shadowBlur = H * 0.03;
   const bolt = (x: number, y: number, depth: number, k: number) => {
     g.lineWidth = Math.max(1, (H * 0.006) / (depth + 1));
@@ -143,4 +164,15 @@ export function drawLightning(g: CanvasRenderingContext2D, amount: number, t: nu
   };
   bolt(W * (0.2 + 0.6 * rnd(strike, 99)), 0, 0, strike + 1);
   g.restore();
+}
+
+/** A preset with the user's controls applied: colours, size, speed, direction and wind (0.5 = the preset's own value). */
+export function tuneSpec(s: ParticleSpec, o: Record<string, number | string>): ParticleSpec {
+  const n = (k: string) => (typeof o[k] === 'number' ? (o[k] as number) : 0.5);
+  const cols = [o.c1, o.c2].filter((c): c is string => typeof c === 'string');
+  const f = (k: string) => 0.25 + 1.5 * n(k);
+  return {
+    ...s, colors: cols.length ? cols : s.colors, size: s.size * f('size'), sizeEnd: s.sizeEnd * f('size'), speed: s.speed * f('speed'),
+    gravity: s.gravity * f('speed'), direction: s.direction + (n('direction') - 0.5) * 180, wind: s.wind + (n('wind') - 0.5) * 0.2,
+  };
 }

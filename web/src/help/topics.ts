@@ -153,6 +153,40 @@ export const TOPICS: HelpTopic[] = [
     },
   },
   {
+    id: 'depth3d', group: 'Editing',
+    title: { en: '3D depth without damage', ar: 'عمق ثلاثي الأبعاد دون تشويه' },
+    what: { en: 'The 3D move now keeps the picture clean: depth edges follow the real outlines, the move is limited automatically so nothing stretches or smears, and Layers mode moves the cut-out subject over a filled-in background.', ar: 'الحركة ثلاثية الأبعاد تحافظ الآن على نقاء الصورة: حواف العمق تتبع الحدود الحقيقية، وتُحد الحركة تلقائيًا فلا يتمدد شيء أو يتلطخ، ووضع الطبقات يحرك العنصر المقصوص فوق خلفية مكتملة.' },
+    steps: {
+      en: ['Select an image clip → Preview 3D (make depth map).', 'Pick Safe (default), Strong or Layers.', 'Use Show depth map and Hold: before to compare; adjust the strength for this clip.'],
+      ar: ['اختر مقطع صورة ← معاينة ثلاثية الأبعاد (إنشاء خريطة العمق).', 'اختر آمن (افتراضي) أو قوي أو طبقات.', 'استخدم «إظهار خريطة العمق» و«اضغط: قبل» للمقارنة، واضبط القوة لهذا المقطع.'],
+    },
+    tips: {
+      en: ['Old depth maps get a Fix edges button: it re-aligns them to the picture.', 'Detailed depth (about 100 MB once) helps with hair and branches — then Redo depth map.', 'Layers takes about a minute on the processor the first time (it downloads the fill-in model, 62–107 MB).'],
+      ar: ['خرائط العمق القديمة تظهر لها «إصلاح الحواف» لمحاذاتها مع الصورة.', 'العمق المفصل (نحو 100 ميغابايت مرة واحدة) يفيد مع الشعر والأغصان — ثم «إعادة خريطة العمق».', 'الطبقات تستغرق نحو دقيقة على المعالج أول مرة (تنزيل نموذج الملء 62–107 ميغابايت).'],
+    },
+    problems: {
+      en: [['The move looks too small', 'Choose Strong, or raise “Strength for this clip”.'], ['Something behind the subject looks odd in Layers', 'Only what the depth map calls “near” is cut out — use Strong instead for that picture.']],
+      ar: [['الحركة صغيرة جدًا', 'اختر قوي أو ارفع «القوة لهذا المقطع».'], ['شيء خلف العنصر يبدو غريبًا في الطبقات', 'يُقص فقط ما تعتبره خريطة العمق «قريبًا» — استخدم قوي لهذه الصورة.']],
+    },
+  },
+  {
+    id: 'effects2', group: 'Editing',
+    title: { en: 'Effects with your colours', ar: 'مؤثرات بألوانك' },
+    what: { en: '50 effects in groups (looks, lens & light, retro, weather, particles, energy), each with its own colours, size, speed, direction, blend and area — whole frame, top, bottom, behind or on the subject.', ar: '50 مؤثرًا في مجموعات (مظاهر، عدسة وضوء، قديم، طقس، جزيئات، طاقة)، لكل منها ألوانه وحجمه وسرعته واتجاهه ودمجه ومنطقته — الإطار كله أو الأعلى أو الأسفل أو خلف العنصر أو عليه.' },
+    steps: {
+      en: ['Effects tab → pick a group → click a tile (hover to see it move).', 'Open its card: colours, sliders, Where, blend.', 'Save as My effect to reuse it in any project.'],
+      ar: ['تبويب المؤثرات ← اختر مجموعة ← انقر بطاقة (مرّر الفأرة لترى الحركة).', 'افتح بطاقته: الألوان والمنزلقات و«أين» والدمج.', '«احفظ كمؤثري» لإعادة استخدامه في أي مشروع.'],
+    },
+    tips: {
+      en: ['“Use picture colours” takes colours from the clip at the playhead.', '“Behind subject” needs the clip’s depth map.', 'Heavy effects are thinned while playing; export is always full quality.'],
+      ar: ['«استخدم ألوان الصورة» يأخذ الألوان من المقطع عند المؤشر.', '«خلف العنصر» يحتاج خريطة عمق المقطع.', 'المؤثرات الثقيلة تخف أثناء التشغيل؛ التصدير دائمًا بجودة كاملة.'],
+    },
+    problems: {
+      en: [['The effect covers everything although I chose Behind subject', 'Make the clip’s depth map first (Properties → 3D depth).']],
+      ar: [['المؤثر يغطي كل شيء رغم اختيار خلف العنصر', 'أنشئ خريطة عمق المقطع أولًا (الخصائص ← العمق ثلاثي الأبعاد).']],
+    },
+  },
+  {
     id: 'living', group: 'Editing',
     title: { en: 'Living illustration', ar: 'الرسم الحي' },
     what: { en: 'The app finds the pieces of a picture (ship, sails, oars, whale, waves, clouds…) and moves each one slightly, the way it really moves, in a perfect loop.', ar: 'يجد البرنامج أجزاء الصورة (سفينة، أشرعة، مجاديف، حوت، أمواج، غيوم…) ويحرك كل جزء قليلًا كما يتحرك في الواقع، في حلقة متصلة.' },

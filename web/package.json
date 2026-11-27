@@ -2,7 +2,7 @@
   "name": "autostudio",
   "productName": "AutoStudio",
   "private": true,
-  "version": "5.9.0",
+  "version": "6.0.0",
   "description": "Free all-in-one faceless video studio",
   "author": "Maher Ayadi",
   "type": "module",
@@ -102,6 +102,7 @@
     }
   },
   "dependencies": {
-    "@mediapipe/tasks-vision": "1.2.2"
+    "@mediapipe/tasks-vision": "1.2.2",
+    "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0"
   }
 }

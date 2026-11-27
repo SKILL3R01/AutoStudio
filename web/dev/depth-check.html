@@ -1,0 +1,54 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>3D depth check</title>
+<style>body{margin:0;background:#111;color:#eee;font:13px Arial}#grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px}figure{margin:0}canvas{width:100%;display:block}figcaption{padding:2px 4px}pre{white-space:pre-wrap;padding:6px;margin:0}</style></head>
+<body><pre id="log">loading…</pre><div id="grid"></div>
+<script type="module">
+// Dev tool: /dev/depth-check.html?img=/ui-results/living/whale.png[&lama=1] — raw vs refined depth, old vs new 3D drawing, layers fill-in.
+import { estimateDepth, inpaint512 } from '../src/ai/vision';
+import { refineDepth, grayOf, lumaOf, depthSpread, maxFilter } from '../src/render/depthrefine';
+import { renderParallax } from '../src/render/parallax';
+import { parallaxCamera } from '../src/render/motion';
+import { depthLimits, applyLimits } from '../src/render/depthsafety';
+import { otsu, pushPullFill } from '../src/ai/layers3d';
+import { renderLayers } from '../src/render/layers3d';
+const qs = new URLSearchParams(location.search), url = qs.get('img') || '/ui-results/living/ship.png', motion = qs.get('m') || 'parallaxPanLeft', amt = +(qs.get('k') || 0.2);
+const log = (s) => (document.getElementById('log').textContent = s);
+const grid = document.getElementById('grid');
+const show = (src, caption) => { const f = document.createElement('figure'), c = document.createElement('canvas'); c.width = src.width; c.height = src.height; c.getContext('2d').drawImage(src, 0, 0); f.append(c); const cap = document.createElement('figcaption'); cap.textContent = caption; f.append(cap); grid.append(f); return c; };
+const cv = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
+try {
+  const blob = await (await fetch(url)).blob(), img = await createImageBitmap(blob);
+  const t0 = performance.now();
+  const rawBmp = await createImageBitmap(await estimateDepth(blob));
+  const w = rawBmp.width, h = rawBmp.height, c = cv(w, h), g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(rawBmp, 0, 0); const raw = grayOf(g.getImageData(0, 0, w, h).data);
+  g.drawImage(img, 0, 0, w, h); const lum = lumaOf(g.getImageData(0, 0, w, h).data);
+  const ref = refineDepth(raw, lum, w, h);
+  const toCanvas = (gray) => { const k = cv(w, h), kg = k.getContext('2d'), id = kg.createImageData(w, h); for (let i = 0; i < gray.length; i++) (id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = gray[i]), (id.data[i * 4 + 3] = 255); kg.putImageData(id, 0, 0); return k; };
+  const rawC = toCanvas(raw), refC = toCanvas(ref);
+  show(img, 'picture'); show(rawC, `raw depth (spread ${depthSpread(raw).toFixed(2)})`); show(refC, `refined depth (spread ${depthSpread(ref).toFixed(2)})`);
+  const clip = { id: 'c', assetId: 'a', start: 0, trimIn: 0, motion, transition: 'none', volume: 0, fit: 'cover' };
+  for (const p of [0, 1]) {
+    const old = renderParallax(img, rawBmp, parallaxCamera(motion, p, p * 6, amt, 0), 1920); show(old, `OLD ${motion} p=${p} (raw map, no limit)`);
+    const lim = depthLimits(clip, motion, 6, amt, 0, depthSpread(ref));
+    const neu = renderParallax(img, refC, applyLimits(parallaxCamera(motion, p, p * 6, amt, 0), lim), 1920); show(neu, `NEW p=${p} (refined, factor ${lim.factor.toFixed(2)}, zoom ${lim.over.toFixed(3)})`);
+    show(cv(8, 8), '');
+  }
+  const report = { ms: Math.round(performance.now() - t0), size: [w, h] };
+  if (qs.get('lama')) {
+    // Layers: near mask → fill-in (LaMa) → subject over the filled background.
+    const thr = otsu(ref), mask = ref.map((v) => (v > thr ? 255 : 0)), hole = maxFilter(mask, w, h, Math.round(Math.max(w, h) * 0.03));
+    const crop = new OffscreenCanvas(512, 512), cg = crop.getContext('2d'); cg.drawImage(img, 0, 0, 512, 512);
+    const mk = new OffscreenCanvas(512, 512); mk.getContext('2d').drawImage(toCanvas(hole), 0, 0, 512, 512);
+    const t1 = performance.now();
+    let bg;
+    try { bg = await createImageBitmap(await inpaint512(await crop.convertToBlob(), await mk.convertToBlob())); report.lama = `ok ${Math.round(performance.now() - t1)} ms`; }
+    catch (e) { report.lama = 'failed: ' + e.message; const d = cg.getImageData(0, 0, 512, 512); const kk = mk.getContext('2d').getImageData(0, 0, 512, 512).data; pushPullFill(d.data, Uint8Array.from({ length: 512 * 512 }, (_, i) => (kk[i * 4] > 127 ? 0 : 1)), 512, 512); cg.putImageData(d, 0, 0); bg = crop; }
+    show(bg, `filled background (${report.lama})`);
+    const fg = cv(img.width, img.height), fgc = fg.getContext('2d'); fgc.drawImage(img, 0, 0); fgc.globalCompositeOperation = 'destination-in'; fgc.drawImage(toCanvas(mask), 0, 0, img.width, img.height);
+    const bgFull = cv(img.width, img.height); bgFull.getContext('2d').drawImage(bg, 0, 0, img.width, img.height);
+    show(renderLayers(bgFull, fg, applyLimits(parallaxCamera(motion, 1, 6, amt, 0), { factor: 1, over: 1.06 }), 1920), 'LAYERS p=1');
+  }
+  window.__report = report; log(JSON.stringify(report));
+} catch (e) { window.__report = { error: String(e && e.stack || e) }; log('ERROR ' + window.__report.error); }
+</script></body></html>

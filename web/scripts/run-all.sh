@@ -73,6 +73,7 @@ run living "http://localhost:5173/#demo" steps-living.json
 run pip "http://localhost:5173/#demo" steps-pip.json
 run v58 "http://localhost:5173/#demo" steps-v58.json
 run v59 "http://localhost:5173/#demo" steps-v59.json
+run v60 "http://localhost:5173/#demo" steps-v60.json
 run wizard "http://localhost:5173/" steps-wizard.json simple
 echo "=== done"
 if [ -n "$STRICT" ] && [ "$FAILED" = 1 ]; then echo "UI suites reported problems"; exit 1; fi
