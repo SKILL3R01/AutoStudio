@@ -1,0 +1,42 @@
+# Recorded sound effects
+
+All sounds are released under CC0 1.0 (public domain). Thank you to the recordists.
+
+- `typing_1.mp3`: Computer Keyboard, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/computer-keyboard-s0229.html
+- `typing_2.mp3`: Slow Keyboard, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/slow-keyboard-s1733.html
+- `steps_1.mp3`: Man Footsteps on the Wooden Floor, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/man-footsteps-on-the-wooden-floor-s0165.html
+- `steps_2.mp3`: Steps on a Wooden Floor #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/steps-on-a-wooden-floor-1-s1515.html
+- `run_1.mp3`: Footsteps, Shoe on Concrete, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/footsteps-shoe-on-concrete-s0514.html
+- `breath_1.mp3`: Man Breathing, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/man-breathing-s2195.html
+- `pant_1.mp3`: Breathless Man, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/breathless-man-s1103.html
+- `sigh_1.mp3`: Sigh by the Mouth, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/sigh-by-the-mouth-s1405.html
+- `sigh_2.mp3`: Sigh by the nose, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/sigh-by-the-nose-s1404.html
+- `scream_1.mp3`: WOMAN SCREAM, by queen_westeros (Freesound): https://freesound.org/people/queen_westeros/sounds/222585/
+- `scream_2.mp3`: Man frightened yelling, by EricSueiro (Freesound): https://freesound.org/people/EricSueiro/sounds/220818/
+- `knock_1.mp3`: Door, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/door-s0015.html
+- `knock_2.mp3`: Knock on a Glass Door #2, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/knock-on-the-glass-door-2-s0320.html
+- `door_1.mp3`: Door Slamming #2, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/door-slamming-2-s0223.html
+- `door_2.mp3`: Apartment Door, Closing #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/apartment-door-closing-1-s1704.html
+- `heartbeat_1.mp3`: Heart Beat, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/heart-beat-s0218.html
+- `heartbeat_2.mp3`: Heart Beat #5, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/heart-beat-5-s1930.html
+- `thunder_1.mp3`: Thunder #2, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/thunder-2-s3113.html
+- `thunder_2.mp3`: Thunder #3, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/thunder-3-s3114.html
+- `rain_1.mp3`: Rain on concrete, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/rain-on-concrete-s1289.html
+- `rain_2.mp3`: Rain Under an Umbrella, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/rain-under-an-umbrella-s2679.html
+- `wind_1.mp3`: Strong wind #4, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/strong-wind-4-s0154.html
+- `wind_2.mp3`: Strong Wind #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/strong-wind-1-s0146.html
+- `message_1.mp3`: Message #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/message-1-s1111.html
+- `buzz_1.mp3`: Mobile phone vibrator #2, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/mobile-phone-vibrator-2-s0023.html
+- `laugh_1.mp3`: Man's laugh, by quavosh (Freesound): https://freesound.org/people/quavosh/sounds/670839/
+- `laugh_2.mp3`: Man laughs extensively (stuxer), by stuxer (Freesound): https://freesound.org/people/stuxer/sounds/401214/
+- `crowd_1.mp3`: Applause #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/applause-1-s2363.html
+- `crowd_2.mp3`: Applause: 150 People, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/applause-150-people-s0019.html
+- `punch_1.mp3`: Punch #5, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/punch-5-s2460.html
+- `punch_2.mp3`: Punch #6, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/punch-6-s2461.html
+- `glass_1.mp3`: Broken Christmas Ball #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/broken-christmas-ball-1-s1121.html
+- `camera_1.mp3`: Triggering camera, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/triggering-camera-s0307.html
+- `camera_2.mp3`: Trigger of Camera #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/trigger-of-camera-1-s2394.html
+- `pen_1.mp3`: Pencil #4, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/pencil-4-s3235.html
+- `pen_2.mp3`: Pencil #1, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/pencil-s0221.html
+- `page_1.mp3`: Turned Page, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/turned-page-s0164.html
+- `page_2.mp3`: Pages that Turn #5, by Joseph SARDIN (BigSoundBank): https://bigsoundbank.com/pages-that-turn-5-s2212.html

@@ -1,59 +1,52 @@
 import { addTrack, newAudioClip } from '../lib/audiotracks';
 import type { Asset, Project, Word } from '../types';
+import { packFor } from './pack';
 
 /**
  * Sound effects from the script: words in the narration ("walked", "sighed", "screamed", "knock"…) become sound cues
  * that start on the spoken word. Each cue uses a matching file from Media (a sound pack the user imported, picked by
- * file name) or a built-in synth sound; sounds with no built-in version need a file.
+ * file name) or a real recording from the bundled CC0 pack.
  */
 export interface SfxRule {
   id: string;
   label: string;
   /** Whole words (lower case, no punctuation) that call for the sound — English and Arabic. */
   words: string[];
-  /** Built-in synth sound (audio/sfx.ts), when there is one. */
-  synth?: string;
-  /** Length of the cue in seconds (files are cut to this, up to their own length). */
+  /** Longest useful length in seconds (recordings and files are cut to this, up to their own length). */
   dur: number;
   /** File-name keywords that match a sound file in Media. */
   files: string[];
 }
 
+const R = (id: string, label: string, dur: number, files: string[], words: string) => ({ id, label, dur, files, words: words.split(' ') });
+/** Each rule plays real recordings from the bundled CC0 pack (audio/pack), unless a matching file is in Media. */
 export const SFX_RULES: SfxRule[] = [
-  { id: 'steps', label: 'Footsteps', synth: 'steps', dur: 2, files: ['footstep', 'footsteps', 'steps', 'walking', 'walk', 'running'],
-    words: ['walk', 'walks', 'walked', 'walking', 'step', 'steps', 'stepped', 'footsteps', 'footstep', 'ran', 'run', 'runs', 'running', 'stairs', 'paced', 'pacing', 'marched', 'strode', 'مشى', 'يمشي', 'مشيت', 'ركض', 'يركض', 'خطوات', 'خطوة'] },
-  { id: 'breath', label: 'Breathing', synth: 'breath', dur: 2.2, files: ['breath', 'breathing', 'sigh', 'gasp', 'pant', 'inhale', 'exhale'],
-    words: ['breath', 'breathe', 'breathes', 'breathed', 'breathing', 'sigh', 'sighs', 'sighed', 'exhale', 'exhaled', 'inhale', 'inhaled', 'panting', 'gasp', 'gasped', 'تنفس', 'يتنفس', 'تنهد', 'نفس'] },
-  { id: 'scream', label: 'Scream', dur: 2, files: ['scream', 'screaming', 'shout', 'yell'],
-    words: ['scream', 'screams', 'screamed', 'screaming', 'shout', 'shouted', 'shouting', 'yell', 'yelled', 'yelling', 'صرخ', 'يصرخ', 'صراخ', 'صرخة'] },
-  { id: 'knock', label: 'Door / knock', synth: 'knock', dur: 1, files: ['knock', 'knocking', 'door'],
-    words: ['knock', 'knocks', 'knocked', 'knocking', 'door', 'doors', 'doorbell', 'باب', 'الباب', 'طرق', 'يطرق'] },
-  { id: 'heartbeat', label: 'Heartbeat', synth: 'heartbeat', dur: 2, files: ['heartbeat', 'heart beat', 'heart', 'pulse'],
-    words: ['heart', 'heartbeat', 'pulse', 'nervous', 'anxious', 'anxiety', 'panic', 'قلب', 'قلبه', 'قلبي', 'خوف', 'توتر'] },
-  { id: 'thunder', label: 'Thunder', synth: 'thunder', dur: 3.5, files: ['thunder', 'storm', 'lightning'],
-    words: ['thunder', 'lightning', 'storm', 'stormy', 'رعد', 'برق', 'عاصفة'] },
-  { id: 'rain', label: 'Rain', synth: 'rain', dur: 4, files: ['rain', 'raining', 'drizzle'],
-    words: ['rain', 'raining', 'rainy', 'rained', 'drizzle', 'مطر', 'المطر', 'تمطر'] },
-  { id: 'wind', label: 'Wind', synth: 'wind', dur: 3.5, files: ['wind', 'breeze', 'gust'],
-    words: ['wind', 'windy', 'breeze', 'gust', 'رياح', 'ريح', 'نسيم'] },
-  { id: 'phone', label: 'Phone / message', synth: 'ding', dur: 1.6, files: ['notification', 'phone', 'ringtone', 'message', 'text tone', 'ring'],
-    words: ['phone', 'notification', 'notifications', 'texted', 'buzzed', 'ringing', 'rang', 'هاتف', 'الهاتف', 'رسالة', 'جوال'] },
-  { id: 'laugh', label: 'Laugh', dur: 2, files: ['laugh', 'laughing', 'laughter', 'giggle'],
-    words: ['laugh', 'laughs', 'laughed', 'laughing', 'laughter', 'giggled', 'ضحك', 'يضحك', 'ضحكة'] },
-  { id: 'crowd', label: 'Crowd / applause', dur: 3, files: ['crowd', 'applause', 'cheer', 'clapping', 'audience'],
-    words: ['crowd', 'audience', 'applause', 'clapped', 'clapping', 'cheered', 'cheering', 'جمهور', 'تصفيق', 'حشد'] },
-  { id: 'impact', label: 'Crash / hit', synth: 'impact', dur: 1, files: ['crash', 'impact', 'slam', 'punch', 'hit', 'smash'],
-    words: ['crash', 'crashed', 'slammed', 'slam', 'punch', 'punched', 'smashed', 'collapsed', 'اصطدم', 'تحطم', 'ضرب'] },
-  { id: 'typing', label: 'Typing', synth: 'typing', dur: 1.2, files: ['typing', 'keyboard'],
-    words: ['typed', 'typing', 'keyboard', 'يكتب', 'كتب'] },
-  { id: 'camera', label: 'Camera', synth: 'shutter', dur: 0.4, files: ['camera', 'shutter', 'photo'],
-    words: ['photo', 'photos', 'camera', 'snapped', 'صورة', 'كاميرا'] },
-  { id: 'pen', label: 'Writing', synth: 'pen', dur: 0.6, files: ['pen', 'writing', 'pencil', 'scribble'],
-    words: ['wrote', 'writing', 'notebook', 'pen', 'scribbled', 'دفتر', 'قلم'] },
-  { id: 'page', label: 'Page turn', synth: 'paper', dur: 0.6, files: ['page', 'paper', 'book'],
-    words: ['page', 'pages', 'flipped', 'صفحة'] },
+  R('steps', 'Footsteps', 4, ['footstep', 'footsteps', 'steps', 'walking', 'walk'], 'walk walks walked walking step steps stepped footsteps footstep stairs paced pacing marched strode مشى يمشي مشيت خطوات خطوة'),
+  R('run', 'Running', 3.5, ['running', 'run', 'sprint'], 'ran run runs running raced rushed sprinted sprinting ركض يركض ركضت'),
+  R('breath', 'Breathing', 4.5, ['breath', 'breathing', 'inhale', 'exhale'], 'breath breathe breathes breathed breathing inhale inhaled exhale exhaled تنفس يتنفس تنفست'),
+  R('pant', 'Out of breath', 4, ['pant', 'panting', 'breathless', 'gasp'], 'panting panted gasp gasped gasping breathless لهث يلهث'),
+  R('sigh', 'Sigh', 3, ['sigh'], 'sigh sighs sighed sighing تنهد يتنهد تنهدت'),
+  R('scream', 'Scream', 3, ['scream', 'screaming', 'shout', 'yell'], 'scream screams screamed screaming shout shouted shouting yell yelled yelling صرخ يصرخ صراخ صرخة'),
+  R('knock', 'Knock', 2.5, ['knock', 'knocking'], 'knock knocks knocked knocking طرق يطرق طرقت'),
+  R('door', 'Door', 3, ['door'], 'door doors slammed slam باب الباب'),
+  R('heartbeat', 'Heartbeat', 4.5, ['heartbeat', 'heart beat', 'heart', 'pulse'], 'heart heartbeat heartbeats pulse nervous anxious anxiety panic قلب قلبه قلبي توتر'),
+  R('thunder', 'Thunder', 6, ['thunder', 'storm', 'lightning'], 'thunder lightning storm stormy رعد برق عاصفة'),
+  R('rain', 'Rain', 6, ['rain', 'raining', 'drizzle'], 'rain raining rainy rained drizzle مطر المطر تمطر'),
+  R('wind', 'Wind', 6, ['wind', 'breeze', 'gust'], 'wind windy breeze gust رياح ريح نسيم'),
+  R('message', 'Message tone', 2, ['notification', 'message', 'text tone', 'sms'], 'message messages texted notification notifications رسالة رسائل إشعار'),
+  R('buzz', 'Phone buzz', 3, ['vibrate', 'vibration', 'phone', 'buzz'], 'phone vibrated vibrating buzzed buzzing هاتف الهاتف جوال'),
+  R('laugh', 'Laugh', 4, ['laugh', 'laughing', 'laughter', 'giggle'], 'laugh laughs laughed laughing laughter giggled ضحك يضحك ضحكة'),
+  R('crowd', 'Applause', 5, ['applause', 'clapping', 'cheer', 'crowd'], 'applause applauded clapped clapping cheered cheering ovation تصفيق صفقوا'),
+  R('punch', 'Punch / hit', 1.2, ['punch', 'hit', 'slap', 'impact'], 'punch punched punches slapped struck لكم لكمة'),
+  R('glass', 'Glass breaking', 2.5, ['glass', 'shatter', 'smash', 'crash', 'break'], 'shattered smashed crash crashed تحطم انكسر'),
+  R('typing', 'Keyboard typing', 3.5, ['typing', 'keyboard'], 'typed typing keyboard keystrokes'),
+  R('camera', 'Camera', 1.2, ['camera', 'shutter', 'photo'], 'photo photos camera snapped صورة كاميرا'),
+  R('pen', 'Writing', 3, ['pen', 'pencil', 'writing', 'scribble'], 'wrote writing scribbled notebook pen pencil signed كتب يكتب دفتر قلم'),
+  R('page', 'Page turn', 1.8, ['page', 'paper', 'book'], 'page pages flipped صفحة'),
 ];
 
+/** Related sounds share one repeat timer ("a knock at the door" gives one knock, not a knock and a slam). */
+const FAMILY: Record<string, string> = { door: 'knock', run: 'steps', pant: 'breath', sigh: 'breath', buzz: 'message' };
 const RULE_OF = new Map(SFX_RULES.flatMap((r) => r.words.map((w) => [w, r] as const)));
 /** Lower case, punctuation and Arabic diacritics removed. */
 export const normWord = (w: string) => w.toLowerCase().replace(/[\u064B-\u0652\u0640]/g, '').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').replace(/['’]s$/, '');
@@ -68,10 +61,12 @@ export interface SfxCue {
   context: string;
   t: number;
   dur: number;
-  /** Media file used, else the built-in sound; neither = a file is needed. */
+  /** Media file used, else a pack recording (`rec:<id>`); neither = a file is needed. */
   assetId?: string;
   fileName?: string;
   sound?: string;
+  /** Title and author of the pack recording. */
+  credit?: string;
   on: boolean;
 }
 
@@ -94,18 +89,21 @@ export function findSfxCues(p: Project, opts: { gap?: number; repeatGap?: number
   let prev = -Infinity;
   words.forEach((w, i) => {
     const rule = RULE_OF.get(normWord(w.text));
-    if (!rule || w.start - prev < gap || w.start - (last.get(rule.id) ?? -Infinity) < repeatGap) return;
+    const fam = rule && (FAMILY[rule.id] ?? rule.id);
+    if (!rule || !fam || w.start - prev < gap || w.start - (last.get(fam) ?? -Infinity) < repeatGap) return;
     const files = libraryMatches(p, rule);
     const n = used.get(rule.id) ?? 0;
     const file = files.length ? files[n % files.length] : undefined;
-    const dur = file ? Math.min(file.duration ?? rule.dur, Math.max(rule.dur, 1) * 1.5) : rule.dur;
+    const recs = packFor(rule.id);
+    const rec = file || !recs.length ? undefined : recs[n % recs.length];
+    const dur = Math.min(file?.duration ?? rec?.duration ?? rule.dur, rule.dur);
     cues.push({
       id: `${rule.id}_${Math.round(w.start * 100)}`, rule: rule.id, label: rule.label, word: w.text.replace(/[^\p{L}\p{N}'’-]/gu, ''),
       context: words.slice(Math.max(0, i - 3), i + 4).map((x) => x.text).join(' '), t: w.start, dur,
-      assetId: file?.id, fileName: file?.name, sound: file ? undefined : rule.synth, on: !!(file || rule.synth),
+      assetId: file?.id, fileName: file?.name, sound: rec && `rec:${rec.id}`, credit: rec && `${rec.title} · ${rec.author}`, on: !!(file || rec),
     });
     used.set(rule.id, n + 1);
-    last.set(rule.id, w.start);
+    last.set(fam, w.start);
     prev = w.start;
   });
   return cues;

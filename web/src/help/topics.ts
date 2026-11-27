@@ -127,12 +127,12 @@ export const TOPICS: HelpTopic[] = [
       ar: ['الصوت ← المؤثرات ← ابحث عن الأصوات (يحتاج ترجمة أو ملف ‎.srt).', 'استمع بـ ▶ وألغِ ما لا تريده.', 'اضغط إضافة: توضع الأصوات على مسار «أصوات النص».'],
     },
     tips: {
-      en: ['For realistic sounds, download free effects (YouTube Audio Library, Pixabay) and import them with Add media → Media only. Files named “footsteps”, “scream”, “breathing”… are picked automatically.', 'Export → Auto levels keeps every effect under the voice.', 'Remove script sounds takes them all away again.'],
-      ar: ['لأصوات واقعية، نزّل مؤثرات مجانية (مكتبة صوتيات يوتيوب، Pixabay) واستوردها عبر إضافة وسائط ← الوسائط فقط. الملفات المسماة «footsteps» و«scream» و«breathing»… تُختار تلقائيًا.', 'التصدير ← المستويات التلقائية تبقي كل مؤثر تحت الصوت.', '«إزالة أصوات النص» يحذفها كلها.'],
+      en: ['Every sound is a real recording (CC0 — free for any video, no credit needed). Your own files come first: import them with Add media → Media only; files named “footsteps”, “scream”, “breathing”… are picked automatically.', 'Export → Auto levels keeps every effect under the voice.', 'Remove script sounds takes them all away again.'],
+      ar: ['كل صوت تسجيل حقيقي (CC0 — مجاني لأي فيديو دون ذكر المصدر). ملفاتك تأتي أولًا: استوردها عبر إضافة وسائط ← الوسائط فقط؛ الملفات المسماة «footsteps» و«scream» و«breathing»… تُختار تلقائيًا.', 'التصدير ← المستويات التلقائية تبقي كل مؤثر تحت الصوت.', '«إزالة أصوات النص» يحذفها كلها.'],
     },
     problems: {
-      en: [['“Needs a sound file”', 'There is no built-in version (scream, laugh, crowd): import a file named after it, then Find sounds again.'], ['A sound is wrong for the meaning', 'Words like “run a business” are found too: untick them before adding.']],
-      ar: [['«يحتاج ملف صوت»', 'لا توجد نسخة مدمجة (صراخ، ضحك، جمهور): استورد ملفًا باسمه ثم ابحث مجددًا.'], ['الصوت لا يناسب المعنى', 'كلمات مثل «يدير عملًا» تُلتقط أيضًا: ألغِ تحديدها قبل الإضافة.']],
+      en: [['I want a different recording', 'SFX tab → Real recordings: ▶ to listen, + to add; or import your own file named after the sound and press Find sounds again.'], ['A sound is wrong for the meaning', 'Words like “run a business” are found too: untick them before adding.']],
+      ar: [['أريد تسجيلًا آخر', 'تبويب المؤثرات ← تسجيلات حقيقية: ▶ للاستماع و+ للإضافة؛ أو استورد ملفك باسم الصوت واضغط ابحث مجددًا.'], ['الصوت لا يناسب المعنى', 'كلمات مثل «يدير عملًا» تُلتقط أيضًا: ألغِ تحديدها قبل الإضافة.']],
     },
   },
   {

@@ -1,4 +1,5 @@
 import { media } from '../render/media';
+import { packUrl, RECORDED_ALIAS } from './pack';
 
 export const SFX = ['whoosh', 'swoosh', 'pop', 'ding', 'click', 'boom', 'impact', 'riser', 'glitch', 'typing', 'shutter', 'heartbeat', 'chime', 'bass drop', 'pen', 'paper', 'typewriter', 'boing', 'blip', 'steps', 'tada', 'slide-whistle', 'thud', 'breath', 'knock', 'thunder', 'rain', 'wind'] as const;
 
@@ -203,63 +204,26 @@ const RECIPES: Record<string, [number, (c: OfflineAudioContext) => void]> = {
     noise(c, 0.4).connect(f);
     env(c, f, 0.003, 0.6, 0.4).connect(c.destination);
   }],
-  breath: [2.2, (c) => [[0, 0.9, 900], [1.05, 1.1, 650]].forEach(([at, len, hz]) => {
-    const f = c.createBiquadFilter();
-    f.type = 'bandpass';
-    f.Q.value = 0.8;
-    f.frequency.setValueAtTime(hz, at);
-    f.frequency.linearRampToValueAtTime(hz * 1.4, at + len * 0.6);
-    noise(c, len, at).connect(f);
-    env(c, f, at + len * 0.55, 0.35, at + len).connect(c.destination);
-  })],
-  knock: [0.8, (c) => [0, 0.2, 0.4].forEach((at) => {
-    env(c, tone(c, 'sine', 180, 90, 0.12, at), at + 0.003, 0.9, at + 0.12).connect(c.destination);
-    const f = c.createBiquadFilter();
-    f.type = 'bandpass';
-    f.frequency.value = 1200;
-    noise(c, 0.05, at).connect(f);
-    env(c, f, at + 0.002, 0.5, at + 0.05).connect(c.destination);
-  })],
-  thunder: [3.5, (c) => {
-    const f = c.createBiquadFilter();
-    f.type = 'lowpass';
-    f.frequency.setValueAtTime(900, 0);
-    f.frequency.exponentialRampToValueAtTime(120, 3.4);
-    noise(c, 3.5).connect(f);
-    env(c, f, 0.06, 1, 3.5).connect(c.destination);
-    env(c, tone(c, 'sine', 55, 30, 3), 0.1, 0.6, 3.2).connect(c.destination);
-  }],
-  rain: [4, (c) => {
-    const f = c.createBiquadFilter();
-    f.type = 'highpass';
-    f.frequency.value = 2500;
-    noise(c, 4).connect(f);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.0001, 0);
-    g.gain.linearRampToValueAtTime(0.3, 0.6);
-    g.gain.setValueAtTime(0.3, 3.3);
-    g.gain.linearRampToValueAtTime(0.0001, 4);
-    f.connect(g).connect(c.destination);
-  }],
-  wind: [3.5, (c) => {
-    const f = c.createBiquadFilter();
-    f.type = 'bandpass';
-    f.Q.value = 3;
-    f.frequency.setValueAtTime(300, 0);
-    f.frequency.linearRampToValueAtTime(700, 1.6);
-    f.frequency.linearRampToValueAtTime(350, 3.5);
-    noise(c, 3.5).connect(f);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.0001, 0);
-    g.gain.linearRampToValueAtTime(0.6, 1.4);
-    g.gain.linearRampToValueAtTime(0.0001, 3.5);
-    f.connect(g).connect(c.destination);
-  }],
 };
 
-/** Returns a decoded buffer for a built-in synth (`whoosh`) or an uploaded sound (`asset:<id>`). */
+/** Decode a recording from the bundled sound pack. */
+async function recorded(id: string): Promise<AudioBuffer | undefined> {
+  const url = packUrl(id);
+  if (!url) return undefined;
+  const data = await (await fetch(url)).arrayBuffer();
+  return new OfflineAudioContext(1, SR, SR).decodeAudioData(data);
+}
+
+/**
+ * Returns a decoded buffer for a built-in sound (`whoosh`; names in RECORDED_ALIAS play a real recording),
+ * a pack recording (`rec:<id>`) or an uploaded sound (`asset:<id>`).
+ */
 export function sfxBuffer(name: string): Promise<AudioBuffer | undefined> {
   if (name.startsWith('asset:')) return media.audioBuffer(name.slice(6));
+  if (name.startsWith('rec:') || RECORDED_ALIAS[name]) {
+    if (!cache.has(name)) cache.set(name, recorded(name.startsWith('rec:') ? name.slice(4) : RECORDED_ALIAS[name]).catch(() => undefined) as Promise<AudioBuffer>);
+    return cache.get(name)!;
+  }
   if (!cache.has(name)) {
     const [dur, build] = RECIPES[name] ?? RECIPES.pop;
     const c = new OfflineAudioContext(1, Math.ceil(dur * SR), SR);

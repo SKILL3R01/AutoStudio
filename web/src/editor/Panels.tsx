@@ -27,6 +27,7 @@ import { GradeEditor } from './GradeEditor';
 import { EFFECT_COST, EFFECT_LABELS } from '../render/effects';
 import { SFX, sfxBuffer } from '../audio/sfx';
 import { ScriptSounds } from './ScriptSounds';
+import { PACK, soundLabel } from '../audio/pack';
 import { blankClip, probe, setVoiceStart } from '../lib/project';
 import { uid } from '../lib/util';
 
@@ -390,6 +391,18 @@ function SfxPanel() {
             </div>
           ))}
         </div>
+        <details className="rec-sounds">
+          <summary>Real recordings ({PACK.length})</summary>
+          <div className="list">
+            {PACK.map((r) => (
+              <div key={r.id} className="list-item sfx-row" title={`${r.title} · ${r.author} · ${r.licence}`}>
+                <button className="icon-btn" onClick={() => preview(`rec:${r.id}`)}><Icon name="play" /></button>
+                <span>{r.title}</span>
+                <button className="icon-btn" onClick={() => add(`rec:${r.id}`)}><Icon name="plus" /></button>
+              </div>
+            ))}
+          </div>
+        </details>
         <FilePick accept="audio/*" className="btn sm" onFiles={async ([f]) => {
           if (!f) return;
           const a = await probe(f, f.name, 'audio');
@@ -400,7 +413,7 @@ function SfxPanel() {
         <div className="list">
           {placed.map((s) => (
             <div key={s.id} className="list-item sfx-row" onClick={() => (select({ kind: 'audio', id: s.id }), useEditor.getState().seek(s.start))}>
-              <span>{s.sound ?? findAsset(p, s.assetId)?.name}</span>
+              <span>{soundLabel(s.sound) ?? findAsset(p, s.assetId)?.name}</span>
               <span className="hint">{s.start.toFixed(2)}s</span>
               <input type="range" min={0} max={1.5} step={0.01} value={s.volume} onChange={(e) => update((d) => void (d.audio.find((x) => x.id === s.id)!.volume = +e.target.value), `sv${s.id}`)} />
               <button className="icon-btn" onClick={(e) => (e.stopPropagation(), update((d) => void (d.audio = d.audio.filter((x) => x.id !== s.id))))}><Icon name="x" /></button>

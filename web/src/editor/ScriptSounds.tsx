@@ -58,17 +58,17 @@ export function ScriptSounds() {
               <label key={c.id} className="list-item sfx-row">
                 <input type="checkbox" checked={c.on} disabled={!c.assetId && !c.sound} onChange={(e) => setCues(cues.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))} />
                 <button className="link" title="Go to this moment" onClick={(e) => (e.preventDefault(), setTime(c.t))}>{fmtTime(c.t)}</button>
-                <span className="grow" title={c.context}><b>{c.label}</b> · “{c.word}”<br /><span className="hint">{c.assetId ? `Your file: ${c.fileName}` : c.sound ? 'Built-in sound' : 'Needs a sound file'}</span></span>
+                <span className="grow" title={c.context}><b>{c.label}</b> · “{c.word}”<br /><span className="hint">{c.assetId ? `Your file: ${c.fileName}` : c.credit ? `Recording: ${c.credit}` : 'Needs a sound file'}</span></span>
                 {(c.assetId || c.sound) && <button className="icon-btn" title="Listen" onClick={(e) => (e.preventDefault(), void play(c))}><Icon name="play" /></button>}
               </label>
             ))}
           </div>
           <Slider label="Volume" value={vol} min={0} max={1} onChange={setVol} fmt={(v) => `${Math.round(v * 100)}%`} />
           <button className="btn primary" disabled={!cues.some((c) => c.on)} onClick={add}>Add {cues.filter((c) => c.on).length} sounds</button>
-          {missing.length > 0 && <p className="hint">No built-in sound for: {missing.join(', ')}. Import a sound file named after it (e.g. “scream.mp3”) with Add media → Media only, then press Find sounds again.</p>}
+          {missing.length > 0 && <p className="hint">No recording for: {missing.join(', ')}. Import a sound file named after it (e.g. “scream.mp3”) with Add media → Media only, then press Find sounds again.</p>}
         </>
       )}
-      <p className="hint">Better sounds: download free effects (YouTube Audio Library, Pixabay) and import them with Add media → <b>Media only</b>. Files named like {SFX_RULES.slice(0, 4).map((r) => `“${r.files[0]}”`).join(', ')} are picked automatically.</p>
+      <p className="hint">Every sound is a real recording (CC0, free for any video). To use your own instead, import files with Add media → <b>Media only</b>: files named like {SFX_RULES.slice(0, 4).map((r) => `“${r.files[0]}”`).join(', ')} are picked first.</p>
     </Section>
   );
 }

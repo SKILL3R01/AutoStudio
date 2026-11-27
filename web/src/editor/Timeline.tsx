@@ -28,6 +28,7 @@ import { Slider } from '../components/ui';
 import { TRANSITION_LABELS } from './Panels';
 import { stampFor } from '../lib/timecode';
 import { blankClip } from '../lib/project';
+import { soundLabel } from '../audio/pack';
 
 /** A Motion AI block: drag to move, drag the right edge to stretch (its layers scale in time), click to select. */
 function MotionBlock({ g, zoom, sel }: { g: MotionGroup; zoom: number; sel: boolean }) {
@@ -681,11 +682,11 @@ export function Timeline() {
                     <div key={c.id} className={`item aclip k-${t.kind} ${sel?.id === c.id || multi.includes(c.id) ? 'sel' : ''}`} style={{ left: c.start * zoom, width: w }}
                       onPointerDown={(e) => moveItem('audio', c.id, e)}
                       onContextMenu={(e) => openMenu(e, { kind: 'audio', id: c.id }, c.start + (e.clientX - e.currentTarget.getBoundingClientRect().left) / zoom)}
-                      title={`${a?.name ?? c.sound} · ${fmtTime(c.start)} → ${fmtTime(c.start + c.duration)} · ${Math.round(c.volume * 100)}% — drag to move (also to another track), drag the line for volume`}>
+                      title={`${a?.name ?? soundLabel(c.sound)} · ${fmtTime(c.start)} → ${fmtTime(c.start + c.duration)} · ${Math.round(c.volume * 100)}% — drag to move (also to another track), drag the line for volume`}>
                       {a && <div className="aclip-wave" style={{ left: (-c.trimIn / (c.rate ?? 1)) * zoom }}><Waveform assetId={a.id} length={a.duration ?? c.duration} zoom={zoom / (c.rate ?? 1)} /></div>}
                       {c.fadeIn > 0 && <FadeRamp dir="in" w={Math.min(c.duration, c.fadeIn) * zoom} />}
                       {c.fadeOut > 0 && <FadeRamp dir="out" w={Math.min(c.duration, c.fadeOut) * zoom} />}
-                      <span className="aclip-name">{c.takes && c.takes.length > 1 ? <b className="take-badge" title="Click to play the next take" onPointerDown={(e) => e.stopPropagation()} onClick={() => update((d) => switchTake(d.audio.find((x) => x.id === c.id)!, ((c.activeTake ?? 0) + 1) % c.takes!.length))}>T{(c.activeTake ?? 0) + 1}/{c.takes.length}</b> : null}{t.kind === 'music' ? '♫ ' : ''}{a?.name ?? c.sound}{c.rate && c.rate !== 1 ? ` · ${c.rate}×` : ''}</span>
+                      <span className="aclip-name">{c.takes && c.takes.length > 1 ? <b className="take-badge" title="Click to play the next take" onPointerDown={(e) => e.stopPropagation()} onClick={() => update((d) => switchTake(d.audio.find((x) => x.id === c.id)!, ((c.activeTake ?? 0) + 1) % c.takes!.length))}>T{(c.activeTake ?? 0) + 1}/{c.takes.length}</b> : null}{t.kind === 'music' ? '♫ ' : ''}{a?.name ?? soundLabel(c.sound)}{c.rate && c.rate !== 1 ? ` · ${c.rate}×` : ''}</span>
                       {w > 30 && <i className="vol-line" style={{ top: Math.max(2, Math.min(h - 2, (1 - c.volume / 2) * h)) }} onPointerDown={(e) => dragVolume(c.id, e, h)} />}
                       {w > 40 && <i className="fade-h in" style={{ left: Math.min(c.duration, c.fadeIn) * zoom }} onPointerDown={(e) => dragFade(c.id, 'fadeIn', e)} title="Drag: fade in" />}
                       {w > 40 && <i className="fade-h out" style={{ right: Math.min(c.duration, c.fadeOut) * zoom }} onPointerDown={(e) => dragFade(c.id, 'fadeOut', e)} title="Drag: fade out" />}

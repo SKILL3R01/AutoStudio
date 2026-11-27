@@ -2,6 +2,13 @@
 export interface NewsItem { title: string; text: string; tryIt?: { event: string; detail?: string } }
 export const WHATS_NEW: { version: string; items: NewsItem[] }[] = [
   {
+    version: '5.8.1',
+    items: [
+      { title: 'Real sounds from the script', text: 'Sounds from the script now play real recordings (38 CC0 sounds: keyboard, footsteps, running, breathing, sighs, screams, knocks, doors, heartbeat, rain, thunder, wind, phone, laughter, applause…). The keyboard sound is a real keyboard.' },
+      { title: 'Real recordings in the SFX tab', text: 'SFX → Real recordings: listen and add any of them at the playhead.' },
+    ],
+  },
+  {
     version: '5.8.0',
     items: [
       { title: 'Media only', text: 'Import media → Media only keeps files in Media until you need them, or add them at the end. A date in a file name can no longer stretch a clip over minutes.' },

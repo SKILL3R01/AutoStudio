@@ -1,0 +1,382 @@
+[
+ {
+  "id": "typing_1",
+  "rule": "typing",
+  "file": "typing_1.mp3",
+  "title": "Computer Keyboard",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/computer-keyboard-s0229.html",
+  "licence": "CC0 1.0",
+  "duration": 3.5
+ },
+ {
+  "id": "typing_2",
+  "rule": "typing",
+  "file": "typing_2.mp3",
+  "title": "Slow Keyboard",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/slow-keyboard-s1733.html",
+  "licence": "CC0 1.0",
+  "duration": 3.49
+ },
+ {
+  "id": "steps_1",
+  "rule": "steps",
+  "file": "steps_1.mp3",
+  "title": "Man Footsteps on the Wooden Floor",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/man-footsteps-on-the-wooden-floor-s0165.html",
+  "licence": "CC0 1.0",
+  "duration": 4.0
+ },
+ {
+  "id": "steps_2",
+  "rule": "steps",
+  "file": "steps_2.mp3",
+  "title": "Steps on a Wooden Floor #1",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/steps-on-a-wooden-floor-1-s1515.html",
+  "licence": "CC0 1.0",
+  "duration": 4.0
+ },
+ {
+  "id": "run_1",
+  "rule": "run",
+  "file": "run_1.mp3",
+  "title": "Footsteps, Shoe on Concrete",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/footsteps-shoe-on-concrete-s0514.html",
+  "licence": "CC0 1.0",
+  "duration": 3.5
+ },
+ {
+  "id": "breath_1",
+  "rule": "breath",
+  "file": "breath_1.mp3",
+  "title": "Man Breathing",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/man-breathing-s2195.html",
+  "licence": "CC0 1.0",
+  "duration": 4.5
+ },
+ {
+  "id": "pant_1",
+  "rule": "pant",
+  "file": "pant_1.mp3",
+  "title": "Breathless Man",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/breathless-man-s1103.html",
+  "licence": "CC0 1.0",
+  "duration": 4.0
+ },
+ {
+  "id": "sigh_1",
+  "rule": "sigh",
+  "file": "sigh_1.mp3",
+  "title": "Sigh by the Mouth",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/sigh-by-the-mouth-s1405.html",
+  "licence": "CC0 1.0",
+  "duration": 3.0
+ },
+ {
+  "id": "sigh_2",
+  "rule": "sigh",
+  "file": "sigh_2.mp3",
+  "title": "Sigh by the nose",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/sigh-by-the-nose-s1404.html",
+  "licence": "CC0 1.0",
+  "duration": 3.0
+ },
+ {
+  "id": "scream_1",
+  "rule": "scream",
+  "file": "scream_1.mp3",
+  "title": "WOMAN SCREAM",
+  "author": "queen_westeros (Freesound)",
+  "source": "https://freesound.org/people/queen_westeros/sounds/222585/",
+  "licence": "CC0 1.0",
+  "duration": 3.0
+ },
+ {
+  "id": "scream_2",
+  "rule": "scream",
+  "file": "scream_2.mp3",
+  "title": "Man frightened yelling",
+  "author": "EricSueiro (Freesound)",
+  "source": "https://freesound.org/people/EricSueiro/sounds/220818/",
+  "licence": "CC0 1.0",
+  "duration": 0.83
+ },
+ {
+  "id": "knock_1",
+  "rule": "knock",
+  "file": "knock_1.mp3",
+  "title": "Door",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/door-s0015.html",
+  "licence": "CC0 1.0",
+  "duration": 2.12
+ },
+ {
+  "id": "knock_2",
+  "rule": "knock",
+  "file": "knock_2.mp3",
+  "title": "Knock on a Glass Door #2",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/knock-on-the-glass-door-2-s0320.html",
+  "licence": "CC0 1.0",
+  "duration": 1.15
+ },
+ {
+  "id": "door_1",
+  "rule": "door",
+  "file": "door_1.mp3",
+  "title": "Door Slamming #2",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/door-slamming-2-s0223.html",
+  "licence": "CC0 1.0",
+  "duration": 2.42
+ },
+ {
+  "id": "door_2",
+  "rule": "door",
+  "file": "door_2.mp3",
+  "title": "Apartment Door, Closing #1",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/apartment-door-closing-1-s1704.html",
+  "licence": "CC0 1.0",
+  "duration": 2.6
+ },
+ {
+  "id": "heartbeat_1",
+  "rule": "heartbeat",
+  "file": "heartbeat_1.mp3",
+  "title": "Heart Beat",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/heart-beat-s0218.html",
+  "licence": "CC0 1.0",
+  "duration": 4.5
+ },
+ {
+  "id": "heartbeat_2",
+  "rule": "heartbeat",
+  "file": "heartbeat_2.mp3",
+  "title": "Heart Beat #5",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/heart-beat-5-s1930.html",
+  "licence": "CC0 1.0",
+  "duration": 4.47
+ },
+ {
+  "id": "thunder_1",
+  "rule": "thunder",
+  "file": "thunder_1.mp3",
+  "title": "Thunder #2",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/thunder-2-s3113.html",
+  "licence": "CC0 1.0",
+  "duration": 4.27
+ },
+ {
+  "id": "thunder_2",
+  "rule": "thunder",
+  "file": "thunder_2.mp3",
+  "title": "Thunder #3",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/thunder-3-s3114.html",
+  "licence": "CC0 1.0",
+  "duration": 6.0
+ },
+ {
+  "id": "rain_1",
+  "rule": "rain",
+  "file": "rain_1.mp3",
+  "title": "Rain on concrete",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/rain-on-concrete-s1289.html",
+  "licence": "CC0 1.0",
+  "duration": 6.0
+ },
+ {
+  "id": "rain_2",
+  "rule": "rain",
+  "file": "rain_2.mp3",
+  "title": "Rain Under an Umbrella",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/rain-under-an-umbrella-s2679.html",
+  "licence": "CC0 1.0",
+  "duration": 6.0
+ },
+ {
+  "id": "wind_1",
+  "rule": "wind",
+  "file": "wind_1.mp3",
+  "title": "Strong wind #4",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/strong-wind-4-s0154.html",
+  "licence": "CC0 1.0",
+  "duration": 6.0
+ },
+ {
+  "id": "wind_2",
+  "rule": "wind",
+  "file": "wind_2.mp3",
+  "title": "Strong Wind #1",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/strong-wind-1-s0146.html",
+  "licence": "CC0 1.0",
+  "duration": 6.0
+ },
+ {
+  "id": "message_1",
+  "rule": "message",
+  "file": "message_1.mp3",
+  "title": "Message #1",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/message-1-s1111.html",
+  "licence": "CC0 1.0",
+  "duration": 1.78
+ },
+ {
+  "id": "buzz_1",
+  "rule": "buzz",
+  "file": "buzz_1.mp3",
+  "title": "Mobile phone vibrator #2",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/mobile-phone-vibrator-2-s0023.html",
+  "licence": "CC0 1.0",
+  "duration": 1.63
+ },
+ {
+  "id": "laugh_1",
+  "rule": "laugh",
+  "file": "laugh_1.mp3",
+  "title": "Man's laugh",
+  "author": "quavosh (Freesound)",
+  "source": "https://freesound.org/people/quavosh/sounds/670839/",
+  "licence": "CC0 1.0",
+  "duration": 1.5
+ },
+ {
+  "id": "laugh_2",
+  "rule": "laugh",
+  "file": "laugh_2.mp3",
+  "title": "Man laughs extensively (stuxer)",
+  "author": "stuxer (Freesound)",
+  "source": "https://freesound.org/people/stuxer/sounds/401214/",
+  "licence": "CC0 1.0",
+  "duration": 4.0
+ },
+ {
+  "id": "crowd_1",
+  "rule": "crowd",
+  "file": "crowd_1.mp3",
+  "title": "Applause #1",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/applause-1-s2363.html",
+  "licence": "CC0 1.0",
+  "duration": 5.0
+ },
+ {
+  "id": "crowd_2",
+  "rule": "crowd",
+  "file": "crowd_2.mp3",
+  "title": "Applause: 150 People",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/applause-150-people-s0019.html",
+  "licence": "CC0 1.0",
+  "duration": 5.0
+ },
+ {
+  "id": "punch_1",
+  "rule": "punch",
+  "file": "punch_1.mp3",
+  "title": "Punch #5",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/punch-5-s2460.html",
+  "licence": "CC0 1.0",
+  "duration": 0.24
+ },
+ {
+  "id": "punch_2",
+  "rule": "punch",
+  "file": "punch_2.mp3",
+  "title": "Punch #6",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/punch-6-s2461.html",
+  "licence": "CC0 1.0",
+  "duration": 0.25
+ },
+ {
+  "id": "glass_1",
+  "rule": "glass",
+  "file": "glass_1.mp3",
+  "title": "Broken Christmas Ball #1",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/broken-christmas-ball-1-s1121.html",
+  "licence": "CC0 1.0",
+  "duration": 0.42
+ },
+ {
+  "id": "camera_1",
+  "rule": "camera",
+  "file": "camera_1.mp3",
+  "title": "Triggering camera",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/triggering-camera-s0307.html",
+  "licence": "CC0 1.0",
+  "duration": 0.34
+ },
+ {
+  "id": "camera_2",
+  "rule": "camera",
+  "file": "camera_2.mp3",
+  "title": "Trigger of Camera #1",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/trigger-of-camera-1-s2394.html",
+  "licence": "CC0 1.0",
+  "duration": 0.36
+ },
+ {
+  "id": "pen_1",
+  "rule": "pen",
+  "file": "pen_1.mp3",
+  "title": "Pencil #4",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/pencil-4-s3235.html",
+  "licence": "CC0 1.0",
+  "duration": 3.0
+ },
+ {
+  "id": "pen_2",
+  "rule": "pen",
+  "file": "pen_2.mp3",
+  "title": "Pencil #1",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/pencil-s0221.html",
+  "licence": "CC0 1.0",
+  "duration": 3.0
+ },
+ {
+  "id": "page_1",
+  "rule": "page",
+  "file": "page_1.mp3",
+  "title": "Turned Page",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/turned-page-s0164.html",
+  "licence": "CC0 1.0",
+  "duration": 0.38
+ },
+ {
+  "id": "page_2",
+  "rule": "page",
+  "file": "page_2.mp3",
+  "title": "Pages that Turn #5",
+  "author": "Joseph SARDIN (BigSoundBank)",
+  "source": "https://bigsoundbank.com/pages-that-turn-5-s2212.html",
+  "licence": "CC0 1.0",
+  "duration": 1.53
+ }
+]

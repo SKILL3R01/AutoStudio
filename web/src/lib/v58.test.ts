@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { defaultClip, importVisuals, newProject } from './project';
 import { insertAssetAt, replaceClipAsset } from '../editor/MediaPanel';
-import { applySfxCues, findSfxCues, normWord, removeScriptSounds } from '../audio/scriptsfx';
+import { applySfxCues, findSfxCues, normWord, removeScriptSounds, SFX_RULES } from '../audio/scriptsfx';
+import { PACK, packUrl, RECORDED_ALIAS } from '../audio/pack';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Project } from '../types';
 
 vi.mock('./db', async (orig) => ({ ...(await orig<typeof import('./db')>()), saveBlob: async () => {} }));
@@ -68,12 +71,27 @@ describe('v5.8 sounds from the script', () => {
     const p = newProject();
     p.words = words('He walked home, sighed, then walked again. Someone screamed! A knock at the door. ثم صرخ');
     const cues = findSfxCues(p);
-    expect(cues.map((c) => c.rule)).toEqual(['steps', 'breath', 'scream', 'knock']);
-    expect(cues[0]).toMatchObject({ t: 1, word: 'walked', sound: 'steps', on: true });
-    expect(cues.find((c) => c.rule === 'scream')).toMatchObject({ sound: undefined, on: false });
+    expect(cues.map((c) => c.rule)).toEqual(['steps', 'sigh', 'scream', 'knock']);
+    expect(cues[0]).toMatchObject({ t: 1, word: 'walked', sound: 'rec:steps_1', on: true });
+    expect(cues.find((c) => c.rule === 'scream')).toMatchObject({ sound: 'rec:scream_1', on: true });
     for (let i = 1; i < cues.length; i++) expect(cues[i].t - cues[i - 1].t).toBeGreaterThanOrEqual(1.5);
     expect(normWord('Screamed!')).toBe('screamed');
     expect(normWord('صَرَخَ')).toBe('صرخ');
+  });
+  it('every sound rule has real CC0 recordings that exist, and old built-in names map to recordings', () => {
+    for (const r of SFX_RULES) expect(PACK.some((s) => s.rule === r.id), r.id).toBe(true);
+    for (const s of PACK) {
+      expect(s.licence).toBe('CC0 1.0');
+      expect(s.source).toMatch(/^https:\/\/(bigsoundbank\.com|freesound\.org)\//);
+      expect(existsSync(join(__dirname, '../audio/pack', s.file)), s.file).toBe(true);
+      expect(packUrl(s.id)).toBeTruthy();
+    }
+    for (const id of Object.values(RECORDED_ALIAS)) expect(PACK.some((s) => s.id === id), id).toBe(true);
+  });
+  it('the keyboard words play the keyboard recordings, alternating', () => {
+    const p = newProject();
+    p.words = 'she typed fast . . . . . . . . . . then typing again'.split(' ').map((text, i) => ({ text, start: i, end: i + 0.8 }));
+    expect(findSfxCues(p).map((c) => c.sound)).toEqual(['rec:typing_1', 'rec:typing_2']);
   });
   it('prefers a matching sound file from Media, by file name', () => {
     const p = newProject();

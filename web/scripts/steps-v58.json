@@ -1,32 +1,99 @@
 [
- { "wait": 6000 },
- { "eval": "sessionStorage.setItem('helpOn', '1'); localStorage.setItem('help:noTours', '1'); localStorage.setItem('help:noNews', '1'); localStorage.removeItem('importPlace'); location.reload(); 'configured'" },
- { "waitFor": "!!(document.querySelector('.rail button') && document.querySelector('.tl-inner'))", "timeout": 40000 },
- { "wait": 2500 },
- { "eval": "(() => { const b = [...document.querySelectorAll('.rail button')].find((x) => /Media/.test(x.textContent + (x.title || ''))); if (!b) return 'NO BUTTON media rail'; b.click(); return 'media tab'; })()" },
- { "wait": 500 },
- { "eval": "(() => { const b = [...document.querySelectorAll('button')].find((x) => /Import media/.test(x.textContent)); if (!b) return 'NO BUTTON import'; b.click(); return 'import open'; })()" },
- { "wait": 500 },
- { "eval": "(() => { const seg = [...document.querySelectorAll('.import-place .seg button')].map((x) => x.textContent + (x.className.includes('on') ? '*' : '')); const cta = [...document.querySelectorAll('.modal button')].find((x) => /Add to Media/.test(x.textContent)); return seg.length === 3 && cta ? 'placement: ' + seg.join(' | ') : 'NO BUTTON placement ' + seg.join('|'); })()" },
- { "shot": "v58-import" },
- { "eval": "(() => { document.querySelector('.modal-bg').click(); return 'closed'; })()" },
- { "wait": 400 },
- { "eval": "(() => { const c = document.querySelector('.tl-inner .clip:not(.blank)'); if (!c) return 'NO BUTTON clip'; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 10, clientY: r.top + 10, button: 2 })); return 'menu'; })()" },
- { "wait": 400 },
- { "eval": "(() => { const b = [...document.querySelectorAll('.ctx-menu button')].find((x) => /Replace with/.test(x.textContent)); if (!b) return 'NO BUTTON replace'; b.click(); return 'replace clicked'; })()" },
- { "wait": 500 },
- { "eval": "(() => { const m = document.querySelector('.modal'); if (!m || !/Replace/.test(m.textContent)) return 'NO MODAL replace'; const tiles = m.querySelectorAll('.replace-tile').length; const up = /Upload new/.test(m.textContent); return 'replace dialog: ' + tiles + ' tiles, upload ' + up; })()" },
- { "shot": "v58-replace" },
- { "eval": "(() => { if (!document.querySelector('.replace-tile')) [...document.querySelectorAll('.modal .seg button')].find((x) => /All media/.test(x.textContent))?.click(); return 'all media'; })()" },
- { "wait": 300 },
- { "eval": "(() => { const t = document.querySelector('.replace-tile'); if (!t) return 'NO BUTTON tile'; t.click(); return 'picked a tile'; })()" },
- { "wait": 500 },
- { "eval": "document.querySelector('.modal') ? 'NO MODAL close after pick' : 'replaced, dialog closed'" },
- { "eval": "(() => { const b = [...document.querySelectorAll('.rail button')].find((x) => /SFX|Sound/i.test(x.textContent + (x.title || ''))); if (!b) return 'NO BUTTON sfx rail'; b.click(); return 'sfx tab'; })()" },
- { "wait": 600 },
- { "eval": "(() => { const h = [...document.querySelectorAll('aside .section-head, aside summary, aside h4, aside button, aside h3')].find((x) => /Sounds from the script/.test(x.textContent)); return h ? 'script sounds section found' : 'NO BUTTON script sounds section'; })()" },
- { "eval": "(() => { const b = [...document.querySelectorAll('aside button')].find((x) => /Find sounds/.test(x.textContent)); if (!b) return 'find sounds: needs words (ok)'; b.click(); return 'find clicked'; })()" },
- { "wait": 800 },
- { "eval": "'script sound rows: ' + document.querySelectorAll('.script-sfx .sfx-row').length" },
- { "shot": "v58-sounds" }
+ {
+  "wait": 6000
+ },
+ {
+  "eval": "sessionStorage.setItem('helpOn', '1'); localStorage.setItem('help:noTours', '1'); localStorage.setItem('help:noNews', '1'); localStorage.removeItem('importPlace'); location.reload(); 'configured'"
+ },
+ {
+  "waitFor": "!!(document.querySelector('.rail button') && document.querySelector('.tl-inner'))",
+  "timeout": 40000
+ },
+ {
+  "wait": 2500
+ },
+ {
+  "eval": "(() => { const b = [...document.querySelectorAll('.rail button')].find((x) => /Media/.test(x.textContent + (x.title || ''))); if (!b) return 'NO BUTTON media rail'; b.click(); return 'media tab'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { const b = [...document.querySelectorAll('button')].find((x) => /Import media/.test(x.textContent)); if (!b) return 'NO BUTTON import'; b.click(); return 'import open'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { const seg = [...document.querySelectorAll('.import-place .seg button')].map((x) => x.textContent + (x.className.includes('on') ? '*' : '')); const cta = [...document.querySelectorAll('.modal button')].find((x) => /Add to Media/.test(x.textContent)); return seg.length === 3 && cta ? 'placement: ' + seg.join(' | ') : 'NO BUTTON placement ' + seg.join('|'); })()"
+ },
+ {
+  "shot": "v58-import"
+ },
+ {
+  "eval": "(() => { document.querySelector('.modal-bg').click(); return 'closed'; })()"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "(() => { const c = document.querySelector('.tl-inner .clip:not(.blank)'); if (!c) return 'NO BUTTON clip'; const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 10, clientY: r.top + 10, button: 2 })); return 'menu'; })()"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "(() => { const b = [...document.querySelectorAll('.ctx-menu button')].find((x) => /Replace with/.test(x.textContent)); if (!b) return 'NO BUTTON replace'; b.click(); return 'replace clicked'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "(() => { const m = document.querySelector('.modal'); if (!m || !/Replace/.test(m.textContent)) return 'NO MODAL replace'; const tiles = m.querySelectorAll('.replace-tile').length; const up = /Upload new/.test(m.textContent); return 'replace dialog: ' + tiles + ' tiles, upload ' + up; })()"
+ },
+ {
+  "shot": "v58-replace"
+ },
+ {
+  "eval": "(() => { if (!document.querySelector('.replace-tile')) [...document.querySelectorAll('.modal .seg button')].find((x) => /All media/.test(x.textContent))?.click(); return 'all media'; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "(() => { const t = document.querySelector('.replace-tile'); if (!t) return 'NO BUTTON tile'; t.click(); return 'picked a tile'; })()"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "document.querySelector('.modal') ? 'NO MODAL close after pick' : 'replaced, dialog closed'"
+ },
+ {
+  "eval": "(() => { const b = [...document.querySelectorAll('.rail button')].find((x) => /SFX|Sound/i.test(x.textContent + (x.title || ''))); if (!b) return 'NO BUTTON sfx rail'; b.click(); return 'sfx tab'; })()"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "(() => { const h = [...document.querySelectorAll('aside .section-head, aside summary, aside h4, aside button, aside h3')].find((x) => /Sounds from the script/.test(x.textContent)); return h ? 'script sounds section found' : 'NO BUTTON script sounds section'; })()"
+ },
+ {
+  "eval": "(() => { const b = [...document.querySelectorAll('aside button')].find((x) => /Find sounds/.test(x.textContent)); if (!b) return 'find sounds: needs words (ok)'; b.click(); return 'find clicked'; })()"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "'script sound rows: ' + document.querySelectorAll('.script-sfx .sfx-row').length"
+ },
+ {
+  "eval": "(async () => { const m = await import('/src/audio/sfx.ts'); const out = []; for (const n of ['rec:typing_1', 'typing', 'rec:scream_1', 'rec:rain_1', 'knock']) { const b = await m.sfxBuffer(n); if (!b) { out.push(n + ' NO SOUND'); continue; } const d = b.getChannelData(0); let e = 0; for (let i = 0; i < d.length; i++) e += d[i] * d[i]; const db = 10 * Math.log10(e / d.length + 1e-12); out.push(n + ' ' + b.duration.toFixed(2) + 's ' + db.toFixed(1) + 'dB'); } return out.join(' | '); })()"
+ },
+ {
+  "eval": "(() => { const d = document.querySelector('.rec-sounds'); if (!d) return 'NO BUTTON recordings list'; d.open = true; return 'recordings listed: ' + d.querySelectorAll('.sfx-row').length; })()"
+ },
+ {
+  "shot": "v58-sounds"
+ }
 ]

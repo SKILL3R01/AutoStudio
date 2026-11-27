@@ -1051,3 +1051,5 @@ kbd { padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0
 .replace-tile img { width: 100%; flex: 1; min-height: 0; object-fit: cover; border-radius: 5px; }
 .replace-tile .name { font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .replace-tile .badge { position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 1px 5px; border-radius: 4px; background: #0009; }
+.rec-sounds { margin: 8px 0; }
+.rec-sounds summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
